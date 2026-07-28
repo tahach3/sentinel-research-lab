@@ -232,7 +232,7 @@ BEGIN
       ) VALUES (
         v_provider, v_model, v_case,
         1, 4000, 0,
-        NOW() + INTERVAL '365 days',
+        TIMESTAMPTZ '-infinity',
         'Taha', 'proposed', v_pilot
       );
     END IF;
