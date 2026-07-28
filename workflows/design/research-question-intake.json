@@ -1,0 +1,69 @@
+{
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "name":  "SRL Research Question Intake",
+    "tags":  [
+
+             ],
+    "active":  false,
+    "meta":  {
+                 "templateCredsSetupCompleted":  false,
+                 "srlRound":  2,
+                 "srlInactiveByDesign":  true
+             },
+    "connections":  {
+                        "Manual Trigger":  {
+                                               "main":  [
+                                                            {
+                                                                "node":  "Mock Structured Step",
+                                                                "type":  "main",
+                                                                "index":  0
+                                                            }
+                                                        ]
+                                           }
+                    },
+    "nodes":  [
+                  {
+                      "id":  "243a76bf-d5e3-43e5-ad4e-73be6f7d6a3c-1",
+                      "name":  "Manual Trigger",
+                      "type":  "n8n-nodes-base.manualTrigger",
+                      "position":  [
+                                       0,
+                                       0
+                                   ],
+                      "parameters":  {
+
+                                     },
+                      "typeVersion":  1
+                  },
+                  {
+                      "id":  "243a76bf-d5e3-43e5-ad4e-73be6f7d6a3c-2",
+                      "name":  "Design Notes",
+                      "type":  "n8n-nodes-base.stickyNote",
+                      "position":  [
+                                       -340,
+                                       -40
+                                   ],
+                      "parameters":  {
+                                         "content":  "PLACEHOLDER / INACTIVE\nManual/synthetic intake only. No AI generation. Writes proposed questions via future Postgres binding.\nNo credentials. No HTTP. No AI nodes. No webhooks.",
+                                         "width":  420,
+                                         "height":  220
+                                     },
+                      "typeVersion":  1
+                  },
+                  {
+                      "id":  "243a76bf-d5e3-43e5-ad4e-73be6f7d6a3c-3",
+                      "name":  "Mock Structured Step",
+                      "type":  "n8n-nodes-base.code",
+                      "position":  [
+                                       280,
+                                       0
+                                   ],
+                      "parameters":  {
+                                         "jsCode":  "return [{ json: { workflow: \u0027research-question-intake.json\u0027, mode: \u0027design_mock\u0027, active: false, postgres_binding: \u0027research schema via future node\u0027, schema: { input: \u0027structured\u0027, output: \u0027structured\u0027, failure_paths: [\u0027validation_error\u0027,\u0027forbidden_transition\u0027,\u0027missing_evidence\u0027,\u0027duplicate_detected\u0027] } } }];"
+                                     },
+                      "typeVersion":  2
+                  }
+              ]
+}

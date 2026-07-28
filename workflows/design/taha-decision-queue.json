@@ -1,0 +1,69 @@
+{
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "name":  "SRL Taha Decision Queue",
+    "tags":  [
+
+             ],
+    "active":  false,
+    "meta":  {
+                 "templateCredsSetupCompleted":  false,
+                 "srlRound":  2,
+                 "srlInactiveByDesign":  true
+             },
+    "connections":  {
+                        "Manual Trigger":  {
+                                               "main":  [
+                                                            {
+                                                                "node":  "Mock Structured Step",
+                                                                "type":  "main",
+                                                                "index":  0
+                                                            }
+                                                        ]
+                                           }
+                    },
+    "nodes":  [
+                  {
+                      "id":  "b6aee07d-5ae6-4448-814c-8452b8d6e217-1",
+                      "name":  "Manual Trigger",
+                      "type":  "n8n-nodes-base.manualTrigger",
+                      "position":  [
+                                       0,
+                                       0
+                                   ],
+                      "parameters":  {
+
+                                     },
+                      "typeVersion":  1
+                  },
+                  {
+                      "id":  "b6aee07d-5ae6-4448-814c-8452b8d6e217-2",
+                      "name":  "Design Notes",
+                      "type":  "n8n-nodes-base.stickyNote",
+                      "position":  [
+                                       -340,
+                                       -40
+                                   ],
+                      "parameters":  {
+                                         "content":  "PLACEHOLDER / INACTIVE\nPresents one-sentence question/proposal, evidence, risks, options. Never auto-decides.\nNo credentials. No HTTP. No AI nodes. No webhooks.",
+                                         "width":  420,
+                                         "height":  220
+                                     },
+                      "typeVersion":  1
+                  },
+                  {
+                      "id":  "b6aee07d-5ae6-4448-814c-8452b8d6e217-3",
+                      "name":  "Mock Structured Step",
+                      "type":  "n8n-nodes-base.code",
+                      "position":  [
+                                       280,
+                                       0
+                                   ],
+                      "parameters":  {
+                                         "jsCode":  "return [{ json: { workflow: \u0027taha-decision-queue.json\u0027, mode: \u0027design_mock\u0027, active: false, postgres_binding: \u0027research schema via future node\u0027, schema: { input: \u0027structured\u0027, output: \u0027structured\u0027, failure_paths: [\u0027validation_error\u0027,\u0027forbidden_transition\u0027,\u0027missing_evidence\u0027,\u0027duplicate_detected\u0027] } } }];"
+                                     },
+                      "typeVersion":  2
+                  }
+              ]
+}

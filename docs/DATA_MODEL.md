@@ -4,73 +4,34 @@
 
 ### Round 0B
 
-- schemas `n8n` and `research`
-- roles `n8n_app` and `research_app`
-- extension `vector`
-- table `research.schema_version`
+- schemas `n8n` / `research`, roles, `vector`, `schema_version`
 
-### Round 1 (benchmarking only)
+### Round 1
 
-Tables in `research`:
+Benchmarking tables/views (providers, models, suites, cases, runs, scores, rankings).
 
-- `providers`, `models`, `provider_budget_policies`
-- `benchmark_suites`, `benchmark_cases`
-- `benchmark_runs`, `model_outputs`, `run_failures`
-- `automatic_scores`, `taha_scores` (append-only)
-- `monthly_role_rankings` (evidence-threshold CHECKs)
+### Round 2
+
+Lifecycle tables:
+
+- `question_status_transitions`
+- `research_questions`, `research_question_versions`, `research_question_relationships`
+- `research_priorities`, `research_status_history`, `research_closure_records`
+- `sources`, `source_snapshots`, `evidence_items`, `evidence_claim_links`, `research_findings`
+- `improvement_proposals`, `proposal_versions`
+- `taha_decisions`, `decision_rationales`, `reconsideration_conditions`
 
 Views:
 
-- `v_provider_performance_by_role`
-- `v_cost_per_successful_run`
-- `v_failure_rate`
-- `v_latency_percentile_summary`
-- `v_latest_monthly_ranking`
-- `v_insufficient_evidence_warning`
+- `v_active_research_queue`
+- `v_highest_priority_unanswered`
+- `v_questions_blocked_missing_evidence`
+- `v_proposals_awaiting_taha`
+- `v_rejected_eligible_reconsideration`
+- `v_settled_questions`
+- `v_duplicate_question_warnings`
+- `v_decision_history_by_topic`
 
-No research-question lifecycle tables yet.
+## Planned later
 
-## Planned later domains
-
-### 1. Research questions
-
-- Question text, priority, status, tags
-- Origin (manual vs generated)
-- Links to related evidence and proposals
-
-### 2. Sources
-
-- Official / trusted source identity
-- URL or citation
-- Trust class and retrieval timestamp
-
-### 3. Evidence
-
-- Normalized excerpts or facts
-- Source linkage
-- Optional embedding reference (pgvector later)
-
-### 4. Model runs (general)
-
-Benchmark runs exist; broader research lifecycle model-runs come later.
-
-### 5. Proposals
-
-- Structured proposal body
-- Linked questions and evidence
-- Export package reference
-
-### 6. Taha decisions
-
-- Approve / reject / defer beyond scoring dimensions
-- Rationale text for SENTINEL import
-
-### 7. Provider budgets
-
-Policy table exists; live metering adapters later.
-
-### 8. SENTINEL export packages
-
-- Files under `exports/`
-- Manifest checksum / version
-- Import status after Taha approval
+SENTINEL export packages, live provider adapters, AI-generated intake (not Round 2).
