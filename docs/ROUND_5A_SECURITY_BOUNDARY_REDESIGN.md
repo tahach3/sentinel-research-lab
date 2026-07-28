@@ -1,12 +1,12 @@
-﻿# Round 5A — Security Boundary Redesign (Revision 4)
+﻿# Round 5A — Security Boundary Redesign (Revision 5)
 
 **Status:** Design only. Not implemented.
-**Baseline HEAD:** `65a9f1f6118700ddd513cbbc3cedc2be158fe514` / schema version 8 runtime
-**Supersedes:** Revision 3 content of this file at that commit
-**Scope:** Machine-exact privilege, linear governance chains, trusted crypto, activation invariants, capacity, discrepancy identity, legacy cutover, and schema 8→9 migration state machine.
+**Baseline HEAD:** `ed8d8931e40388a9f26b75d3146dd646e68072c9` / schema version 8 runtime
+**Supersedes:** Revision 4 content of this file at that commit
+**Scope:** Machine-exact privilege, linear governance chains, trusted crypto, activation invariants, capacity, typed discrepancy identity, enforceable cutover freeze, legacy restart branches, and schema 8→9 migration.
 **Non-goals:** Implementing SQL in this round; storing API keys; Round 5B live HTTP; Equitify/SENTINEL changes; advancing schema version; changing live roles/grants.
 
-Resolves Codex design-review findings: governance chain contradictions; legacy-table disposal; trusted crypto FQ path; GUC-free activation; closed `decision_value`; discrepancy payload/fingerprint; append-only trigger inventory; archive uniqueness.
+Resolves Codex Revision-4 findings: partial-cutover runtime freeze; proposal-scoped credential confirmation; typed discrepancy recorder; numeric canonicalization; post-rename State A/B/C; exact trigger object names; adversarial test expansion.
 
 ---
 
@@ -131,14 +131,44 @@ Mapped functions (all OWNER `postgres`, SECURITY DEFINER, EXECUTE `research_gove
 
 | Step | Function | Governance action_type | Required decision_value |
 | --- | --- | --- | --- |
-| 1 | `research.confirm_provider_credential_status(p_provider_code text, p_n8n_credential_label text, p_note text)` | `credential_status_confirmed` | `confirmed` |
+| 1 | `research.confirm_provider_credential_status(p_pilot_proposal_id uuid, p_provider_code text, p_n8n_credential_label text, p_governance_action_id uuid, p_note text)` | `credential_status_confirmed` (must already be terminal for scope) | `confirmed` |
 | 2 | `research.approve_pilot_proposal(p_pilot_code text)` | `pilot_approved` | `approved` |
 | 3 | `research.enable_provider_for_pilot(p_pilot_code text, p_provider_code text)` | `provider_enabled_for_proposal` | `enabled` |
 | 4 | `research.enable_model_for_pilot(p_pilot_code text, p_provider_code text, p_model_id_provisional text)` | `model_enabled_for_proposal` | `enabled` |
 | 5 | `research.activate_pilot_authorization(p_authorization_id uuid, p_pilot_code text)` | `authorization_activation_approved` | `approved` |
 | 6 | `research.build_provider_request_envelope` as `research_app` (full signature Appendix A.4) | none | n/a |
 
-Each step fails closed with no table mutation when the required terminal governance state for that scope is missing, expired, fingerprint-mismatched, or disabled/revoked. Provider/model enablement is **proposal-scoped**. Enablement for one proposal does not authorize unrelated pilots.
+### 5.1.1 Proposal-scoped credential confirmation
+
+Exact production signature:
+
+```text
+research.confirm_provider_credential_status(
+  p_pilot_proposal_id uuid,
+  p_provider_code text,
+  p_n8n_credential_label text,
+  p_governance_action_id uuid,
+  p_note text
+) RETURNS research.provider_credential_status
+```
+
+OWNER `postgres`; SECURITY DEFINER; `SET search_path = pg_catalog`; EXECUTE **only** `research_governance` after cutover complete (revoked during freeze).
+
+Normative behavior:
+
+1. `p_pilot_proposal_id` is mandatory; proposal must exist.
+2. Proposal `provider_id` MUST match `providers.code = p_provider_code`.
+3. Caller first appends `credential_status_confirmed` via `append_governance_action` for scope `(proposal_id, provider_id)`; then passes that row’s `governance_action_id`.
+4. Function requires that action to be: `action_type = credential_status_confirmed`; `decision_value = confirmed`; terminal in credential scope; unexpired; fingerprint-valid against live proposal material; `authority_identifier = Taha`; scope identifiers exact match.
+5. Credential label must match the proposal’s expected provider configuration (non-secret label only).
+6. Function records only non-secret credential status metadata (`present` / label / note). **No** key or credential payload accepted.
+7. No provider-only lookup may select among proposals; ambiguous multi-proposal selection is impossible because proposal ID is required.
+8. Each `(proposal_id, provider_id)` has its own governance chain; confirmation for proposal A cannot enable or activate proposal B.
+9. Wrong binding, wrong/expired/superseded action, or missing proposal → fail closed; no mutation.
+
+Enablement, activation, and preflight MUST require the terminal credential governance action for the **same** `proposal_id`, not merely provider-level `credential_status = present`.
+
+Each enablement step fails closed with no table mutation when the required terminal governance state for that scope is missing, expired, fingerprint-mismatched, or disabled/revoked. Provider/model enablement is **proposal-scoped**. Enablement for one proposal does not authorize unrelated pilots.
 
 ### 5.2 Disablement
 
@@ -485,13 +515,33 @@ Append-only via `reject_legacy_reservation_archive_mutation`. Reruns use `ON CON
 
 ## 8. Discrepancy persistence
 
-### 8.1 Canonical payload
+### 8.1 Canonical payload and numeric rules
 
-One exact closed JSONB object. Every key always present. Unavailable values use JSON `null`. Arbitrary caller fields forbidden. Timestamps excluded from fingerprint. UUIDs/IDs use canonical lowercase textual form. Numerics use PostgreSQL `numeric`/`int` JSON number representation without scientific notation for integers.
+One exact closed JSONB object. Every key always present. Unavailable values use JSON `null` only. Arbitrary caller fields forbidden. Timestamps excluded from fingerprint. UUIDs/IDs: lowercase hex textual form without braces (`uuid::text` lowercase).
 
-Closed field set (exact order when constructing via `jsonb_build_object` with keys sorted alphabetically for fingerprint text):
+**Exact normalized types before JSON construction:**
+
+| Field class | Type | Serialization |
+| --- | --- | --- |
+| counts / tokens (`observed_*`, `ledger_*` counts/tokens, expected max request/success/token ints promoted) | non-negative `bigint` | base-10 integer text in JSON number form; no leading zeros; no `+` sign |
+| schema_version | positive integer | base-10 integer |
+| monetary (`observed_cost_usd`, `expected_max_cost_usd`, `ledger_cost_usd`) | `numeric(20,8)` | **fixed eight-decimal string** inside JSON string quotes (exact), e.g. `"0.00000000"` |
+| UUID fields | `uuid` or JSON null | lowercase `uuid::text` or null |
+| text fields | `text` | JSON string |
+
+Before payload construction:
+
+* cast every monetary value to `numeric(20,8)`;
+* reject values that cannot cast without overflow/rounding beyond `(20,8)`;
+* reject NaN, infinity, negative zero tricks, and negative cost (cost must be `>= 0`);
+* reject negative counts/tokens;
+* `0`, `0.0`, and `0.00000000` all become monetary string `"0.00000000"` and produce the **same** fingerprint;
+* JSON `null` is the only representation for unavailable values.
+
+Closed field set (alphabetical keys when constructing for fingerprint text):
 
 ```text
+authorization_id
 benchmark_case_id
 discrepancy_type
 expected_max_cost_usd
@@ -512,13 +562,12 @@ observed_input_tokens
 observed_output_tokens
 observed_success_count
 operation
-authorization_id
 pilot_proposal_id
 provider_id
 schema_version
 ```
 
-Canonical construction: one controlled function `research.build_accounting_discrepancy_payload` with the exact argument signature in Appendix A.4. RETURNS jsonb. OWNER `postgres`; SECURITY DEFINER; `SET search_path = pg_catalog`; EXECUTE `research_app` and `research_governance`. Builds only the closed field set via fully qualified references. Rejects extra keys.
+Canonical construction: `research.build_accounting_discrepancy_payload` (Appendix A.4 exact args) RETURNS jsonb. OWNER `postgres`; SECURITY DEFINER; `SET search_path = pg_catalog`; EXECUTE **NONE** to APP/N8N/GOV (callable only from elevated DEFINER bodies). Builds only the closed field set; applies numeric rules above.
 
 Fingerprint:
 
@@ -526,9 +575,44 @@ Fingerprint:
 discrepancy_fingerprint = research.sha256_hex(canonical_payload::text)
 ```
 
-Equivalent: `encode(research_crypto.digest(convert_to(canonical_payload::text, 'UTF8'), 'sha256'), 'hex')`.
+### 8.1.1 Normative fingerprint example
 
-PostgreSQL `jsonb` text representation is used only after constructing the object with the exact closed field set. Same observed state ⇒ same fingerprint. Altered state ⇒ different fingerprint.
+Typed inputs (all present; no nulls):
+
+```text
+discrepancy_type = 'ledger_event_conflict'
+pilot_proposal_id = 11111111-1111-1111-1111-111111111111
+authorization_id = 22222222-2222-2222-2222-222222222222
+provider_id = 33333333-3333-3333-3333-333333333333
+model_id = 44444444-4444-4444-4444-444444444444
+benchmark_case_id = 55555555-5555-5555-5555-555555555555
+idempotency_key = 'idem-example-001'
+operation = 'build_provider_request_envelope'
+observed_attempt_count = 3
+observed_success_count = 0
+observed_input_tokens = 0
+observed_output_tokens = 0
+observed_cost_usd = 0::numeric(20,8)
+expected_max_requests = 3
+expected_max_successful_calls = 3
+expected_max_input_tokens = 1000
+expected_max_output_tokens = 1000
+expected_max_cost_usd = 0::numeric(20,8)
+ledger_request_count = 0
+ledger_success_count = 0
+ledger_input_tokens = 0
+ledger_output_tokens = 0
+ledger_cost_usd = 0::numeric(20,8)
+schema_version = 9
+```
+
+Canonical payload `::text` (normative; keys alphabetical as produced by controlled builder):
+
+```text
+{"authorization_id": "22222222-2222-2222-2222-222222222222", "benchmark_case_id": "55555555-5555-5555-5555-555555555555", "discrepancy_type": "ledger_event_conflict", "expected_max_cost_usd": "0.00000000", "expected_max_input_tokens": 1000, "expected_max_output_tokens": 1000, "expected_max_requests": 3, "expected_max_successful_calls": 3, "idempotency_key": "idem-example-001", "ledger_cost_usd": "0.00000000", "ledger_input_tokens": 0, "ledger_output_tokens": 0, "ledger_request_count": 0, "ledger_success_count": 0, "model_id": "44444444-4444-4444-4444-444444444444", "observed_attempt_count": 3, "observed_cost_usd": "0.00000000", "observed_input_tokens": 0, "observed_output_tokens": 0, "observed_success_count": 0, "operation": "build_provider_request_envelope", "pilot_proposal_id": "11111111-1111-1111-1111-111111111111", "provider_id": "33333333-3333-3333-3333-333333333333", "schema_version": 9}
+```
+
+Expected fingerprint for tests: `research.sha256_hex(<exact canonical payload text above>)` computed under schema-9 `research_crypto`. The payload text is normative; the hex digest is whatever that function returns for that exact UTF-8 text. Tests MUST assert stability of that digest across monetary inputs `0`, `0.0`, and `0.00000000`, and MUST assert inequality when any typed field changes.
 
 ### 8.2 Table `research.accounting_discrepancies`
 
@@ -543,35 +627,70 @@ research.accounting_discrepancies (
 )
 ```
 
-Immutable columns: all columns after insert. Trigger `reject_accounting_discrepancy_mutation` rejects UPDATE/DELETE.
+Immutable after insert. Trigger `trg_reject_accounting_discrepancy_mutation` → `reject_accounting_discrepancy_mutation()`.
 
-### 8.3 Two-transaction failure protocol
+### 8.3 Typed recorder (no arbitrary JSONB from APP)
 
-1. Preflight/builder detects accounting conflict.
-2. Creates canonical discrepancy payload and fingerprint via controlled builders (no envelope/event insert).
-3. Returns structured denied result containing both values. No reservation or envelope is created.
-4. First transaction commits only denied-result application state if any is stored; otherwise commits empty of capacity mutations.
-5. Caller opens a **separate** transaction.
-6. Caller invokes:
+`research.record_accounting_discrepancy` accepts **typed scalar parameters only** — no open JSONB parameter.
 
 ```text
 research.record_accounting_discrepancy(
-  p_discrepancy_payload jsonb,
-  p_discrepancy_fingerprint char(64)
+  p_discrepancy_type text,
+  p_pilot_proposal_id uuid,
+  p_authorization_id uuid,
+  p_provider_id uuid,
+  p_model_id uuid,
+  p_benchmark_case_id uuid,
+  p_idempotency_key text,
+  p_operation text,
+  p_observed_attempt_count bigint,
+  p_observed_success_count bigint,
+  p_observed_input_tokens bigint,
+  p_observed_output_tokens bigint,
+  p_observed_cost_usd numeric,
+  p_expected_max_requests integer,
+  p_expected_max_successful_calls integer,
+  p_expected_max_input_tokens integer,
+  p_expected_max_output_tokens integer,
+  p_expected_max_cost_usd numeric,
+  p_ledger_request_count bigint,
+  p_ledger_success_count bigint,
+  p_ledger_input_tokens bigint,
+  p_ledger_output_tokens bigint,
+  p_ledger_cost_usd numeric,
+  p_schema_version integer,
+  p_expected_fingerprint char(64)
 ) RETURNS uuid
 ```
 
-7. Function independently recomputes fingerprint from payload; mismatch → reject; no insert.
-8. Insert is idempotent on `discrepancy_fingerprint UNIQUE`; duplicate returns existing id without mutation.
-9. If discrepancy recording fails: request remains blocked; return `recording_failed`; conflict re-detected on next call.
-10. Governance resolution requires new append-only `accounting_discrepancy_acknowledged` action.
-11. Resolution never modifies the discrepancy row.
-12. Inserts of discrepancy NEVER share the failed build transaction.
+OWNER `postgres`; SECURITY DEFINER; `SET search_path = pg_catalog`; EXECUTE `research_app` AND `research_governance` only after cutover complete.
 
-OWNER `postgres`; SECURITY DEFINER; `SET search_path = pg_catalog`; EXECUTE `research_app` AND `research_governance`. Table grants: SELECT only for those roles; INSERT/UPDATE/DELETE = NONE.
+Inside the function:
+
+1. Validate each scalar type and range (non-negative counts/tokens; monetary cast to `numeric(20,8)`; positive schema_version; closed `discrepancy_type` / `operation` enums).
+2. Reject missing required identifiers (`pilot_proposal_id`, etc. where required by type).
+3. Reject unsupported discrepancy types and operations.
+4. Reconstruct canonical payload via `research.build_accounting_discrepancy_payload(...)`.
+5. No open JSON parameter exists → arbitrary extra fields cannot be submitted.
+6. Recompute fingerprint internally via `research.sha256_hex(payload::text)`.
+7. Compare with `p_expected_fingerprint`; mismatch → reject; no insert.
+8. Insert or return existing immutable row on UNIQUE fingerprint (idempotent).
+9. Never accept arbitrary JSONB from `research_app`.
+
+### 8.4 Two-transaction failure protocol
+
+1. Preflight/builder detects accounting conflict.
+2. Builds typed scalar denial result including `expected_fingerprint` (computed via DEFINER-internal payload builder). No envelope/event insert.
+3. Returns structured denied result. No reservation or envelope created.
+4. First transaction commits no capacity mutations.
+5. Caller opens a **separate** transaction.
+6. Caller invokes `record_accounting_discrepancy` with the same typed scalars + fingerprint.
+7. Recorder reconstructs, recomputes, compares; mismatch fails.
+8. Recording failure never permits the request; return `recording_failed`.
+9. Governance resolution appends `accounting_discrepancy_acknowledged`; never mutates discrepancy rows.
+10. Discrepancy inserts NEVER share the failed build transaction.
 
 ---
-
 ## 9. Envelope creation
 
 ### 9.1 Pilot path
@@ -616,7 +735,7 @@ For a pilot-linked transition into `active`, the trigger MUST require all of:
 
 1. Executing identity is the expected owner (`postgres` via DEFINER / `current_user = 'postgres'`)
 2. Linked proposal terminal governance state is `pilot_approved` (not expired, fingerprint match)
-3. Credential terminal state is `credential_status_confirmed` for the bound provider
+3. Credential terminal state is `credential_status_confirmed` for the bound **`(proposal_id, provider_id)`** scope (not provider-only lookup)
 4. Provider terminal governance state is `provider_enabled_for_proposal`
 5. Model terminal governance state is `model_enabled_for_proposal`
 6. Matching terminal `authorization_activation_approved` exists for `(proposal_id, authorization_id)`
@@ -664,50 +783,149 @@ After move: `research_test.<same_name>`, OWNER `postgres`, EXECUTE only `researc
 
 ---
 
-## 12. Append-only trigger functions (exact inventory)
+## 12. Append-only trigger functions and trigger objects
 
-Every function below: `() RETURNS trigger`; LANGUAGE `plpgsql`; OWNER `postgres`; SECURITY INVOKER (trigger context); `SET search_path = pg_catalog`; fully qualified refs only; `REVOKE ALL … FROM PUBLIC`; EXECUTE grant to APP/N8N/GOV/TEST = **NONE**. Trigger execution does not require runtime EXECUTE grants.
+Every function below: `() RETURNS trigger`; LANGUAGE `plpgsql`; OWNER `postgres`; SECURITY INVOKER (trigger context); `SET search_path = pg_catalog`; fully qualified refs only; `REVOKE ALL … FROM PUBLIC`; EXECUTE grant to APP/N8N/GOV/TEST = **NONE**. Trigger execution does not require runtime EXECUTE grants. Enabled state: **ENABLE**.
 
-| Function | Attached table | Rejected operations | Error |
-| --- | --- | --- | --- |
-| `research.reject_taha_governance_action_mutation()` | `research.taha_governance_actions` | UPDATE, DELETE | `raise_exception` SQLSTATE `P0001` message `taha_governance_actions is append-only` |
-| `research.reject_pilot_capacity_event_mutation()` | `research.pilot_capacity_events` | UPDATE, DELETE | `P0001` `pilot_capacity_events is append-only` |
-| `research.reject_accounting_discrepancy_mutation()` | `research.accounting_discrepancies` | UPDATE, DELETE | `P0001` `accounting_discrepancies is append-only` |
-| `research.reject_legacy_reservation_archive_mutation()` | `research.legacy_reservation_archive` | UPDATE, DELETE | `P0001` `legacy_reservation_archive is append-only` |
-| `research.reject_legacy_capacity_table_mutation()` | `research.pilot_capacity_reservations_legacy` | INSERT, UPDATE, DELETE | `P0001` `pilot_capacity_reservations_legacy is immutable audit` |
+| Trigger object | Table | Timing | Events | Function | SQLSTATE / message |
+| --- | --- | --- | --- | --- | --- |
+| `research.trg_reject_taha_governance_action_mutation` | `research.taha_governance_actions` | BEFORE | UPDATE OR DELETE | `research.reject_taha_governance_action_mutation()` | `P0001` / `taha_governance_actions is append-only` |
+| `research.trg_reject_pilot_capacity_event_mutation` | `research.pilot_capacity_events` | BEFORE | UPDATE OR DELETE | `research.reject_pilot_capacity_event_mutation()` | `P0001` / `pilot_capacity_events is append-only` |
+| `research.trg_reject_accounting_discrepancy_mutation` | `research.accounting_discrepancies` | BEFORE | UPDATE OR DELETE | `research.reject_accounting_discrepancy_mutation()` | `P0001` / `accounting_discrepancies is append-only` |
+| `research.trg_reject_legacy_reservation_archive_mutation` | `research.legacy_reservation_archive` | BEFORE | UPDATE OR DELETE | `research.reject_legacy_reservation_archive_mutation()` | `P0001` / `legacy_reservation_archive is append-only` |
+| `research.trg_reject_legacy_capacity_table_mutation` | `research.pilot_capacity_reservations_legacy` | BEFORE | INSERT OR UPDATE OR DELETE | `research.reject_legacy_capacity_table_mutation()` | `P0001` / `pilot_capacity_reservations_legacy is immutable audit` |
 
-Triggers: `BEFORE UPDATE OR DELETE` (or `BEFORE INSERT OR UPDATE OR DELETE` for legacy capacity table) `FOR EACH ROW EXECUTE FUNCTION research.<fn>()`.
+Catalog assertion: all five trigger names exist, enabled, attached to exact tables, bound to exact functions. Catalog drift in any trigger name or attachment fails validation.
 
 ---
 
 ## 13. Migration state machine (schema 8 → 9)
 
-Schema version advances to **9 ONLY after step 20 assertions**. Partial cutover leaves runtime blocked. Every step is rerun-idempotent. No application runtime during cutover. Version remains 8 when any dependency assertion fails.
+Schema version advances to **9** only at the designated step; EXECUTE re-grant occurs only after `cutover_complete`. The advisory lock is **not** runtime protection. Runtime is enforceably frozen by privilege revocation plus the cutover marker before the first security-sensitive DDL beyond the freeze itself.
 
-| Step | Precondition | Object affected | Postcondition | Rerun behavior | Failure behavior | Recovery | Catalog assertion |
+### 13.0 Cutover marker table
+
+```text
+research.schema9_cutover_state (
+  migration_id TEXT PRIMARY KEY CHECK (migration_id = 'schema_8_to_9'),
+  starting_schema_version INT NOT NULL CHECK (starting_schema_version = 8),
+  freeze_at TIMESTAMPTZ NOT NULL,
+  state TEXT NOT NULL CHECK (state IN (
+    'runtime_frozen',
+    'cutover_validating',
+    'cutover_complete',
+    'cutover_failed'
+  )),
+  detail TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)
+```
+
+Privileges: PUBLIC/APP/N8N/GOV/TEST = **NONE** (owner-only). Schema-9 elevated builders and governance writers MUST fail closed unless `state = 'cutover_complete'` (in addition to EXECUTE grants). Failure after freeze leaves `runtime_frozen` or `cutover_failed`; recovery resumes under frozen EXECUTE revokes; no broad grant during recovery.
+
+### 13.1 Freeze inventory (exact)
+
+At step 3 (runtime freeze), `REVOKE EXECUTE ON FUNCTION … FROM research_app, n8n_app, research_governance, PUBLIC` for every signature below. Also revoke direct mutating table privileges in §13.1.1. Any revoke/assert failure → set `cutover_failed`; version stays 8; keep runtime blocked.
+
+**Frozen EXECUTE (lose EXECUTE from APP/N8N/GOV/PUBLIC):**
+
+* `research.build_provider_request_envelope(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_canonical_request jsonb, p_claimed_credential_status text)`
+* `research.build_non_pilot_request_envelope(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_claimed_credential_status text)` (once created; remains revoked until step 20)
+* `research.live_preflight(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_claimed_credential_status text, p_projected_input_tokens integer, p_projected_output_tokens integer, p_is_retry boolean, p_fallback_provider text)`
+* `research.orchestrate_research_run(p_run_id uuid)`
+* `research.run_stage(p_run_id uuid, p_stage text, p_scenario_hint text)`
+* `research.record_authorization_spend(p_authorization_id uuid, p_requests integer, p_tokens integer, p_cost numeric, p_note text)`
+* `research.mock_adapter_invoke(p_request_id uuid)`
+* `research.parse_provider_fixture_response(p_provider_code text, p_fixture jsonb)`
+* `research.activate_pilot_authorization(p_authorization_id uuid, p_pilot_code text)`
+* `research.append_governance_action(p_action_type text, p_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_decision_value text, p_material_fingerprint char(64), p_supersedes_action_id uuid, p_issued_at timestamptz, p_expires_at timestamptz, p_payload jsonb)`
+* `research.approve_pilot_proposal(p_pilot_code text)`
+* `research.confirm_provider_credential_status(p_pilot_proposal_id uuid, p_provider_code text, p_n8n_credential_label text, p_governance_action_id uuid, p_note text)`
+* `research.enable_provider_for_pilot(p_pilot_code text, p_provider_code text)`
+* `research.enable_model_for_pilot(p_pilot_code text, p_provider_code text, p_model_id_provisional text)`
+* `research.disable_provider_for_pilot(p_pilot_code text, p_provider_code text)`
+* `research.disable_model_for_pilot(p_pilot_code text, p_provider_code text, p_model_id_provisional text)`
+* `research.record_accounting_discrepancy` (typed Appendix A.4 signature; remains revoked until step 20)
+* `research.build_accounting_discrepancy_payload` (EXECUTE NONE to runtime always; DEFINER-internal only)
+* All Appendix A.4 `_r3*`, `_r4*`, `_r5a*`, `cleanup_test_fixture(p_fixture_id text)`, `record_pilot_usage_for_tests(p_authorization_id uuid, p_input_tokens integer, p_output_tokens integer, p_success boolean, p_fixture_id text, p_is_retry boolean)`
+
+**KEEP EXECUTE during freeze (read-only inspect):** `research.gemini_pilot_5a_gate_status()`, `research.sha256_hex(p_text text)`, `research.pilot_capacity_snapshot(p_pilot_id uuid)`, `research.pilot_case_attempt_count(p_pilot_id uuid, p_benchmark_case_id uuid)`.
+
+#### 13.1.1 Direct table privilege freeze (same boundary)
+
+REVOKE INSERT/UPDATE/DELETE from APP/N8N/GOV/PUBLIC on at least: `live_request_envelopes`, `provider_authorization_records`, `provider_usage_ledger`, `provider_credential_status`, `providers`, `provider_model_candidates`, `provider_pilot_proposals`, `pilot_capacity_reservations` (while present), and all NEW schema-9 write tables until final allowlist.
+
+Catalog assertion: for every frozen signature, `has_function_privilege(role, oid, 'EXECUTE') = false` for APP/N8N/GOV/PUBLIC.
+
+### 13.2 Re-grant point
+
+Runtime EXECUTE and exact Appendix A table grants restored **only** when all of: (1) all schema-9 objects exist; (2) legacy data reconciled; (3) unsafe functions replaced/removed; (4) privilege/ownership assertions pass; (5) provider/model remain disabled; (6) credentials unchanged; (7) no proposal/authorization activated by migration; (8) no active workflow; (9) schema version = 9; (10) cutover state = `cutover_complete`. Do **not** temporarily restore schema-8 builders. Old and new builders never simultaneously executable.
+
+### 13.3 Numbered steps
+
+| Step | Precondition | Object affected | Postcondition | Rerun | Failure | Recovery | Catalog assertion |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Connected as `postgres`; advisory lock free | `pg_advisory_lock(hashtext('srl_schema9_cutover'))` | Lock held | Re-acquire | Abort; version 8 | Release; retry | Lock held by this backend |
-| 2 | Lock held; max schema_version = 8 | Catalog vs schema-8 baseline | Expected objects present | Re-verify | Abort; no DDL | Fix inventory; restart | max(version)=8 |
-| 3 | Step 2 passed | Roles; `research_test` schema | LOGIN/NOINHERIT/membership matrix correct | Idempotent CREATE/ALTER | Abort | Retry | No APP↔GOV membership |
-| 4 | Step 3 | Schema CREATE on `research`/`research_crypto` | CREATE revoked from PUBLIC+runtime | Re-REVOKE | Leave revoked | Continue from 4 | CREATE=false for listed roles |
-| 5 | Step 4 | PUBLIC EXECUTE; default privileges; **create `research_crypto` + `ALTER EXTENSION pgcrypto SET SCHEMA research_crypto`** | Crypto schema locked; digest/gen_random_uuid in `research_crypto`; defaults NONE | Idempotent move/assert | Abort; version 8 | Do not leave pgcrypto in `public` for elevated use; fix; rerun 5 | Extension schema=`research_crypto`; APP has no USAGE |
-| 6 | Step 5 | `taha_governance_actions` + chain indexes + decision CHECK + append-only trigger | Constraints/indexes match §6; trigger attached | IF NOT EXISTS + assert | Abort | Recreate empty only if unused | One-child index + transition unique + decision CHECK present |
-| 7 | Step 6 | `pilot_capacity_events`, `legacy_reservation_archive` (UNIQUE legacy_reservation_id), `accounting_discrepancies`, discrepancy builders, append-only triggers | Tables+triggers match §7–§8–§12 | Idempotent | Abort | Resume | UNIQUE fingerprint; UNIQUE archive id; triggers attached |
-| 8 | Step 7 | Legacy reservation backfill + released archive | All reserved/finalized backfilled; released archived; malformed quarantined | Skip via event/archive keys | Abort mid-backfill; uniques prevent double-consume | Resume missing only | Reconciliation count matches |
-| 9 | Step 8 | Ledger conflict discrepancy inserts | Conflicts recorded; pilots blocked | Idempotent fingerprints | Abort; remain blocked | Resume | No capacity restore |
-| 10 | Step 9 | Governance/builders/activation/discrepancy function shells + `build_accounting_discrepancy_payload` | Functions exist OWNER postgres | CREATE OR REPLACE | Abort | Continue to 11 | Names present |
-| 11 | Step 10 | Replace all SECURITY DEFINER bodies; rewrite `sha256_hex`; replace `trg_authorization_validity_guard` without GUC; rewrite `pilot_capacity_snapshot`, `pilot_case_attempt_count`, builders, `trg_envelope_immutability` to remove reservation deps | FQ crypto only; GUC gone; zero deps on reservations table | CREATE OR REPLACE | If partial: REVOKE APP EXECUTE on builders until fixed | Revoke; fix; rerun 11 | No `allow_pilot_activation`; no unqualified digest/uuid; no refs to `pilot_capacity_reservations` |
-| 12 | Step 11 | Table ACLs; revoke UPDATE on `provider_authorization_records` from APP/N8N/GOV | Direct mutations match Appendix A | Re-REVOKE/GRANT | Leave gated writes revoked | Resume | APP cannot UPDATE auth / INSERT envelopes |
-| 13 | Step 12 | Helper move to `research_test` | Helpers absent/non-exec in research | DROP IF EXISTS after move | Ensure APP EXECUTE none | Drop residual | Inventory empty for moved names in research |
-| 14 | Step 13 | Round 4 caller path | Non-pilot builder only | Idempotent | Abort if obsolete EXECUTABLE | Revoke obsolete | Signature match |
-| 15 | Step 14 | **Dependency rewrite complete; DROP obsolete reservation-referencing triggers/fns; RENAME `pilot_capacity_reservations` → `pilot_capacity_reservations_legacy`; revoke runtime privs; attach `reject_legacy_capacity_table_mutation`** | Legacy renamed+immutable; zero production deps | Rename IF EXISTS / assert rename done | Abort before rename if deps remain; after rename keep locked | Before rename: fix deps; after rename: do not rename back; resume asserts | `to_regclass('research.pilot_capacity_reservations')` IS NULL; legacy exists; pg_depend/prosrc scan zero production refs to legacy |
-| 16 | Step 15 | Exact allowlist grants + privilege/ownership asserts + disabled-state asserts | ACL=Appendix A; gemini disabled; credential unchanged; 0 approvals/activations from migration | Re-apply + re-assert | Version stays 8 | Fix; rerun 16 | Zero drift; enabled=false; cred missing; 3 proposed; 0 active |
-| 17 | Step 16 | Crypto + chain + trigger inventory re-assert | All five reject_* triggers attached; research_crypto locked | Re-assert | Version 8 | Fix; continue | Trigger+extension asserts green |
-| 18 | Step 17 | Credential snapshot re-check | Unchanged | Re-assert | Abort | Do not create credentials | Snapshot match |
-| 19 | Step 18 | Proposal/authorization zero-mutation re-check | No migration-authored approve/activate | Re-assert | Abort | Do not approve/activate | 0 active |
-| 20 | Steps 1–19 passed | `research.schema_version` | Insert version 9; release lock | Insert only if all asserts green | Do not insert 9 | Fix; rerun failed step; then 20 | max(version)=9 |
+| 1 | Connected as `postgres`; advisory lock free | `pg_advisory_lock(hashtext('srl_schema9_cutover'))` | Lock held | Re-acquire | Abort; version 8 | Retry | Lock held |
+| 2 | Lock held; max(version)=8 | Catalog vs schema-8 baseline | Expected objects present | Re-verify | Abort | Fix; restart | max(version)=8 |
+| 3 | Step 2 | **Runtime freeze**: REVOKE EXECUTE on §13.1; revoke gated table writes; upsert `schema9_cutover_state` → `runtime_frozen` | Entrypoints non-executable; marker frozen | Re-REVOKE; marker upsert | `cutover_failed`; keep revoked | Keep frozen; resume 3 | Freeze EXECUTE asserts false; state=`runtime_frozen` |
+| 4 | Step 3 frozen | Roles; schemas; CREATE revoke | Memberships correct; CREATE revoked | Idempotent | Keep frozen | Resume 4 | CREATE=false |
+| 5 | Step 4 | PUBLIC EXECUTE; defaults; create `research_crypto` + move pgcrypto | Crypto locked | Idempotent | Keep frozen; version 8 | Fix crypto; resume 5 | Extension in `research_crypto` |
+| 6 | Step 5 | Governance tables + chain indexes + decision CHECK + §12 triggers | Structures+triggers exist | IF NOT EXISTS | Keep frozen | Resume 6 | Triggers+indexes present |
+| 7 | Step 6 | Capacity events, archive UNIQUE, discrepancies, typed recorder shells; marker → `cutover_validating` | Objects exist; EXECUTE still revoked for new writers | Idempotent | Keep frozen | Resume 7 | Uniques+triggers |
+| 8 | Step 7 + State A/B (§13.4) | Legacy backfill / archive | Consumed capacity preserved | Skip existing keys | Keep frozen | Resume per state | Reconciliation |
+| 9 | Step 8 | Ledger conflict typed discrepancy inserts (owner session) | Conflicts recorded | Idempotent fingerprints | Keep frozen | Resume 9 | No capacity restore |
+| 10 | Step 9 | Create/replace governance+builder+activation+discrepancy bodies; **LEAVE EXECUTE revoked** | Bodies present; non-executable by APP/GOV | CREATE OR REPLACE | Keep frozen | Resume 10 | FQ crypto; no GUC; EXECUTE false for APP |
+| 11 | Step 10 | Rewrite snapshot/case-count/envelope immutability; remove reservation deps using **State A or State B name only** | Zero unresolved production deps | Idempotent | Keep frozen | Resume 11 | Dep scan |
+| 12 | Step 11 | Helper move to research_test | Helpers gone from research | DROP IF EXISTS | Keep frozen | Resume 12 | Inventory |
+| 13 | Step 12 | Round 4 path readiness (still revoked) | Non-pilot builder exists; EXECUTE false | Idempotent | Keep frozen | Resume 13 | Signature |
+| 14 | Step 13 + State A/B | Rename (State A only) or verify (State B); lockdown legacy; attach `trg_reject_legacy_capacity_table_mutation` | Legacy immutable; original absent | §13.4 | State C → cutover_failed | Resume per §13.4 | Original absent; legacy present |
+| 15 | Step 14 | Ownership/disabled/cred/auth zero-mutation asserts | Invariants hold | Re-assert | Keep frozen | Resume 15 | gemini disabled; 0 active |
+| 16 | Step 15 | Crypto+trigger inventory + freeze still held | Assert green | Re-assert | Keep frozen | Resume 16 | Five triggers; crypto OK |
+| 17 | Step 16 | Final ACL dry-run vs Appendix A **without granting** | Drift report empty | Re-run | Keep frozen | Resume 17 | Zero projected drift |
+| 18 | Step 17 | Insert version 9 row | max(version)=9 | Insert only if asserts green | Do not insert 9 | Fix; resume | max=9 |
+| 19 | Step 18 | Marker → `cutover_complete` | Marker complete | Idempotent | If fail: keep EXECUTE revoked; cutover_failed | Owner repair | state=`cutover_complete` |
+| 20 | Step 19 | **Exact Appendix A allowlist GRANT only** | Schema-9 grants exact; helpers absent | Re-GRANT exact | Revoke to freeze; cutover_failed | Fix; resume 20 | ACL=Appendix A |
 
-Partial failure before legacy rename (step 15): restart-safe; reservations table still present under original name until rewrite asserts pass. Partial failure after rename: do not recreate original name; keep legacy immutable; resume from dependency asserts. Failure after privilege revocation must not re-grant broad access. Failure after backfill must not double-consume. Failure after function replacement must not expose old and new builders simultaneously (APP EXECUTE revoked until step 16).
+### 13.4 Post-rename restart branches
+
+#### State A — original table exists
+
+```text
+to_regclass('research.pilot_capacity_reservations') IS NOT NULL
+to_regclass('research.pilot_capacity_reservations_legacy') IS NULL
+```
+
+Run dependency inventory; reconcile/backfill; rewrite dependents targeting the **original** name; assert zero unresolved production deps; RENAME to legacy; continue lockdown.
+
+#### State B — legacy table exists
+
+```text
+to_regclass('research.pilot_capacity_reservations') IS NULL
+to_regclass('research.pilot_capacity_reservations_legacy') IS NOT NULL
+```
+
+Do **not** rerun original-name rewrites. Inspect legacy + schema-9 events; verify reconciliation and archive uniqueness; verify zero production deps on legacy; recreate missing immutability trigger only if absent; continue from first incomplete **post-rename** step. **No State B step may reference the original table name.**
+
+#### State C — both or neither
+
+Mark `cutover_failed`; keep runtime frozen; do not advance schema version; deterministic structural error; require owner intervention.
+
+Completion detection after rename: legacy exists; trigger present; EXECUTE still frozen until step 20; event/archive uniques. Duplicate backfill prevented by event UNIQUE keys and archive `UNIQUE(legacy_reservation_id)`.
+
+### 13.5 Partial-cutover matrix
+
+| Step | Runtime state | Schema version | Old builders executable | New builders executable | Recovery entrypoint |
+| --- | --- | ---: | --- | --- | --- |
+| 1 | locking | 8 | yes (pre-freeze) | no | step 1 |
+| 2 | locking | 8 | yes (pre-freeze) | no | step 2 |
+| 3 | `runtime_frozen` | 8 | **no** | **no** | step 3 |
+| 4–9 | frozen / validating | 8 | **no** | **no** | same step |
+| 10–17 | `cutover_validating` | 8 | **no** | **no** | same step |
+| 18 | validating | 9 | **no** | **no** | step 18/19 |
+| 19 | `cutover_complete` | 9 | **no** | **no** | step 20 |
+| 20 | `cutover_complete` | 9 | **no** (absent) | **yes** (allowlist only) | step 20 |
+
+Operators MUST NOT run application traffic during steps 1–2. From step 3 onward, old and new builders are never both executable; new builders become executable only at step 20.
 
 ---
 
@@ -734,13 +952,16 @@ Future objects = NONE until an explicit allowlist migration updates Appendix A.
 
 | Topic | Decision |
 | --- | --- |
+| Freeze mechanism | Step-3 EXECUTE+table WRITE revoke + `schema9_cutover_state`; advisory lock is not protection |
+| Runtime re-enable point | Only after version 9 + `cutover_complete` + exact Appendix A grants |
+| Credential function signature | Proposal-scoped confirm with mandatory `p_pilot_proposal_id` + `p_governance_action_id` |
+| Discrepancy recorder signature | Typed scalars only; reconstructs payload; no APP JSONB |
+| Monetary canonical form | `numeric(20,8)` as fixed eight-decimal JSON strings |
+| Legacy restart detection | State A / B / C via `to_regclass` |
+| Trigger naming | Exact `trg_reject_*` objects bound to `reject_*` functions |
+| Schema-version advancement | Version 9 at step 18; EXECUTE re-grant only at step 20 |
 | Action-chain parent rule | `supersedes_action_id` = immediate same-scope parent; one child per parent |
-| Terminal-state rule | Enabled only if terminal action is enable + valid; never historical enable existence |
-| Crypto schema | `research_crypto` owns pgcrypto; FQ only |
-| Activation enforcement | No GUC; no runtime UPDATE on auth; trigger recomputes all prerequisites |
-| Discrepancy canonicalization | Closed JSONB field set + `research.sha256_hex(payload::text)` |
-| Legacy table final state | Renamed to `pilot_capacity_reservations_legacy`; immutable; owner SELECT only |
-| Schema-version advancement | Version 9 only after step 20 assertions |
+| Terminal-state rule | Enabled only if terminal action is enable + valid |
 
 ---
 
@@ -867,14 +1088,14 @@ Columns: PUBLIC / research_app / n8n_app / research_governance EXECUTE (`Y` or `
 | research.activate_pilot_authorization(p_authorization_id uuid, p_pilot_code text) | function DEFINER | postgres | N | N | N | Y | KEEP; redefine per §10 |
 | research.append_governance_action(p_action_type text, p_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_decision_value text, p_material_fingerprint char(64), p_supersedes_action_id uuid, p_issued_at timestamptz, p_expires_at timestamptz, p_payload jsonb) | function DEFINER | postgres | N | N | N | Y | NEW |
 | research.approve_pilot_proposal(p_pilot_code text) | function DEFINER | postgres | N | N | N | Y | NEW |
-| research.build_accounting_discrepancy_payload(p_discrepancy_type text, p_pilot_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_benchmark_case_id uuid, p_idempotency_key text, p_operation text, p_observed_attempt_count bigint, p_observed_success_count bigint, p_observed_input_tokens bigint, p_observed_output_tokens bigint, p_observed_cost_usd numeric, p_expected_max_requests integer, p_expected_max_successful_calls integer, p_expected_max_input_tokens integer, p_expected_max_output_tokens integer, p_expected_max_cost_usd numeric, p_ledger_request_count bigint, p_ledger_success_count bigint, p_ledger_input_tokens bigint, p_ledger_output_tokens bigint, p_ledger_cost_usd numeric, p_schema_version integer) | function DEFINER | postgres | N | Y | N | Y | NEW |
+| research.build_accounting_discrepancy_payload(p_discrepancy_type text, p_pilot_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_benchmark_case_id uuid, p_idempotency_key text, p_operation text, p_observed_attempt_count bigint, p_observed_success_count bigint, p_observed_input_tokens bigint, p_observed_output_tokens bigint, p_observed_cost_usd numeric, p_expected_max_requests integer, p_expected_max_successful_calls integer, p_expected_max_input_tokens integer, p_expected_max_output_tokens integer, p_expected_max_cost_usd numeric, p_ledger_request_count bigint, p_ledger_success_count bigint, p_ledger_input_tokens bigint, p_ledger_output_tokens bigint, p_ledger_cost_usd numeric, p_schema_version integer) | function DEFINER | postgres | N | N | N | N | NEW; DEFINER-internal only |
 | research.build_decision_card(p_run_id uuid) | function | postgres | N | Y | N | N | KEEP |
 | research.build_non_pilot_request_envelope(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_canonical_request jsonb, p_claimed_credential_status text) | function DEFINER | postgres | N | Y | N | N | NEW |
 | research.build_provider_request_envelope(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_canonical_request jsonb, p_claimed_credential_status text) | function DEFINER | postgres | N | Y | N | N | KEEP; redefine per §4 |
 | research.cancel_research_run(p_run_id uuid, p_reason text) | function | postgres | N | Y | N | N | KEEP |
 | research.cleanup_test_fixture(p_fixture_id text) | function | postgres | N | N | N | N | MOVED TO research_test |
 | research.compute_priority_v1(constitutional_impact numeric, measured_performance_gap numeric, safety_impact numeric, expected_value numeric, urgency numeric, evidence_availability numeric, implementation_cost numeric, duplication_penalty numeric) | function | postgres | N | Y | N | N | KEEP |
-| research.confirm_provider_credential_status(p_provider_code text, p_n8n_credential_label text, p_note text) | function DEFINER | postgres | N | N | N | Y | NEW |
+| research.confirm_provider_credential_status(p_pilot_proposal_id uuid, p_provider_code text, p_n8n_credential_label text, p_governance_action_id uuid, p_note text) | function DEFINER | postgres | N | N | N | Y | NEW |
 | research.disable_model_for_pilot(p_pilot_code text, p_provider_code text, p_model_id_provisional text) | function DEFINER | postgres | N | N | N | Y | NEW |
 | research.disable_provider_for_pilot(p_pilot_code text, p_provider_code text) | function DEFINER | postgres | N | N | N | Y | NEW |
 | research.enable_model_for_pilot(p_pilot_code text, p_provider_code text, p_model_id_provisional text) | function DEFINER | postgres | N | N | N | Y | NEW |
@@ -894,7 +1115,7 @@ Columns: PUBLIC / research_app / n8n_app / research_governance EXECUTE (`Y` or `
 | research.pilot_capacity_snapshot(p_pilot_id uuid) | function | postgres | N | Y | N | Y | KEEP; rewrite events-only |
 | research.pilot_case_attempt_count(p_pilot_id uuid, p_benchmark_case_id uuid) | function | postgres | N | Y | N | Y | KEEP; rewrite events-only |
 | research.proposal_has_evidence(p_evidence_ids uuid[]) | function | postgres | N | Y | N | N | KEEP |
-| research.record_accounting_discrepancy(p_discrepancy_payload jsonb, p_discrepancy_fingerprint char(64)) | function DEFINER | postgres | N | Y | N | Y | NEW |
+| research.record_accounting_discrepancy(p_discrepancy_type text, p_pilot_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_benchmark_case_id uuid, p_idempotency_key text, p_operation text, p_observed_attempt_count bigint, p_observed_success_count bigint, p_observed_input_tokens bigint, p_observed_output_tokens bigint, p_observed_cost_usd numeric, p_expected_max_requests integer, p_expected_max_successful_calls integer, p_expected_max_input_tokens integer, p_expected_max_output_tokens integer, p_expected_max_cost_usd numeric, p_ledger_request_count bigint, p_ledger_success_count bigint, p_ledger_input_tokens bigint, p_ledger_output_tokens bigint, p_ledger_cost_usd numeric, p_schema_version integer, p_expected_fingerprint char(64)) | function DEFINER | postgres | N | Y | N | Y | NEW |
 | research.record_authorization_spend(p_authorization_id uuid, p_requests integer, p_tokens integer, p_cost numeric, p_note text) | function DEFINER | postgres | N | Y | N | N | KEEP; rejects pilot-linked |
 | research.record_pilot_usage_for_tests(p_authorization_id uuid, p_input_tokens integer, p_output_tokens integer, p_success boolean, p_fixture_id text, p_is_retry boolean) | function | postgres | N | N | N | N | MOVED TO research_test |
 | research.reject_accounting_discrepancy_mutation() | trigger function | postgres | N | N | N | N | NEW |
@@ -919,6 +1140,17 @@ Columns: PUBLIC / research_app / n8n_app / research_governance EXECUTE (`Y` or `
 | research.try_enter_decision_from_partial(p_run_id uuid) | function | postgres | N | Y | N | N | KEEP |
 | research_crypto.digest(bytea, text) | extension function | postgres | N | N | N | N | pgcrypto moved; no runtime EXECUTE |
 | research_crypto.gen_random_uuid() | extension function | postgres | N | N | N | N | pgcrypto moved; no runtime EXECUTE |
+
+
+### A.4b Trigger objects
+
+| Object identity | Type | Owner context | Enabled | Table | Function | Disposition |
+| --- | --- | --- | --- | --- | --- | --- |
+| research.trg_reject_taha_governance_action_mutation | trigger | postgres | ENABLE | research.taha_governance_actions | research.reject_taha_governance_action_mutation() | NEW |
+| research.trg_reject_pilot_capacity_event_mutation | trigger | postgres | ENABLE | research.pilot_capacity_events | research.reject_pilot_capacity_event_mutation() | NEW |
+| research.trg_reject_accounting_discrepancy_mutation | trigger | postgres | ENABLE | research.accounting_discrepancies | research.reject_accounting_discrepancy_mutation() | NEW |
+| research.trg_reject_legacy_reservation_archive_mutation | trigger | postgres | ENABLE | research.legacy_reservation_archive | research.reject_legacy_reservation_archive_mutation() | NEW |
+| research.trg_reject_legacy_capacity_table_mutation | trigger | postgres | ENABLE | research.pilot_capacity_reservations_legacy | research.reject_legacy_capacity_table_mutation() | NEW |
 
 ### A.5 Schema privileges summary
 
