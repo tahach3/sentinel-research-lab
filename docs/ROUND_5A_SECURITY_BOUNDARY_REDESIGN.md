@@ -1,439 +1,508 @@
-﻿# Round 5A â€” Security Boundary Redesign
+# Round 5A — Security Boundary Redesign (Revision 2)
 
 **Status:** Design only. Not implemented.
-**Baseline HEAD:** `7df838574fc9051caa6132f82f189ffd5b0a2d1e` (schema version 8)
-**Scope:** Gemini pilot (`GEMINI-PILOT-5A`) approval, authorization activation, immutable capacity accounting, and request-envelope creation.
-**Non-goals:** Round 5B live HTTP, credential secret storage, enabling Gemini or `gemini-2.5-flash`, workflow activation, Equitify/SENTINEL changes.
+**Baseline HEAD:** `3d4464299f2385cd9c813bb8a5d57f46e7ff45b5` (docs) / schema version 8 runtime
+**Supersedes:** prior content of this file at that commit
+**Scope:** Enforceable privilege, governance, capacity, and envelope boundaries for Gemini pilot + Round 1–4 runtime compatibility.
+**Non-goals:** Implementing SQL in this round; storing API keys; Round 5B live HTTP; Equitify/SENTINEL changes.
 
 ---
 
-## 1. Threat model
+## 1. Threat model (unchanged classes)
 
-### Assets
+Must eliminate at the **privilege and ownership** layer:
 
-| Asset | Why it matters |
+1. Session-GUC activation
+2. Mutable/deletable capacity evidence
+3. Application-callable approval/arm helpers
+4. Direct envelope insertion
+
+Adversary: `research_app` / `n8n_app` with any SQL allowed by their grants, including `set_config`, `SET ROLE` attempts, and `PUBLIC` defaults.
+
+---
+
+## 2. Roles and Taha authority
+
+| Role | Kind | Purpose |
+| --- | --- | --- |
+| `postgres` (lab DB owner / migration role) | Login, object owner | Migrations; owns all `research` objects; sole granter of governance membership |
+| `research_governance` | Login, `NOINHERIT` | Taha-controlled governance session only |
+| `research_app` | Login | Application / automation runtime |
+| `n8n_app` | Login | n8n runtime (read research; own n8n schema) |
+| `research_test` | Login, optional, non-prod | Owns `research_test` schema helpers; never granted to app/n8n |
+| **Taha** | Human | Sole approval authority; operates as `research_governance` after intentional local login |
+
+Object owner for all security-sensitive `research` tables, views, sequences, triggers, and elevated functions: **`postgres`** (migration/database owner). Do not transfer ownership to `research_app` or `research_governance`.
+
+---
+
+## 3. Role-membership and PUBLIC rules (normative)
+
+1. `research_app` **MUST NOT** be a member of `research_governance`.
+2. `n8n_app` **MUST NOT** be a member of `research_governance`.
+3. `research_governance` **MUST NOT** be a member of `research_app` or `n8n_app`.
+4. Application roles **MUST NOT** be able to `SET ROLE research_governance` (no membership ⇒ denied).
+5. Only `postgres` (migration/owner) may `GRANT research_governance TO …`.
+6. `research_governance` is created with **`NOINHERIT`**. Membership, if ever granted to a human login role distinct from the governance login, does not auto-activate; operator must `SET ROLE` after intentional switch. Preferred model: humans log in **as** `research_governance` directly; no other role holds membership.
+7. Least privilege on all new roles: no superuser, no `CREATEDB`/`CREATEROLE` unless owner.
+8. **`PUBLIC` receives no `EXECUTE`** on: governance, activation, credential-confirmation, enablement/disablement, capacity-event writers, or envelope builders.
+9. Every newly created function: `REVOKE ALL ON FUNCTION … FROM PUBLIC;` then grant explicitly.
+10. `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA research`:
+    - Tables: `GRANT SELECT` only to `research_app`, `n8n_app` (no INSERT/UPDATE/DELETE by default)
+    - Functions: **revoke** default `EXECUTE` from `PUBLIC` and from `research_app`; no default function grants to app
+    - Existing bad default (`research_app=arwdDxt` on tables) **must be dropped** in schema 9 and replaced with the above
+
+Catalog assertion (migration + CI): zero rows where `research_app`/`n8n_app`/`PUBLIC` hold elevated EXECUTE or write on gated objects outside Appendix A.
+
+---
+
+## 4. Provider/model enablement (selected design)
+
+### 4.1 Functions (schema `research`, owner `postgres`, `SECURITY DEFINER`, `SET search_path = research, pg_temp`)
+
+| Function | EXECUTE |
 | --- | --- |
-| Pilot proposal approval state | Controls whether any activation may proceed |
-| Authorization `status` / `activated_at` / `expires_at` | Controls the 24-hour executable window |
-| Credential-status registry (`present` / `missing`) | Confirms Tahaâ€™s manual n8n credential without storing secrets |
-| Provider/model `enabled` flags | Hard kill switches for live readiness |
-| Capacity consumption (requests, attempts, tokens, success, cost) | Enforces pilot bounds (3/1/8000/4000/USD 0.00) |
-| `live_request_envelopes` rows | Downstream execution artifacts |
+| `research.confirm_provider_credential_status(provider_code, n8n_label, note)` | `research_governance` only |
+| `research.approve_pilot_proposal(pilot_code)` | `research_governance` only |
+| `research.enable_provider_for_pilot(pilot_code, provider_code)` | `research_governance` only |
+| `research.enable_model_for_pilot(pilot_code, provider_code, model_id_provisional)` | `research_governance` only |
+| `research.disable_provider_for_pilot(pilot_code, provider_code)` | `research_governance` only |
+| `research.disable_model_for_pilot(pilot_code, provider_code, model_id_provisional)` | `research_governance` only |
+| `research.activate_pilot_authorization(authorization_id, pilot_code)` | `research_governance` only |
 
-### Adversary (in scope)
+`research_governance` has **SELECT only** on `providers`, `provider_model_candidates`, `provider_credential_status`, `provider_pilot_proposals`, `provider_authorization_records`. **No** direct `UPDATE`/`INSERT`/`DELETE` on those tables.
 
-`research_app` (and any client using its credentials) with full SQL access under that roleâ€™s privileges: `SELECT`/`INSERT`/`UPDATE`/`DELETE`/`EXECUTE` as granted today, plus ability to call `set_config` on custom GUCs.
-
-Out of scope for this redesign: stolen `postgres` superuser, host filesystem compromise, physical access to Tahaâ€™s machine.
-
-### Confirmed attack classes (must be eliminated)
-
-1. **Session-GUC activation:** `set_config('research.allow_pilot_activation','on',true)` + `UPDATE ... status='active'`.
-2. **Mutable reservation capacity:** `UPDATE`/`DELETE` on `pilot_capacity_reservations` restores limits.
-3. **Callable arm/reset helpers:** `research._r5a_final_arm_gates()` / `_r5a_final_reset_defaults()` approve/enable/credential-mark.
-4. **Direct envelope insert:** `INSERT INTO live_request_envelopes` without capacity consumption.
-
-### Design principle
-
-**Permissions remove write capability; triggers and constraints are defense in depth only.**
-Do not rely on application discipline, forgeable session variables, or mutable â€œpendingâ€ rows as sole evidence of consumed capacity.
-
----
-
-## 2. Trust boundaries
+### 4.2 Enablement sequence (chosen — not optional)
 
 ```text
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚ Boundary A â€” Migration / governance (human Taha + admin role)   â”‚
-â”‚  â€¢ Owns research schema objects                                 â”‚
-â”‚  â€¢ Approves pilots, records credential confirmation             â”‚
-â”‚  â€¢ Activates authorizations (elevated function)                 â”‚
-â”‚  â€¢ Never stores API key material                                â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                                â”‚ SECURITY DEFINER functions only
-                                â”‚ (fixed search_path, owner = schema owner)
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚ Boundary B â€” Runtime application (`research_app`)               â”‚
-â”‚  â€¢ SELECT governance/capacity/envelope state                    â”‚
-â”‚  â€¢ EXECUTE only: build_provider_request_envelope (+ preflight)â”‚
-â”‚  â€¢ No UPDATE/DELETE on governance, auth timestamps, capacity, â”‚
-â”‚    envelopes; no EXECUTE on approval/activation/arm/test helpersâ”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                                â”‚ read-only
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚ Boundary C â€” n8n runtime (`n8n_app`)                            â”‚
-â”‚  â€¢ SELECT only on research tables needed for inactive designs â”‚
-â”‚  â€¢ No EXECUTE on research governance functions                  â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+1) confirm_provider_credential_status
+2) approve_pilot_proposal
+3) enable_provider_for_pilot
+4) enable_model_for_pilot
+5) activate_pilot_authorization  (per authorization row)
+6) research_app may call build_provider_request_envelope
 ```
 
-Secrets stay in n8nâ€™s credential store (manual Taha entry). Postgres holds only non-secret status labels.
+Provider/model enablement happens **before** authorization activation, never atomically inside activation.
+
+### 4.3 Preconditions for `enable_provider_for_pilot` / `enable_model_for_pilot`
+
+Fail closed; no table mutation on failure:
+
+- Pilot exists; `status = 'approved'`; not expired
+- Credential status for provider = `present`
+- Provider/model identity matches pilot row exactly
+- Matching append-only governance action already recorded for this step **or** the function itself appends the authorizing action in the same transaction (required: function appends `action_type` `provider_enabled_for_pilot` / `model_enabled_for_pilot` with full material fingerprint)
+- Pilot cost = 0; retries false; fallback false; confidentiality = `public_or_synthetic`
+- Validity: enablement authorization expires at `min(pilot.expires_at, now() + pilot.expiry_hours_after_approval)` recorded on the governance action
+
+Effects: set `providers.enabled` / `provider_model_candidates.enabled` (+ verification fields as specified in function contract) **only** for the bound IDs; append governance action; never activate authorizations; never create credentials; never set paid flags.
+
+Disable functions clear `enabled=false` and append `provider_disabled_for_pilot` / `model_disabled_for_pilot`.
 
 ---
 
-## 3. Role and permission matrix
-
-| Role | Purpose | Typical login |
-| --- | --- | --- |
-| `postgres` / cluster superuser | Break-glass only | Local admin |
-| `research_owner` (or existing table owner, e.g. `postgres` in lab) | Object owner of `research.*` tables/functions | Migrations |
-| `research_governance` | Taha-controlled governance session | Explicit psql / governed script after human intent |
-| `research_app` | Application / automation runtime | App connection string |
-| `n8n_app` | n8n DB user | n8n container |
-| `research_test` (optional, non-production) | Isolated test helpers | CI / local test runner only; **not** granted to app |
-
-### Matrix (pilot-critical objects)
-
-| Object | `research_app` | `n8n_app` | `research_governance` | Owner |
-| --- | --- | --- | --- | --- |
-| `provider_pilot_proposals` | SELECT | SELECT | SELECT; mutations **only** via governance functions | owner |
-| `provider_authorization_records` | SELECT | SELECT | SELECT; activation **only** via function | owner |
-| `provider_credential_status` | SELECT | SELECT | SELECT; status change **only** via function | owner |
-| `providers` / `provider_model_candidates` | SELECT | SELECT | SELECT; enable **only** via governance (Round 5B+) | owner |
-| `pilot_capacity_events` (new, append-only) | SELECT | SELECT | SELECT | owner |
-| `live_request_envelopes` | SELECT | SELECT | SELECT | owner |
-| `provider_usage_ledger` | SELECT (+ fixture delete path only if retained under owner functions) | SELECT | SELECT | owner |
-| `approve_pilot_proposal(...)` | **REVOKE EXECUTE** | REVOKE | GRANT EXECUTE | owner, `SECURITY DEFINER` |
-| `confirm_provider_credential_status(...)` | **REVOKE** | REVOKE | GRANT | owner, `SECURITY DEFINER` |
-| `activate_pilot_authorization(...)` | **REVOKE** | REVOKE | GRANT | owner, `SECURITY DEFINER` |
-| `build_provider_request_envelope(...)` | GRANT EXECUTE | REVOKE | GRANT (optional) | owner, `SECURITY DEFINER` |
-| `live_preflight(...)` | GRANT EXECUTE | REVOKE | GRANT | owner (invoker or definer; no elevated writes) |
-| `_r5a_final_arm_gates` / `_r5a_final_reset_defaults` / test helpers | **REVOKE**; prefer DROP or move to `research_test` | REVOKE | REVOKE in prod | N/A |
-| Sequences used by append-only inserts | USAGE only where required by definer functions (prefer owned sequences used inside definer) | â€” | â€” | owner |
-
-**Hard rule:** `research_app` must have **zero** `INSERT`/`UPDATE`/`DELETE` on:
-
-- `provider_pilot_proposals`
-- `provider_authorization_records`
-- `provider_credential_status`
-- `providers`
-- `provider_model_candidates`
-- `provider_budget_policies` (pilot-critical columns)
-- `pilot_capacity_events` / legacy `pilot_capacity_reservations` (after migration)
-- `live_request_envelopes`
-
-Envelope creation and capacity append happen **inside** `SECURITY DEFINER` builder as owner.
-
----
-
-## 4. Object ownership model
-
-1. All `research` schema tables, indexes, triggers, and governance/builder functions are owned by the migration role (`research_owner` / current lab owner).
-2. `SECURITY DEFINER` functions:
-   - `OWNER` = table owner
-   - `SET search_path = research, pg_temp` (fixed; never caller-controllable)
-   - Perform privilege checks explicitly where needed (`current_user` / `session_user` âˆˆ allowed governance roles for approve/activate/confirm)
-3. `ALTER DEFAULT PRIVILEGES` for the owner role in schema `research`:
-   - **Stop** granting `INSERT, UPDATE, DELETE` on tables to `research_app` by default
-   - New tables: `GRANT SELECT` only to `research_app` and `n8n_app`
-   - New functions: **no** default `EXECUTE` to `research_app`; grant explicitly per function
-4. Migration 009 (future implementation) must:
-   - `REVOKE ALL ON ALL TABLES IN SCHEMA research FROM research_app`
-   - Re-`GRANT SELECT` as needed
-   - `REVOKE ALL ON ALL FUNCTIONS IN SCHEMA research FROM research_app`
-   - Re-`GRANT EXECUTE` only on the allowlisted runtime functions
-   - Same pattern for `n8n_app` (SELECT only; no research EXECUTE)
-
----
-
-## 5. Approval and activation state machine
-
-### 5.1 How Taha approval is represented (no secrets, not forgeable by app)
-
-**Do not** use:
-
-- session GUCs
-- application-writable boolean columns without role checks
-- â€œcredential presentâ€ alone as approval
-
-**Do use** a two-step, governance-role-only chain:
-
-1. **Credential confirmation (non-secret):**
-   `research.confirm_provider_credential_status(provider_code, label, note)`
-   - Executable **only** by `research_governance`
-   - Sets `provider_credential_status.status = 'present'` and stores **label only** (e.g. `sentinel-research-lab-gemini-pilot`)
-   - Appends an immutable row to `research.taha_governance_actions` (`action_type='credential_confirmed'`, `actor_role`, `at`, `payload` JSONB without secrets)
-
-2. **Pilot approval:**
-   `research.approve_pilot_proposal(pilot_code)`
-   - Executable **only** by `research_governance`
-   - Requires credential status already `present` for linked provider
-   - Sets proposal `status='approved'`, `taha_approved_at=now()`, `expires_at=taha_approved_at + expiry_hours`
-   - Appends `taha_governance_actions` (`action_type='pilot_approved'`)
-   - **Never** enables provider/model
-   - **Never** activates authorizations
-
-`research_app` cannot call either function and cannot `UPDATE` those tables.
-
-### 5.2 Authorization activation
-
-**Single function:** `research.activate_pilot_authorization(authorization_id, pilot_code)`
-**Caller:** `research_governance` only (`EXECUTE` revoked from `research_app`).
-
-Preconditions (fail closed, leave rows unchanged on failure):
-
-- Auth row `status='proposed'` and `activated_at IS NULL`
-- `pilot_proposal_id` set; pilot `status='approved'` and not expired
-- Credential status for provider is `present`
-- Provider/model identities match pilot (`gemini` / `gemini-2.5-flash` for this pilot)
-- Case âˆˆ pilot `benchmark_case_ids`
-- `approving_authority = 'Taha'`
-
-Effects:
-
-- Set `status='active'`
-- Set `activated_at` **once**
-- Set `expires_at = activated_at + INTERVAL '24 hours'` exactly
-- Append `taha_governance_actions` (`authorization_activated`)
-- Do **not** mutate proposal status
-- Do **not** enable provider/model
-
-### 5.3 Rejected transitions (DB-enforced)
-
-| Transition | Result |
-| --- | --- |
-| Direct `UPDATE` status/timestamps by non-owner | Permission denied (`research_app` has no UPDATE) |
-| Any GUC / session variable gating | **Removed entirely**; not part of design |
-| `active` â†’ `proposed` | Forbidden (constraint/trigger + no UPDATE for app) |
-| `expired`/`revoked`/`exhausted` â†’ `active` | Forbidden; renewal = **new** authorization row |
-| Second activation when `activated_at` already set | Forbidden |
-| Changing `activated_at` / `expires_at` after first set | Forbidden (owner trigger defense in depth) |
-
-Triggers remain for owner mistakes and break-glass sessions; they are **not** the primary controlâ€”**REVOKE UPDATE** is.
-
-### 5.4 State machines (summary)
-
-**Pilot proposal:**
-`awaiting_taha_credential` â†’ (governance confirm credential) stays awaiting or moves per ops policy â†’ (governance approve) `approved` â†’ (`expires_at`) `expired`
-App cannot write.
-
-**Authorization:**
-`proposed` â†’ (governance activate) `active` â†’ (`expires_at` or ops) `expired` | `revoked` | `exhausted`
-No return to `proposed`. Renewal = insert new `proposed` row (governance/migration only).
-
----
-
-## 6. Immutable capacity-accounting model
-
-### 6.1 Replace mutable reservations
-
-Deprecate `research.pilot_capacity_reservations` as **capacity evidence**.
-
-Introduce append-only:
+## 5. `taha_governance_actions` schema (normative)
 
 ```text
-research.pilot_capacity_events
-  id UUID PK
-  pilot_proposal_id UUID NOT NULL
-  authorization_id UUID NOT NULL
-  benchmark_case_id UUID NOT NULL
-  event_type TEXT NOT NULL
-    CHECK (event_type IN (
-      'attempt_consumed',      -- first envelope prep for a case (permanent)
-      'idempotency_bound'      -- optional alias; or fold into attempt_consumed
-    ))
-  idempotency_key TEXT NOT NULL
-  projected_input_tokens INT NOT NULL CHECK (>=0)
-  projected_output_tokens INT NOT NULL CHECK (>=0)
-  projected_cost_usd NUMERIC NOT NULL CHECK (=0)
-  envelope_id UUID NULL      -- filled in same txn after envelope insert
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-  UNIQUE (pilot_proposal_id, idempotency_key)
-  UNIQUE (pilot_proposal_id, benchmark_case_id)
-    -- one permanent attempt per case for this pilot
+research.taha_governance_actions (
+  governance_action_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action_type            TEXT NOT NULL,
+  proposal_id            UUID NULL REFERENCES research.provider_pilot_proposals(id),
+  authorization_id       UUID NULL REFERENCES research.provider_authorization_records(id),
+  provider_id            UUID NULL REFERENCES research.providers(id),
+  model_id               UUID NULL REFERENCES research.provider_model_candidates(id),
+  decision_value         TEXT NOT NULL,
+  authority_identifier   TEXT NOT NULL CHECK (authority_identifier = 'Taha'),
+  material_fingerprint   TEXT NOT NULL CHECK (length(material_fingerprint) = 64),
+  previous_action_id     UUID NULL REFERENCES research.taha_governance_actions(governance_action_id),
+  issued_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at             TIMESTAMPTZ NULL,
+  status                 TEXT NOT NULL CHECK (status IN (
+                           'active','superseded','revoked','expired','rejected'
+                         )),
+  recorded_by_role       TEXT NOT NULL,
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  payload                JSONB NOT NULL DEFAULT '{}'::jsonb
+)
 ```
 
-**No `status` column that can be â€œreleasedâ€.**
-**No UPDATE/DELETE grants to any runtime role.**
-Owner may retain a `SECURITY DEFINER` cleanup that deletes only rows with an explicit `test_run_id` in a separate test schemaâ€”not production capacity.
+**Allowed `action_type` values (closed set):**
+`credential_confirmed`, `pilot_approved`, `pilot_approval_revoked`, `provider_enabled_for_pilot`, `provider_disabled_for_pilot`, `model_enabled_for_pilot`, `model_disabled_for_pilot`, `authorization_activated`, `accounting_discrepancy`, `governance_rejected`.
 
-### 6.2 Counting rules
+### 5.1 Material fingerprint
 
-| Bound | Source |
+`material_fingerprint = sha256_hex(canonical_json)` over exactly these fields (sorted keys, no secrets):
+
+- `pilot_code`, `proposal_id`, `provider_code`, `model_id_provisional`
+- `benchmark_case_ids` (ordered), `benchmark_case_codes` (ordered)
+- `max_successful_calls`, `max_attempts_per_case`, `max_total_requests`
+- `max_total_input_tokens`, `max_total_output_tokens`, `max_authorized_cost_usd`
+- `retries_allowed`, `fallback_provider_allowed`, `confidentiality_class`
+- `expiry_hours_after_approval`, `authority_identifier`
+- `action_type`, `decision_value`
+
+Altered proposal content, provider/model binding, limits, policies, or validity ⇒ different fingerprint ⇒ prior `active` approval **does not** authorize the new material.
+
+### 5.2 Uniqueness and validation rules
+
+| Situation | Rule |
 | --- | --- |
-| Total requests | `COUNT(*)` of `attempt_consumed` events for pilot (+ finalized ledger request_count if still used for historical success accounting) |
-| Attempts per case | uniqueness on `(pilot, case)` â€” second insert fails |
-| Input/output tokens | `SUM(projected_*)` over events + finalized ledger tokens |
-| Successful calls | finalized `provider_usage_ledger` where `success` only (unchanged semantics) |
-| Cost | all projected and authorized costs must be `0`; any `>0` fails closed |
+| Duplicate identical approval | Second insert with same `(action_type, proposal_id, material_fingerprint)` while first `status='active'` → reject |
+| Copied approval (same fingerprint, new id) | Reject if active row with same fingerprint+action_type+proposal exists |
+| Stale approval | `expires_at < now()` → treat as `expired`; cannot authorize enable/activate |
+| Altered proposal after approval | New fingerprint required; old active approval must be `superseded` or `revoked` before new approve |
+| Altered model/provider binding | Fingerprint mismatch → enable/activate fail closed |
+| Superseded | New approve sets prior active approve for same proposal to `superseded` and sets `previous_action_id` |
+| Revoked | `pilot_approval_revoked` sets prior approve to `revoked`; enable/activate forbidden |
+| Expired | Time-based; enable/activate forbidden |
+| Conflicting decisions | Cannot have two `active` rows for same `(proposal_id, action_type)` with different fingerprints |
 
-Pending, failed, and abandoned executions **still consume** the case attempt once `attempt_consumed` is inserted. Capacity never reopens.
+Privileges: `research_app` / `n8n_app` / `PUBLIC` → **SELECT only** (or none for payload if desired; SELECT allowed for audit). **No INSERT/UPDATE/DELETE.** Writes only inside owner `SECURITY DEFINER` governance functions.
 
-### 6.3 Idempotent replay
-
-1. Lock pilot proposal row `FOR UPDATE`.
-2. Lock authorization row `FOR UPDATE`.
-3. Lookup event by `(pilot_proposal_id, idempotency_key)`.
-4. If found with `envelope_id` set â†’ return existing envelope; **no new event**.
-5. If found without `envelope_id` â†’ fail closed (incomplete prior txn should have rolled back; orphan = operator investigation).
-6. If not found â†’ validate limits â†’ `INSERT` event â†’ `INSERT` envelope â†’ `UPDATE event SET envelope_id` **only inside SECURITY DEFINER** (owner). Runtime roles cannot run that UPDATE; only the definer function can.
-
-### 6.4 Concurrency
-
-Transaction ordering under the builder:
-
-1. `BEGIN` (caller or function-implicit)
-2. `SELECT pilot FOR UPDATE`
-3. `SELECT auth FOR UPDATE`
-4. Idempotency lookup
-5. Recompute aggregates including events
-6. `INSERT pilot_capacity_events` (unique constraints serialize conflicting case/key)
-7. `INSERT live_request_envelopes`
-8. Link `envelope_id`
-9. `COMMIT`
-
-Two concurrent competitors for the last slot: one unique insert succeeds; the other hits unique or limit check and fails. No over-capacity.
-
-### 6.5 Legacy table
-
-After cutover: drop grants on `pilot_capacity_reservations`; migrate any durable reserved rows into events; then drop table or leave empty/read-only for audit. Mutable reservation design is **not** retained.
+No GUC, mutable boolean, free-text name match, or application-supplied authority string is proof of approval.
 
 ---
 
-## 7. Controlled envelope-creation flow
+## 6. Activation (normative)
 
-### 7.1 Single write path
+`research.activate_pilot_authorization` — governance-only, `SECURITY DEFINER`, fixed `search_path`.
 
-Only `research.build_provider_request_envelope(...)` (`SECURITY DEFINER`, owner) may insert into `live_request_envelopes`.
+Requires, else no mutation:
 
-`research_app`: `EXECUTE` on this function; **no** table `INSERT`.
+- Auth `proposed`, `activated_at IS NULL`
+- Pilot `approved`, not expired, fingerprint-consistent with active `pilot_approved` action
+- Credential `present`
+- Provider and model **already enabled** via prior governance enable actions still `active`
+- Exact provider/model/case/authority bindings
+- No GUC involved (GUC path removed from triggers entirely)
 
-### 7.2 Function contract
-
-**Inputs:** provider, model, case, authorization_id, role, confidentiality, canonical_request JSONB (must include `idempotency_key` for pilot), optional credential claim.
-
-**Validates:** all current preflight gates (provider/model enabled, credential present, auth active & unexpired, pilot approved, bindings, retry/fallback off, confidentiality, cost 0, token/request/success caps including events).
-
-**Writes (atomic):** capacity event + envelope + link.
-
-**Returns:** `{ok, envelope_id, envelope, idempotent_replay}` or `{ok:false, failure_class, detail}` without leaving partial durable writes (exception â†’ rollback).
-
-**Does not:** perform HTTP; set `executable=true`; enable providers; approve pilots; activate auths; touch secrets.
-
-### 7.3 Envelope immutability binding
-
-Envelope JSON must embed: `authorization_id`, `pilot_proposal_id`, `benchmark_case_id`, `idempotency_key`, projected tokens, `live_execution_allowed=false`.
-Table CHECK constraints retain `executable=false` and flag consistency.
-No UPDATE grants to runtime; existing immutability triggers remain defense in depth.
-
-### 7.4 Non-pilot Round 4 path
-
-Non-pilot envelope creation either:
-
-- remains in the same definer function with a separate branch that does not write pilot events, still without granting table INSERT to app, or
-- is frozen until a later round.
-
-Must not re-open pilot bypasses.
+Sets immutable `activated_at`, `expires_at = activated_at + 24 hours`, status `active`; appends `authorization_activated`.
+Rejects in-place renewal; renewal = **new** authorization row inserted only by owner/migration or a future governance `propose_pilot_authorization` (out of schema-9 minimum: migration seeds only; app cannot INSERT auth rows).
 
 ---
 
-## 8. Migration sequence from schema version 8
+## 7. Capacity accounting — one source of truth each
 
-Future implementation round (not this commit) â€” suggested **schema version 9**:
+### 7.1 Table `research.pilot_capacity_events` (append-only)
 
-| Step | Action | Restart-safe? |
+```text
+id UUID PK
+pilot_proposal_id UUID NOT NULL
+authorization_id UUID NOT NULL
+benchmark_case_id UUID NOT NULL
+event_type TEXT NOT NULL CHECK (event_type = 'attempt_consumed')
+idempotency_key TEXT NOT NULL
+projected_input_tokens INT NOT NULL CHECK (>=0)
+projected_output_tokens INT NOT NULL CHECK (>=0)
+projected_cost_usd NUMERIC NOT NULL CHECK (=0)
+envelope_id UUID NOT NULL
+created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+UNIQUE (pilot_proposal_id, idempotency_key)
+UNIQUE (pilot_proposal_id, benchmark_case_id)
+```
+
+**Single event type:** `attempt_consumed` only. No `idempotency_bound`.
+
+### 7.2 Metric authorities (exclusive — never add two sources)
+
+| Metric | Authoritative source | Rule |
 | --- | --- | --- |
-| 9.0 | Create roles if missing (`research_governance`); document password/ops | Yes |
-| 9.1 | Create `taha_governance_actions`, `pilot_capacity_events` | `IF NOT EXISTS` |
-| 9.2 | Create/replace SECURITY DEFINER functions with fixed `search_path` | `CREATE OR REPLACE` |
-| 9.3 | Install owner-only triggers (immutability, reject unauthorized status changes even for owner mistakes) | Yes |
-| 9.4 | Backfill: copy any durable reserved rows â†’ events; verify counts | Idempotent upsert by natural key |
-| 9.5 | `REVOKE` broad table/function privileges from `research_app` / `n8n_app`; re-grant allowlist | Idempotent REVOKE/GRANT |
-| 9.6 | Fix `ALTER DEFAULT PRIVILEGES` for owner | Yes |
-| 9.7 | Drop GUC checks from triggers; delete `allow_pilot_activation` usage | Yes |
-| 9.8 | `REVOKE EXECUTE` on arm/reset helpers; `DROP FUNCTION` or move to `research_test` | Yes |
-| 9.9 | Drop or freeze `pilot_capacity_reservations` | After backfill verify |
-| 9.10 | Insert `schema_version=9` | `ON CONFLICT DO NOTHING` |
-| 9.11 | Assert: Gemini disabled; 3 proposed production auths; no active pilot auths; credential status unchanged unless governance ran | Fail closed |
+| Total requests | `COUNT(*)` of `attempt_consumed` for pilot | One event = one request slot |
+| Attempts per case | Unique `(pilot, case)` on events | Second insert fails |
+| Input tokens (limits) | `SUM(projected_input_tokens)` of events | Ledger tokens not added |
+| Output tokens (limits) | `SUM(projected_output_tokens)` of events | Ledger tokens not added |
+| Cost (limits) | Events require `projected_cost_usd=0`; proposal/auth max cost = 0 | Any ledger `estimated_cost_usd > 0` for pilot → fail closed + `accounting_discrepancy` action |
+| Successful calls | `COUNT(*)` of `provider_usage_ledger` rows where `pilot_proposal_id` set AND `success IS TRUE` AND `test_fixture_id IS NULL` | **Ledger is authoritative for success only**; events never count as success |
 
-Partial failure: each step is transactional where possible; version row inserted only after privilege cutover succeeds. Re-run is safe.
+`provider_usage_ledger.request_count` for pilot-linked rows is **reporting-only**. Aggregate request enforcement **MUST NEVER** compute `events + ledger.request_count`.
 
-**Compatibility:** Existing three proposed pilot authorization shells remain `proposed` with `expires_at='-infinity'`. No automatic activation. No provider enablement.
+### 7.3 Permanent consumption
+
+Failed, abandoned, rejected-after-reservation, and completed attempts remain consumed once `attempt_consumed` exists. Capacity never reopens.
+
+### 7.4 Insert ordering (no post-insert UPDATE)
+
+Preferred and required:
+
+1. Lock pilot `FOR UPDATE`; lock auth `FOR UPDATE`
+2. Idempotency lookup
+3. Validate limits using events (+ success from ledger)
+4. `envelope_id := gen_random_uuid()`
+5. `INSERT pilot_capacity_events (…, envelope_id)` with final id
+6. `INSERT live_request_envelopes (id := envelope_id, …)`
+7. Commit
+
+No `envelope_id` NULL→value update path.
+
+Defense in depth: `BEFORE UPDATE OR DELETE` on `pilot_capacity_events` ⇒ always raise (even for owner mistakes except migration under explicit session). Owner break-glass documented separately.
+
+### 7.5 Legacy reconciliation
+
+On builder/preflight, if for a pilot:
+
+- `SUM(ledger.request_count) WHERE pilot_proposal_id = P` > `COUNT(events)` for P, **or**
+- ledger shows success count > events count, **or**
+- ledger token sums exceed event projected sums without matching events
+
+⇒ fail closed; append `accounting_discrepancy` via governance-only reporter function `research.record_accounting_discrepancy` (EXECUTE: governance + owner); do not create envelopes.
+
+Backfill (migration 9): convert each durable `pilot_capacity_reservations` row with `status IN ('reserved','finalized')` and non-null `envelope_id` into one `attempt_consumed` event; then freeze/drop reservations table.
 
 ---
 
-## 9. Compatibility treatment for existing proposed authorizations
+## 8. Envelope creation
 
-- Keep rows as-is (`proposed`, no `activated_at`).
-- They become activatable only after governance confirms credential + approves pilot + calls activate per id.
-- Test fixture rows with `test_fixture_id` remain out of production path; cleanup only via owner/test schema functions, not app-callable arm helpers.
+### 8.1 Pilot path
+
+`research.build_provider_request_envelope` — `SECURITY DEFINER`, owner `postgres`, fixed `search_path`, `EXECUTE` to `research_app` (and optionally governance).
+Revoke direct `INSERT` on `live_request_envelopes` from app/n8n/PUBLIC.
+
+### 8.2 Round 4 compatibility (chosen — not optional)
+
+**Route non-pilot callers through a separate controlled builder:**
+
+`research.build_non_pilot_request_envelope(...)`
+— same argument list as the pilot builder
+— `SECURITY DEFINER`, fixed `search_path`
+— `EXECUTE`: `research_app`
+— Requires authorization `pilot_proposal_id IS NULL`
+— Does **not** write `pilot_capacity_events`
+— Still enforces Round 4 live_preflight gates
+— Direct table `INSERT` remains revoked
+
+Existing Round 4 flows continue by calling this function (adapters/docs updated in implementation round). Pilot-linked auths must use `build_provider_request_envelope` only; wrong function fails closed.
 
 ---
 
-## 10. Recovery and partial-failure behavior
+## 9. Helper isolation (complete inventory)
 
-| Failure | Behavior |
+| Symbol | Classification |
 | --- | --- |
-| Precondition fail in approve/activate/builder | No durable write; clear error |
-| Insert event succeeds, envelope insert fails | Transaction aborts; event rolled back |
-| Crash after commit | Event + envelope durable; replay by idempotency key |
-| Orphan event without envelope_id | Fail closed on replay; ops inspect (should be impossible if single txn) |
-| Mistaken governance approval | Append compensating governance action; revoke/expire via governance functionsâ€”not app UPDATE |
-| Need renewal after expiry | Insert **new** authorization record; never reopen old timestamps |
+| `_r4_arm_provider` | Move to `research_test`; DROP from `research` |
+| `_r4_reset_defaults` | Move to `research_test`; DROP from `research` |
+| `_r4_case_id` | Move to `research_test`; DROP from `research` |
+| `_r4_make_auth` | Move to `research_test`; DROP from `research` |
+| `_r5a_arm_for_pilot_tests` | Move to `research_test`; DROP from `research` |
+| `_r5a_repair_reset_defaults` | Move to `research_test`; DROP from `research` |
+| `_r5a_final_arm_gates` | Move to `research_test`; DROP from `research` |
+| `_r5a_final_reset_defaults` | Move to `research_test`; DROP from `research` |
+| `_r5a_final_assert_state` | Move to `research_test`; DROP from `research` |
+| `_r5a_assert_final_pilot_state` | Move to `research_test`; DROP from `research` |
+| `_r5a_insert_fixture_auth` | Move to `research_test`; DROP from `research` |
+| `_r3_clone_question` | Move to `research_test`; DROP from `research` |
+| `_r3_new_run` | Move to `research_test`; DROP from `research` |
+| `cleanup_test_fixture` | Move to `research_test`; DROP from `research` |
+| `record_pilot_usage_for_tests` | Move to `research_test`; DROP from `research` |
+| `simulate_envelope_insert_failure` GUC usage | Remove from production builders |
+
+`research_test` schema: owned by `research_test` role; **no** `USAGE`/`EXECUTE` for `research_app`, `n8n_app`, or `research_governance`.
 
 ---
 
-## 11. Removal or isolation of test-only helpers
+## 10. Migration 8 → 9 (summary)
 
-| Symbol | Disposition |
-| --- | --- |
-| `research._r5a_final_arm_gates` | DROP from `research` **or** move to `research_test` with EXECUTE only for test role |
-| `research._r5a_final_reset_defaults` | Same |
-| `research._r5a_insert_fixture_auth` | Same |
-| `research.cleanup_test_fixture` | Owner/test-only; REVOKE from `research_app` |
-| `research.simulate_envelope_insert_failure` GUC | Remove from production builder |
-| Adversarial tests | Run as `research_app` expecting permission errors; separate connection as `research_governance` for happy-path governance |
+1. Create `research_governance` (`NOINHERIT`), optional `research_test`
+2. Create `taha_governance_actions`, `pilot_capacity_events`
+3. Create/replace governance + builder DEFINER functions; `REVOKE FROM PUBLIC`
+4. Drop GUC from authorization trigger
+5. Backfill reservations → events; freeze/drop `pilot_capacity_reservations`
+6. Move helpers to `research_test` / DROP from `research`
+7. `REVOKE ALL` on gated tables/functions from app/n8n/PUBLIC; apply **Appendix A** grants exactly
+8. Replace `ALTER DEFAULT PRIVILEGES` for `postgres` in `research`
+9. Assert membership matrix, Gemini disabled, 3 proposed pilot auths, version 9
+10. Restart-safe / idempotent; version row only after privilege cutover succeeds
 
-Production migrations must not reinstall app-callable arm helpers.
-
----
-
-## 12. Risks and mitigations
-
-| Risk | Mitigation |
-| --- | --- |
-| Break-glass owner still has UPDATE | Triggers + ops procedure; optional column-level revoke even from non-superuser owners |
-| `SECURITY DEFINER` search_path hijack | `SET search_path = research, pg_temp` on every definer function |
-| Privilege drift / default privileges re-grant DELETE | Migration asserts + CI permission tests |
-| Governance role credential theft | Treat like production DB admin; local-only; no remote grant |
-| Dual-count ledger vs events | Document single source of truth for attempts (events); ledger for finalized success only |
-| Non-pilot Round 4 callers lose INSERT | Route through definer builder; update adapters/docs |
-| Over-tight grants block legitimate Round 2â€“4 writes | Explicit allowlist of tables still writable by app (lifecycle tables unrelated to pilot gates); pilot tables locked |
+No accidental approve/activate/enable/credential in migration.
 
 ---
 
-## 13. Exact implementation scope for a later round
-
-**In scope (schema 9):**
-
-1. Roles + privilege cutover + default privileges
-2. `taha_governance_actions` + governance functions
-3. Append-only `pilot_capacity_events` + builder rewrite
-4. Remove GUC activation path
-5. REVOKE envelope INSERT; definer-only insert
-6. Remove/isolate arm/reset helpers
-7. Adversarial tests per `docs/ROUND_5A_SECURITY_BOUNDARY_TEST_PLAN.md`
-8. Docs update for ops: how Taha runs governance session
-
-**Out of scope:**
-
-- Creating n8n credentials or API keys
-- Approving/activating in the implementation PR itself (leave production pilot proposed)
-- Enabling Gemini / model / workflows
-- Live HTTP / Round 5B
-- Equitify / `ai-development-os`
-
-**Acceptance for implementation round:** Independent review proves all four bypass classes are impossible under `research_app` privileges, not merely â€œtrigger rejected when UPDATE is allowed.â€
-
----
-
-## Design decisions (summary)
+## 11. Design decisions (locked)
 
 | Topic | Decision |
 | --- | --- |
-| Trust boundary | Owner-governed writes; app is read + single builder EXECUTE |
-| Approval authority | `research_governance` only via `approve_pilot_proposal` + governance action log |
-| Activation authority | `research_governance` only via `activate_pilot_authorization`; no GUC |
-| Capacity model | Append-only `pilot_capacity_events`; no releasable status |
-| Envelope creation | Definer-only insert; app cannot INSERT |
-| Application permissions | SELECT on pilot tables; EXECUTE allowlist; no UPDATE/DELETE on gated objects |
+| Enablement sequence | Credential → approve → enable provider → enable model → activate → build |
+| Total request authority | `pilot_capacity_events` count only |
+| Successful-call authority | Finalized non-fixture `provider_usage_ledger.success` |
+| Token authority | Event projected sums only |
+| Cost authority | Event projected cost must be 0 (+ proposal/auth max 0); ledger cost >0 fails closed |
+| Non-pilot envelope path | `build_non_pilot_request_envelope` SECURITY DEFINER |
+| Append-only link | Pre-generate `envelope_id`; no post-insert UPDATE |
+
+---
+
+## Appendix A — Machine-exact `research_app` allowlist
+
+**Owner column:** `postgres` for all objects below.
+**Rule:** Any `research` object not listed is **denied** to `research_app` (no privilege).
+**n8n_app:** SELECT on the same tables/views listed with SELECT=Y; no INSERT/UPDATE/DELETE/EXECUTE on research elevated functions (see Appendix B).
+
+### A.1 Tables and views
+
+| Object | Type | Owner | SELECT | INSERT | UPDATE | DELETE | EXECUTE | Reason |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| automatic_scores | table | postgres | Y | Y | Y | N | — | Round 1 scoring writes |
+| benchmark_cases | table | postgres | Y | N | N | N | — | Read cases |
+| benchmark_runs | table | postgres | Y | Y | Y | N | — | Round 1 runs |
+| benchmark_suites | table | postgres | Y | N | N | N | — | Read suites |
+| decision_rationales | table | postgres | Y | Y | N | N | — | Append rationales |
+| evidence_claim_links | table | postgres | Y | Y | N | N | — | Lifecycle links |
+| evidence_items | table | postgres | Y | Y | N | N | — | Append evidence |
+| gemini_pilot_request_builder_specs | table | postgres | Y | N | N | N | — | Read-only specs |
+| improvement_proposals | table | postgres | Y | Y | Y | N | — | Lifecycle proposals |
+| live_request_envelopes | table | postgres | Y | N | N | N | — | Read only; insert via DEFINER |
+| model_outputs | table | postgres | Y | Y | N | N | — | Orchestration outputs |
+| models | table | postgres | Y | N | N | N | — | Read registry |
+| monthly_role_rankings | table | postgres | Y | Y | N | N | — | Rankings |
+| orchestration_failures | table | postgres | Y | Y | N | N | — | Orchestration |
+| pilot_capacity_reservations | table | postgres | N | N | N | N | — | Deprecated; freeze then drop |
+| pilot_capacity_events | table | postgres | Y | N | N | N | — | Read quotas; write via DEFINER |
+| proposal_versions | table | postgres | Y | Y | N | N | — | Version append |
+| provider_adapter_requests | table | postgres | Y | Y | N | N | — | Mock/live prep |
+| provider_adapter_responses | table | postgres | Y | Y | N | N | — | Fixture responses |
+| provider_adapter_versions | table | postgres | Y | N | N | N | — | Read |
+| provider_authorization_records | table | postgres | Y | N | N | N | — | Gated |
+| provider_budget_policies | table | postgres | Y | N | N | N | — | Gated |
+| provider_capabilities | table | postgres | Y | N | N | N | — | Read |
+| provider_credential_status | table | postgres | Y | N | N | N | — | Gated |
+| provider_health_checks | table | postgres | Y | Y | N | N | — | Registry health rows |
+| provider_model_candidates | table | postgres | Y | N | N | N | — | Gated |
+| provider_pilot_proposals | table | postgres | Y | N | N | N | — | Gated |
+| provider_policy_verifications | table | postgres | Y | N | N | N | — | Read |
+| provider_rate_limit_policies | table | postgres | Y | N | N | N | — | Read |
+| provider_usage_ledger | table | postgres | Y | N | N | N | — | Read; insert via DEFINER spend/success paths |
+| providers | table | postgres | Y | N | N | N | — | Gated |
+| question_status_transitions | table | postgres | Y | N | N | N | — | Read transition rules |
+| reconsideration_conditions | table | postgres | Y | Y | Y | N | — | Lifecycle |
+| repair_attempts | table | postgres | Y | Y | N | N | — | Repair log |
+| research_closure_records | table | postgres | Y | Y | N | N | — | Closures |
+| research_findings | table | postgres | Y | Y | N | N | — | Findings |
+| research_priorities | table | postgres | Y | Y | Y | N | — | Priorities |
+| research_question_relationships | table | postgres | Y | Y | N | N | — | Relationships |
+| research_question_versions | table | postgres | Y | Y | N | N | — | Versions |
+| research_questions | table | postgres | Y | Y | Y | N | — | Lifecycle core |
+| research_run_stages | table | postgres | Y | Y | Y | N | — | Orchestration |
+| research_runs | table | postgres | Y | Y | Y | N | — | Orchestration |
+| research_status_history | table | postgres | Y | Y | N | N | — | History append |
+| run_failures | table | postgres | Y | Y | N | N | — | Failures |
+| schema_version | table | postgres | Y | N | N | N | — | Read |
+| source_snapshots | table | postgres | Y | Y | N | N | — | Snapshots |
+| sources | table | postgres | Y | Y | N | N | — | Sources |
+| taha_decisions | table | postgres | Y | Y | N | N | — | Decisions |
+| taha_governance_actions | table | postgres | Y | N | N | N | — | Audit read |
+| taha_scores | table | postgres | Y | Y | N | N | — | Scores |
+| v_active_research_queue | view | postgres | Y | — | — | — | — | Reporting |
+| v_cost_per_successful_run | view | postgres | Y | — | — | — | — | Reporting |
+| v_decision_history_by_topic | view | postgres | Y | — | — | — | — | Reporting |
+| v_duplicate_question_warnings | view | postgres | Y | — | — | — | — | Reporting |
+| v_enabled_provider_readiness | view | postgres | Y | — | — | — | — | Reporting |
+| v_failure_rate | view | postgres | Y | — | — | — | — | Reporting |
+| v_gemini_pilot_5a | view | postgres | Y | — | — | — | — | Reporting |
+| v_highest_priority_unanswered | view | postgres | Y | — | — | — | — | Reporting |
+| v_insufficient_evidence_warning | view | postgres | Y | — | — | — | — | Reporting |
+| v_latency_percentile_summary | view | postgres | Y | — | — | — | — | Reporting |
+| v_latest_monthly_ranking | view | postgres | Y | — | — | — | — | Reporting |
+| v_missing_credentials | view | postgres | Y | — | — | — | — | Reporting |
+| v_models_awaiting_verification | view | postgres | Y | — | — | — | — | Reporting |
+| v_proposals_awaiting_taha | view | postgres | Y | — | — | — | — | Reporting |
+| v_provider_health_summary | view | postgres | Y | — | — | — | — | Reporting |
+| v_provider_performance_by_role | view | postgres | Y | — | — | — | — | Reporting |
+| v_questions_blocked_missing_evidence | view | postgres | Y | — | — | — | — | Reporting |
+| v_rejected_eligible_reconsideration | view | postgres | Y | — | — | — | — | Reporting |
+| v_remaining_daily_quota | view | postgres | Y | — | — | — | — | Reporting |
+| v_remaining_monthly_budget | view | postgres | Y | — | — | — | — | Reporting |
+| v_settled_questions | view | postgres | Y | — | — | — | — | Reporting |
+| v_simulated_decision_cards | view | postgres | Y | — | — | — | — | Reporting |
+| v_unauthorized_call_warnings | view | postgres | Y | — | — | — | — | Reporting |
+
+Sequences: grant `USAGE, SELECT` on sequences owned by tables with INSERT=Y above; no sequence grants for gated tables.
+
+Schema: `GRANT USAGE ON SCHEMA research TO research_app, n8n_app, research_governance`.
+
+### A.2 Functions — classification and `research_app` EXECUTE
+
+| Object | Classification | research_app EXECUTE | Reason |
+| --- | --- | --- | --- |
+| `_allowed_source_ids(uuid)` | runtime allowlisted | Y | Orchestration helper |
+| `_append_completed_stage(uuid,text)` | runtime allowlisted | Y | Orchestration helper |
+| `_evidence_bundle_for_question(uuid)` | runtime allowlisted | Y | Orchestration helper |
+| `_record_failure(uuid,text,text,text)` | runtime allowlisted | Y | Orchestration helper |
+| `_r3_clone_question` | test-only | N | Moved to research_test |
+| `_r3_new_run` | test-only | N | Moved to research_test |
+| `_r4_arm_provider` | test-only | N | Moved to research_test |
+| `_r4_case_id` | test-only | N | Moved to research_test |
+| `_r4_make_auth` | test-only | N | Moved to research_test |
+| `_r4_reset_defaults` | test-only | N | Moved to research_test |
+| `_r5a_arm_for_pilot_tests` | test-only | N | Moved to research_test |
+| `_r5a_assert_final_pilot_state` | test-only | N | Moved to research_test |
+| `_r5a_final_arm_gates` | test-only | N | Moved to research_test |
+| `_r5a_final_assert_state` | test-only | N | Moved to research_test |
+| `_r5a_final_reset_defaults` | test-only | N | Moved to research_test |
+| `_r5a_insert_fixture_auth` | test-only | N | Moved to research_test |
+| `_r5a_repair_reset_defaults` | test-only | N | Moved to research_test |
+| `activate_pilot_authorization` | governance-only | N | Taha activation |
+| `approve_pilot_proposal` | governance-only | N | New; Taha approval |
+| `build_decision_card(uuid)` | runtime allowlisted | Y | Round 3 |
+| `build_provider_request_envelope(...)` | runtime allowlisted DEFINER | Y | Pilot envelopes |
+| `build_non_pilot_request_envelope(...)` | runtime allowlisted DEFINER | Y | Round 4 path |
+| `cancel_research_run(uuid,text)` | runtime allowlisted | Y | Round 3 |
+| `cleanup_test_fixture` | test-only | N | research_test |
+| `compute_priority_v1(...)` | runtime allowlisted | Y | Priority |
+| `confirm_provider_credential_status(...)` | governance-only | N | Credential confirm |
+| `disable_model_for_pilot(...)` | governance-only | N | Enablement pair |
+| `disable_provider_for_pilot(...)` | governance-only | N | Enablement pair |
+| `enable_model_for_pilot(...)` | governance-only | N | Enablement |
+| `enable_provider_for_pilot(...)` | governance-only | N | Enablement |
+| `enforce_completed_run_evidence()` | owner/migration-only (trigger) | N | Trigger fn |
+| `estimate_provider_cost_usd(...)` | runtime allowlisted | Y | Cost estimate read |
+| `forbid_mutation()` | owner/migration-only (trigger) | N | Trigger fn |
+| `forbid_terminal_run_wipe()` | owner/migration-only (trigger) | N | Trigger fn |
+| `gemini_pilot_5a_gate_status()` | read-only reporting | Y | Status report |
+| `live_preflight(...)` | runtime allowlisted | Y | Gates |
+| `materialize_proposal_from_run(uuid)` | runtime allowlisted | Y | Round 3 |
+| `mock_adapter_invoke(uuid)` | runtime allowlisted | Y | Round 3 mock |
+| `mock_model_for_stage(text)` | runtime allowlisted | Y | Round 3 mock |
+| `mock_provider_for_stage(text)` | runtime allowlisted | Y | Round 3 mock |
+| `orchestrate_research_run(uuid)` | runtime allowlisted | Y | Round 3 |
+| `parse_provider_fixture_response(text,jsonb)` | runtime allowlisted | Y | Round 4 fixtures |
+| `pilot_capacity_snapshot(uuid)` | read-only reporting | Y | Quota read |
+| `pilot_case_attempt_count(uuid,uuid)` | read-only reporting | Y | Attempt read |
+| `proposal_has_evidence(uuid[])` | runtime allowlisted | Y | Lifecycle |
+| `record_accounting_discrepancy(...)` | governance-only | N | Fail-closed audit |
+| `record_authorization_spend(...)` | runtime allowlisted DEFINER | Y | Round 4 non-pilot spend only; **rejects pilot_proposal_id IS NOT NULL** |
+| `record_pilot_usage_for_tests(...)` | test-only | N | research_test |
+| `run_stage(...)` | runtime allowlisted | Y | Round 3 |
+| `sha256_hex(text)` | runtime allowlisted | Y | Hashing |
+| `trg_authorization_validity_guard()` | owner/migration-only | N | Trigger |
+| `trg_block_evidence_delete_after_decision()` | owner/migration-only | N | Trigger |
+| `trg_envelope_immutability()` | owner/migration-only | N | Trigger |
+| `trg_evidence_immutable_body()` | owner/migration-only | N | Trigger |
+| `trg_proposal_ready_requires_evidence()` | owner/migration-only | N | Trigger |
+| `trg_question_decision_requires_supported_proposal()` | owner/migration-only | N | Trigger |
+| `trg_question_status_change()` | owner/migration-only | N | Trigger |
+| `trg_question_status_history()` | owner/migration-only | N | Trigger |
+| `trg_question_status_validate()` | owner/migration-only | N | Trigger |
+| `trg_run_stage_immutable()` | owner/migration-only | N | Trigger |
+| `trg_set_priority_scores()` | owner/migration-only | N | Trigger |
+| `trg_sync_question_priority()` | owner/migration-only | N | Trigger |
+| `trg_usage_ledger_immutability()` | owner/migration-only | N | Trigger |
+| `try_enter_decision_from_partial(uuid)` | runtime allowlisted | Y | Round 3 |
+
+`PUBLIC EXECUTE`: **N** for every function in this appendix.
+
+---
+
+## Appendix B — `n8n_app` and `research_governance` grants
+
+| Role | Tables/views | Functions |
+| --- | --- | --- |
+| `n8n_app` | SELECT where Appendix A SELECT=Y | **No** EXECUTE on any research function listed above |
+| `research_governance` | SELECT on all research tables/views needed for ops (same SELECT set as app + gated tables) | EXECUTE only governance-only + read-only reporting functions; **not** arm/test helpers; **not** `build_*` required (optional GRANT for diagnostics) |
+
+---
+
+## Appendix C — Open risks (accepted)
+
+- Owner/`postgres` break-glass UPDATE still possible; mitigated by immutability triggers + ops procedure.
+- Human theft of `research_governance` login equals full governance power; keep local-only.
+- Round 4 adapters must be pointed at `build_non_pilot_request_envelope` in the implementation round.
