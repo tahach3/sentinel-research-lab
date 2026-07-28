@@ -1,0 +1,69 @@
+{
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "name":  "SRL Research Run Finalizer",
+    "tags":  [
+
+             ],
+    "active":  false,
+    "meta":  {
+                 "templateCredsSetupCompleted":  false,
+                 "srlRound":  3,
+                 "srlInactiveByDesign":  true
+             },
+    "connections":  {
+                        "Manual Trigger":  {
+                                               "main":  [
+                                                            {
+                                                                "node":  "Mock Structured Step",
+                                                                "type":  "main",
+                                                                "index":  0
+                                                            }
+                                                        ]
+                                           }
+                    },
+    "nodes":  [
+                  {
+                      "id":  "d709e2ce-72b6-4a10-ab29-1aac33c93754-1",
+                      "name":  "Manual Trigger",
+                      "type":  "n8n-nodes-base.manualTrigger",
+                      "position":  [
+                                       0,
+                                       0
+                                   ],
+                      "parameters":  {
+
+                                     },
+                      "typeVersion":  1
+                  },
+                  {
+                      "id":  "d709e2ce-72b6-4a10-ab29-1aac33c93754-2",
+                      "name":  "Design Notes",
+                      "type":  "n8n-nodes-base.stickyNote",
+                      "position":  [
+                                       -360,
+                                       -40
+                                   ],
+                      "parameters":  {
+                                         "content":  "PLACEHOLDER / INACTIVE\nBuilds Taha decision card. Does not record Taha decision. Blocks partial runs.\nNo credentials. No HTTP. No AI nodes. No webhooks.",
+                                         "width":  440,
+                                         "height":  240
+                                     },
+                      "typeVersion":  1
+                  },
+                  {
+                      "id":  "d709e2ce-72b6-4a10-ab29-1aac33c93754-3",
+                      "name":  "Mock Structured Step",
+                      "type":  "n8n-nodes-base.code",
+                      "position":  [
+                                       280,
+                                       0
+                                   ],
+                      "parameters":  {
+                                         "jsCode":  "return [{ json: { workflow: \u0027research-run-finalizer.json\u0027, mode: \u0027design_mock\u0027, active: false, postgres_binding: \u0027research.orchestrate_research_run / research.run_stage\u0027, failure_paths: [\u0027budget_blocked\u0027,\u0027invalid_schema\u0027,\u0027unsupported_citation\u0027,\u0027qa_reject\u0027,\u0027reviewer_reject\u0027,\u0027stagnation\u0027,\u0027partial_blocked\u0027,\u0027cancelled\u0027] } }];"
+                                     },
+                      "typeVersion":  2
+                  }
+              ]
+}

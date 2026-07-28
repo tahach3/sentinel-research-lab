@@ -12,7 +12,7 @@ Local Docker foundation for:
 
 It does **not** modify software projects, trigger coding agents, or write into SENTINEL.
 
-## Stack (Round 0B–2)
+## Stack (Round 0B–3)
 
 | Service | Role |
 | --- | --- |
@@ -22,6 +22,8 @@ It does **not** modify software projects, trigger coding agents, or write into S
 Round 1 adds **benchmarking design + schema only** (no live AI calls). See `docs/BENCHMARKING_STRATEGY.md`.
 
 Round 2 adds the **governed research question and decision lifecycle** (still no AI calls). See `docs/RESEARCH_QUESTION_LIFECYCLE.md`.
+
+Round 3 adds a **simulated multi-model research pipeline** with mock adapters only. See `docs/RESEARCH_ORCHESTRATION.md`.
 
 Qdrant is **not** included. See `docs/ARCHITECTURE.md`.
 

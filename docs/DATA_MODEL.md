@@ -12,26 +12,24 @@ Benchmarking tables/views (providers, models, suites, cases, runs, scores, ranki
 
 ### Round 2
 
-Lifecycle tables:
+Lifecycle tables and decision/evidence custody (see Round 2 docs).
 
-- `question_status_transitions`
-- `research_questions`, `research_question_versions`, `research_question_relationships`
-- `research_priorities`, `research_status_history`, `research_closure_records`
-- `sources`, `source_snapshots`, `evidence_items`, `evidence_claim_links`, `research_findings`
-- `improvement_proposals`, `proposal_versions`
-- `taha_decisions`, `decision_rationales`, `reconsideration_conditions`
+### Round 3
 
-Views:
+Orchestration tables:
 
-- `v_active_research_queue`
-- `v_highest_priority_unanswered`
-- `v_questions_blocked_missing_evidence`
-- `v_proposals_awaiting_taha`
-- `v_rejected_eligible_reconsideration`
-- `v_settled_questions`
-- `v_duplicate_question_warnings`
-- `v_decision_history_by_topic`
+- `research_runs` (shared orchestration state)
+- `research_run_stages`
+- `provider_adapter_requests`
+- `provider_adapter_responses`
+- `repair_attempts`
+- `orchestration_failures`
+
+View: `v_simulated_decision_cards`
+
+Functions: `mock_adapter_invoke`, `run_stage`, `orchestrate_research_run`,
+`materialize_proposal_from_run`, `build_decision_card`, `cancel_research_run`.
 
 ## Planned later
 
-SENTINEL export packages, live provider adapters, AI-generated intake (not Round 2).
+Live provider adapters, SENTINEL export packages (not Round 3).
