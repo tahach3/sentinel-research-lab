@@ -1,0 +1,44 @@
+{
+  "name": "SRL Monthly Role Ranking Report",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "d1000000-0000-4000-8000-000000000001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "content": "PLACEHOLDER: compute rank-v1 only when evidence thresholds pass.\nSee docs/BENCHMARK_RANKING.md. No live AI calls.",
+        "height": 180,
+        "width": 380
+      },
+      "id": "d1000000-0000-4000-8000-000000000002",
+      "name": "Design Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-320, -60]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    formula_version: 'rank-v1',\n    evidence_threshold: {\n      min_completed_cases: 10,\n      min_adversarial: 2,\n      max_technical_failure_rate: 0.2,\n      max_unresolved_critical_safety: 0\n    },\n    status: 'design_mock_no_insert'\n  }\n}];"
+      },
+      "id": "d1000000-0000-4000-8000-000000000003",
+      "name": "Mock Ranking Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 0]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Mock Ranking Gate", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": { "srlRound": 1, "srlInactiveByDesign": true, "templateCredsSetupCompleted": false },
+  "tags": []
+}

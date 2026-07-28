@@ -6,14 +6,18 @@
 # Database dumps and backups
 backups/**
 !backups/.gitkeep
-*.sql
 *.sql.gz
 *.dump
 *.backup
+# Ignore ad-hoc SQL dumps at repo root; allow versioned database SQL
+/*.sql
+!database/**/*.sql
 
-# n8n credential-bearing exports
-workflows/**/*.json
+# n8n credential-bearing exports (allow inactive design workflows only)
+workflows/**
 !workflows/.gitkeep
+!workflows/design/
+!workflows/design/*.json
 
 # Generated proposal exports (commit only when explicitly approved later)
 exports/**

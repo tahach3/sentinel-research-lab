@@ -1,0 +1,76 @@
+{
+  "name": "SRL Benchmark Run Coordinator",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "content": "## PLACEHOLDER ONLY\nLoads enabled providers/cases from Postgres.\nChecks quota/budget before any provider call.\nCreates pending benchmark_runs.\nRoutes to future provider adapter.\nNEVER live HTTP to AI providers in Round 1.",
+        "height": 260,
+        "width": 400
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Design Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-320, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "// MOCK: load cases SQL would run here via Postgres node in a later round.\n// No credentials configured. No outbound requests.\nreturn [{\n  json: {\n    mode: 'design_mock',\n    action: 'load_benchmark_cases',\n    require_enabled_providers_only: true,\n    check_quota_before_execute: true,\n    forbid_silent_paid_retry: true,\n    forbid_silent_provider_switch: true\n  }\n}];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Mock Load Cases",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// MOCK provider adapter placeholder.\n// Future: call authorized adapter only.\nreturn [{ json: { adapter: 'future_provider_adapter', status: 'skipped_no_credentials' } }];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Mock Provider Adapter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// MOCK: validate structured output / record failure.\nreturn [{ json: { schema_valid: false, recorded: 'pending_design_only' } }];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Mock Validate And Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 0]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Mock Load Cases", "type": "main", "index": 0 }]]
+    },
+    "Mock Load Cases": {
+      "main": [[{ "node": "Mock Provider Adapter", "type": "main", "index": 0 }]]
+    },
+    "Mock Provider Adapter": {
+      "main": [[{ "node": "Mock Validate And Record", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "srlRound": 1,
+    "srlInactiveByDesign": true
+  },
+  "tags": []
+}

@@ -12,12 +12,14 @@ Local Docker foundation for:
 
 It does **not** modify software projects, trigger coding agents, or write into SENTINEL.
 
-## Stack (Round 0B)
+## Stack (Round 0B + Round 1)
 
 | Service | Role |
 | --- | --- |
 | PostgreSQL + pgvector | Authoritative storage (`n8n` + `research` schemas) |
 | n8n Community Edition | Local automation UI (HTTP on loopback only) |
+
+Round 1 adds **benchmarking design + schema only** (no live AI calls). See `docs/BENCHMARKING_STRATEGY.md`.
 
 Qdrant is **not** included. See `docs/ARCHITECTURE.md`.
 

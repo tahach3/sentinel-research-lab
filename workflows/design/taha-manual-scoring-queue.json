@@ -1,0 +1,44 @@
+{
+  "name": "SRL Taha Manual Scoring Queue",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "content": "PLACEHOLDER queue for Taha scores (append-only taha_scores).\nNo credentials. Inactive by design.",
+        "height": 160,
+        "width": 360
+      },
+      "id": "c1000000-0000-4000-8000-000000000002",
+      "name": "Design Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-300, -40]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { queue: 'taha_manual_scoring', status: 'design_mock' } }];"
+      },
+      "id": "c1000000-0000-4000-8000-000000000003",
+      "name": "Mock Queue Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 0]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Mock Queue Item", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": { "srlRound": 1, "srlInactiveByDesign": true, "templateCredsSetupCompleted": false },
+  "tags": []
+}

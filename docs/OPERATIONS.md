@@ -7,12 +7,19 @@ cd C:\Users\Taha\sentinel-research-lab
 $env:Path = "$env:LOCALAPPDATA\Programs\DockerDesktop\resources\bin;" + $env:Path
 ```
 
+## Apply database migrations
+
+```powershell
+.\scripts\migrate.ps1
+```
+
+Applies versioned SQL under `database/migrations/` and seeds under `database/seeds/`.
+
 ## Start
 
 ```powershell
 .\scripts\start.ps1
 ```
-
 ## Stop
 
 ```powershell
