@@ -12,7 +12,7 @@ Local Docker foundation for:
 
 It does **not** modify software projects, trigger coding agents, or write into SENTINEL.
 
-## Stack (Round 0B–4)
+## Stack (Round 0B–5A)
 
 | Service | Role |
 | --- | --- |
@@ -26,6 +26,8 @@ Round 2 adds the **governed research question and decision lifecycle** (still no
 Round 3 adds a **simulated multi-model research pipeline** with mock adapters only. See `docs/RESEARCH_ORCHESTRATION.md`.
 
 Round 4 prepares **gated live-provider readiness** (all disabled; zero live calls). See `docs/PROVIDER_PREFLIGHT.md`.
+
+Round 5A prepares a **bounded Gemini free-tier pilot** and waits for Taha’s n8n credential. See `docs/GEMINI_PILOT_SETUP.md`.
 
 Qdrant is **not** included. See `docs/ARCHITECTURE.md`.
 

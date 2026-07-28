@@ -14,7 +14,8 @@ try {
     'database\seeds\003_lifecycle_scenarios.sql',
     'database\migrations\004_research_orchestration.sql',
     'database\seeds\004_round3_pilot.sql',
-    'database\migrations\005_provider_live_gates.sql'
+    'database\migrations\005_provider_live_gates.sql',
+    'database\migrations\006_gemini_pilot_5a.sql'
   )
   foreach ($rel in $files) {
     $path = Join-Path $root $rel
@@ -51,6 +52,10 @@ try {
     if ($rel -match 'migrations\\005_' ) {
       $has = docker compose exec -T postgres psql -U postgres -d sentinel_research_lab -tA -c "SELECT 1 FROM research.schema_version WHERE version=5;"
       if ("$has".Trim() -eq '1') { Write-Output "SKIP $rel (schema_version 5 present)"; continue }
+    }
+    if ($rel -match 'migrations\\006_' ) {
+      $has = docker compose exec -T postgres psql -U postgres -d sentinel_research_lab -tA -c "SELECT 1 FROM research.schema_version WHERE version=6;"
+      if ("$has".Trim() -eq '1') { Write-Output "SKIP $rel (schema_version 6 present)"; continue }
     }
     Write-Output "Applying $rel ..."
     Get-Content -LiteralPath $path -Raw | docker compose exec -T postgres psql -U postgres -d sentinel_research_lab -v ON_ERROR_STOP=1

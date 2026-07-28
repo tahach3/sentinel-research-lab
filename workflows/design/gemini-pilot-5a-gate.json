@@ -1,0 +1,70 @@
+{
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "name":  "SRL Gemini Pilot 5A Gate",
+    "tags":  [
+
+             ],
+    "active":  false,
+    "meta":  {
+                 "templateCredsSetupCompleted":  false,
+                 "srlRound":  "5A",
+                 "liveExecutionAllowed":  false,
+                 "srlInactiveByDesign":  true
+             },
+    "connections":  {
+                        "Manual Trigger":  {
+                                               "main":  [
+                                                            {
+                                                                "node":  "Mock Structured Step",
+                                                                "type":  "main",
+                                                                "index":  0
+                                                            }
+                                                        ]
+                                           }
+                    },
+    "nodes":  [
+                  {
+                      "id":  "7ebba053-094d-4f30-843b-e237274f3109-1",
+                      "name":  "Manual Trigger",
+                      "type":  "n8n-nodes-base.manualTrigger",
+                      "position":  [
+                                       0,
+                                       0
+                                   ],
+                      "parameters":  {
+
+                                     },
+                      "typeVersion":  1
+                  },
+                  {
+                      "id":  "7ebba053-094d-4f30-843b-e237274f3109-2",
+                      "name":  "Design Notes",
+                      "type":  "n8n-nodes-base.stickyNote",
+                      "position":  [
+                                       -380,
+                                       -40
+                                   ],
+                      "parameters":  {
+                                         "content":  "INACTIVE ROUND 5A\nAwaiting Taha credential sentinel-research-lab-gemini-pilot.\nProvider+model DISABLED.\nlive_execution_allowed=false.\nNo HTTP. No credentials in JSON.",
+                                         "width":  460,
+                                         "height":  260
+                                     },
+                      "typeVersion":  1
+                  },
+                  {
+                      "id":  "7ebba053-094d-4f30-843b-e237274f3109-3",
+                      "name":  "Mock Structured Step",
+                      "type":  "n8n-nodes-base.code",
+                      "position":  [
+                                       280,
+                                       0
+                                   ],
+                      "parameters":  {
+                                         "jsCode":  "return [{ json: { pilot: \u0027GEMINI-PILOT-5A\u0027, model: \u0027gemini-2.5-flash\u0027, active: false, live_execution_allowed: false, cases: [\u0027R-N-01\u0027,\u0027R-A-01\u0027,\u0027R-X-01\u0027], max_cost_usd: 0 } }];"
+                                     },
+                      "typeVersion":  2
+                  }
+              ]
+}
