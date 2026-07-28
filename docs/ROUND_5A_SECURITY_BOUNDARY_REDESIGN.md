@@ -1,12 +1,12 @@
-﻿# Round 5A — Security Boundary Redesign (Revision 5)
+﻿# Round 5A — Security Boundary Redesign (Revision 6)
 
 **Status:** Design only. Not implemented.
-**Baseline HEAD:** `ed8d8931e40388a9f26b75d3146dd646e68072c9` / schema version 8 runtime
-**Supersedes:** Revision 4 content of this file at that commit
-**Scope:** Machine-exact privilege, linear governance chains, trusted crypto, activation invariants, capacity, typed discrepancy identity, enforceable cutover freeze, legacy restart branches, and schema 8→9 migration.
-**Non-goals:** Implementing SQL in this round; storing API keys; Round 5B live HTTP; Equitify/SENTINEL changes; advancing schema version; changing live roles/grants.
+**Baseline HEAD:** `196b4942016fd78449028ae981eaf5488af57282` / schema version 8 runtime
+**Supersedes:** Revision 5 content of this file at that commit
+**Scope:** Multi-transaction schema-9 cutover controller, durable freeze, catalog-derived restart, machine-exact privilege/governance/crypto/discrepancy design.
+**Non-goals:** Implementing SQL/controller scripts in this round; Round 5B live HTTP; Equitify/SENTINEL changes; changing live roles/grants.
 
-Resolves Codex Revision-4 findings: partial-cutover runtime freeze; proposal-scoped credential confirmation; typed discrepancy recorder; numeric canonicalization; post-rename State A/B/C; exact trigger object names; adversarial test expansion.
+Resolves architecture critique: separately committed freeze; frozen version-9 recovery; exact write-freeze matrix; State A/B/C predicates; literal discrepancy fingerprint; explicit crypto and governance-transition tests.
 
 ---
 
@@ -612,7 +612,13 @@ Canonical payload `::text` (normative; keys alphabetical as produced by controll
 {"authorization_id": "22222222-2222-2222-2222-222222222222", "benchmark_case_id": "55555555-5555-5555-5555-555555555555", "discrepancy_type": "ledger_event_conflict", "expected_max_cost_usd": "0.00000000", "expected_max_input_tokens": 1000, "expected_max_output_tokens": 1000, "expected_max_requests": 3, "expected_max_successful_calls": 3, "idempotency_key": "idem-example-001", "ledger_cost_usd": "0.00000000", "ledger_input_tokens": 0, "ledger_output_tokens": 0, "ledger_request_count": 0, "ledger_success_count": 0, "model_id": "44444444-4444-4444-4444-444444444444", "observed_attempt_count": 3, "observed_cost_usd": "0.00000000", "observed_input_tokens": 0, "observed_output_tokens": 0, "observed_success_count": 0, "operation": "build_provider_request_envelope", "pilot_proposal_id": "11111111-1111-1111-1111-111111111111", "provider_id": "33333333-3333-3333-3333-333333333333", "schema_version": 9}
 ```
 
-Expected fingerprint for tests: `research.sha256_hex(<exact canonical payload text above>)` computed under schema-9 `research_crypto`. The payload text is normative; the hex digest is whatever that function returns for that exact UTF-8 text. Tests MUST assert stability of that digest across monetary inputs `0`, `0.0`, and `0.00000000`, and MUST assert inequality when any typed field changes.
+Normative SHA-256 fingerprint of the exact canonical payload text above (UTF-8), literal constant for tests (do **not** derive the expected value by calling the production function under test):
+
+```text
+c79c93716d543b36954e599c5e1d1a6e5cf74b9d6215f25319cb2296833dc957
+```
+
+Tests MUST compare an independently computed digest of the normative payload text to this literal. Also assert monetary inputs `0`, `0.0`, and `0.00000000` produce this same fingerprint, and that any changed typed field yields a different fingerprint.
 
 ### 8.2 Table `research.accounting_discrepancies`
 
@@ -670,7 +676,7 @@ Inside the function:
 1. Validate each scalar type and range (non-negative counts/tokens; monetary cast to `numeric(20,8)`; positive schema_version; closed `discrepancy_type` / `operation` enums).
 2. Reject missing required identifiers (`pilot_proposal_id`, etc. where required by type).
 3. Reject unsupported discrepancy types and operations.
-4. Reconstruct canonical payload via `research.build_accounting_discrepancy_payload(...)`.
+4. Reconstruct canonical payload via `research.build_accounting_discrepancy_payload` using the exact Appendix A.4 argument list.
 5. No open JSON parameter exists → arbitrary extra fields cannot be submitted.
 6. Recompute fingerprint internally via `research.sha256_hex(payload::text)`.
 7. Compare with `p_expected_fingerprint`; mismatch → reject; no insert.
@@ -799,133 +805,412 @@ Catalog assertion: all five trigger names exist, enabled, attached to exact tabl
 
 ---
 
-## 13. Migration state machine (schema 8 → 9)
+## 13. Multi-transaction cutover controller (schema 8 → 9)
 
-Schema version advances to **9** only at the designated step; EXECUTE re-grant occurs only after `cutover_complete`. The advisory lock is **not** runtime protection. Runtime is enforceably frozen by privilege revocation plus the cutover marker before the first security-sensitive DDL beyond the freeze itself.
+**Selected model:** Model A — multi-transaction cutover controller.
+**Controller (design-only):** owner-controlled PowerShell script `scripts/schema9-cutover.ps1` executing separately committed `psql` phase scripts under `database/schema9/phases/`.
+**Not** a single all-or-nothing migration assumption. Advisory lock is **not** runtime protection.
 
-### 13.0 Cutover marker table
+Proposed later implementation layout (do not create now):
+
+```text
+scripts/schema9-cutover.ps1
+database/schema9/phases/00-preflight.sql
+database/schema9/phases/10-freeze.sql
+database/schema9/phases/15-freeze-verify.sql
+database/schema9/phases/20-transform.sql
+database/schema9/phases/30-reconcile.sql
+database/schema9/phases/40-validate.sql
+database/schema9/phases/50-version.sql
+database/schema9/phases/60-restore.sql
+```
+
+### 13.0 Persisted cutover evidence
 
 ```text
 research.schema9_cutover_state (
   migration_id TEXT PRIMARY KEY CHECK (migration_id = 'schema_8_to_9'),
   starting_schema_version INT NOT NULL CHECK (starting_schema_version = 8),
-  freeze_at TIMESTAMPTZ NOT NULL,
+  freeze_at TIMESTAMPTZ NULL,
   state TEXT NOT NULL CHECK (state IN (
+    'preflight',
+    'runtime_freezing',
     'runtime_frozen',
-    'cutover_validating',
-    'cutover_complete',
-    'cutover_failed'
+    'transforming',
+    'reconciling',
+    'validating',
+    'version_advanced',
+    'runtime_restoring',
+    'complete',
+    'failed_frozen'
   )),
+  latest_checkpoint TEXT NOT NULL DEFAULT '',
+  reservation_branch TEXT NOT NULL DEFAULT '' CHECK (reservation_branch IN ('', 'A', 'B', 'C')),
+  reconciliation_checksum TEXT NOT NULL DEFAULT '',
+  validation_digest TEXT NOT NULL DEFAULT '',
   detail TEXT NOT NULL DEFAULT '',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 )
+
+research.schema9_cutover_checkpoints (
+  migration_id TEXT NOT NULL REFERENCES research.schema9_cutover_state(migration_id),
+  checkpoint_id TEXT NOT NULL,
+  phase TEXT NOT NULL,
+  committed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
+  PRIMARY KEY (migration_id, checkpoint_id)
+)
 ```
 
-Privileges: PUBLIC/APP/N8N/GOV/TEST = **NONE** (owner-only). Schema-9 elevated builders and governance writers MUST fail closed unless `state = 'cutover_complete'` (in addition to EXECUTE grants). Failure after freeze leaves `runtime_frozen` or `cutover_failed`; recovery resumes under frozen EXECUTE revokes; no broad grant during recovery.
+Privileges on both tables: PUBLIC / APP / N8N / GOV / TEST = **NONE** (owner-only).
 
-### 13.1 Freeze inventory (exact)
+### 13.1 Schema-version rule (locked)
 
-At step 3 (runtime freeze), `REVOKE EXECUTE ON FUNCTION … FROM research_app, n8n_app, research_governance, PUBLIC` for every signature below. Also revoke direct mutating table privileges in §13.1.1. Any revoke/assert failure → set `cutover_failed`; version stays 8; keep runtime blocked.
+```text
+Version remains 8 through freeze, transformation, reconciliation, and validation.
+Version changes to 9 only after validation succeeds while runtime remains frozen.
+Version 9 with runtime frozen is a valid recoverable state.
+Exact schema-9 runtime grants occur only after version 9.
+Completion requires version 9, state=complete, and exact verified allowlist.
+```
 
-**Frozen EXECUTE (lose EXECUTE from APP/N8N/GOV/PUBLIC):**
+Restarts must accept frozen version-8 and frozen version-9 incomplete states. Restarts must **not** require a fresh version-8-only entry for every recovery.
 
-* `research.build_provider_request_envelope(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_canonical_request jsonb, p_claimed_credential_status text)`
-* `research.build_non_pilot_request_envelope(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_claimed_credential_status text)` (once created; remains revoked until step 20)
-* `research.live_preflight(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_claimed_credential_status text, p_projected_input_tokens integer, p_projected_output_tokens integer, p_is_retry boolean, p_fallback_provider text)`
-* `research.orchestrate_research_run(p_run_id uuid)`
-* `research.run_stage(p_run_id uuid, p_stage text, p_scenario_hint text)`
-* `research.record_authorization_spend(p_authorization_id uuid, p_requests integer, p_tokens integer, p_cost numeric, p_note text)`
-* `research.mock_adapter_invoke(p_request_id uuid)`
-* `research.parse_provider_fixture_response(p_provider_code text, p_fixture jsonb)`
-* `research.activate_pilot_authorization(p_authorization_id uuid, p_pilot_code text)`
-* `research.append_governance_action(p_action_type text, p_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_decision_value text, p_material_fingerprint char(64), p_supersedes_action_id uuid, p_issued_at timestamptz, p_expires_at timestamptz, p_payload jsonb)`
-* `research.approve_pilot_proposal(p_pilot_code text)`
-* `research.confirm_provider_credential_status(p_pilot_proposal_id uuid, p_provider_code text, p_n8n_credential_label text, p_governance_action_id uuid, p_note text)`
-* `research.enable_provider_for_pilot(p_pilot_code text, p_provider_code text)`
-* `research.enable_model_for_pilot(p_pilot_code text, p_provider_code text, p_model_id_provisional text)`
-* `research.disable_provider_for_pilot(p_pilot_code text, p_provider_code text)`
-* `research.disable_model_for_pilot(p_pilot_code text, p_provider_code text, p_model_id_provisional text)`
-* `research.record_accounting_discrepancy` (typed Appendix A.4 signature; remains revoked until step 20)
-* `research.build_accounting_discrepancy_payload` (EXECUTE NONE to runtime always; DEFINER-internal only)
-* All Appendix A.4 `_r3*`, `_r4*`, `_r5a*`, `cleanup_test_fixture(p_fixture_id text)`, `record_pilot_usage_for_tests(p_authorization_id uuid, p_input_tokens integer, p_output_tokens integer, p_success boolean, p_fixture_id text, p_is_retry boolean)`
+### 13.2 State machine
 
-**KEEP EXECUTE during freeze (read-only inspect):** `research.gemini_pilot_5a_gate_status()`, `research.sha256_hex(p_text text)`, `research.pilot_capacity_snapshot(p_pilot_id uuid)`, `research.pilot_case_attempt_count(p_pilot_id uuid, p_benchmark_case_id uuid)`.
+#### `preflight`
 
-#### 13.1.1 Direct table privilege freeze (same boundary)
+| Field | Rule |
+| --- | --- |
+| Entry | Connected as `postgres`; controller start |
+| Transaction | Read-only validation; advisory `pg_advisory_lock(hashtext('srl_schema9_cutover'))` may be taken; **no** ACL/DDL/DML security mutations |
+| Committed evidence | Optional upsert of cutover row with `state='preflight'` **only if** no durable freeze yet; otherwise leave existing durable state untouched |
+| Permitted | Catalog inventory of roles, grants, functions, tables, triggers, extension schema, reservation `to_regclass` |
+| Prohibited runtime | None enforced yet (operator must stop app traffic) |
+| Assertions | Expected schema-8 baseline objects present |
+| Failure | Exit; no security-sensitive DB changes |
+| Restart | Rerun `preflight` |
+| Next | `runtime_freezing` if max(version)=8 and no durable freeze; else jump via §13.5 classification |
 
-REVOKE INSERT/UPDATE/DELETE from APP/N8N/GOV/PUBLIC on at least: `live_request_envelopes`, `provider_authorization_records`, `provider_usage_ledger`, `provider_credential_status`, `providers`, `provider_model_candidates`, `provider_pilot_proposals`, `pilot_capacity_reservations` (while present), and all NEW schema-9 write tables until final allowlist.
+#### `runtime_freezing`
 
-Catalog assertion: for every frozen signature, `has_function_privilege(role, oid, 'EXECUTE') = false` for APP/N8N/GOV/PUBLIC.
+**One dedicated committed transaction** containing **only**:
 
-### 13.2 Re-grant point
+1. Create/reconcile owner-controlled `schema9_cutover_state` row (do **not** set `runtime_frozen` until end of successful asserts).
+2. Exact `REVOKE EXECUTE` for every function in §13.3 from `research_app`, `n8n_app`, `research_governance`, `PUBLIC`.
+3. Exact write revocations per §13.4 matrix.
+4. Catalog assertions proving every required revoke succeeded.
+5. Set `state='runtime_frozen'`, `freeze_at=now()`, insert checkpoint `freeze_committed`.
 
-Runtime EXECUTE and exact Appendix A table grants restored **only** when all of: (1) all schema-9 objects exist; (2) legacy data reconciled; (3) unsafe functions replaced/removed; (4) privilege/ownership assertions pass; (5) provider/model remain disabled; (6) credentials unchanged; (7) no proposal/authorization activated by migration; (8) no active workflow; (9) schema version = 9; (10) cutover state = `cutover_complete`. Do **not** temporarily restore schema-8 builders. Old and new builders never simultaneously executable.
+| Field | Rule |
+| --- | --- |
+| Entry | `preflight` OK or restart classification selecting freeze |
+| Transaction | **Single committed freeze txn**; no transform DDL inside |
+| Committed evidence | `state=runtime_frozen`, `freeze_at` set, checkpoint `freeze_committed`, ACL asserts true |
+| Failure | **Entire freeze txn rolls back**; no false `runtime_frozen` marker; controller returns to `preflight` or `runtime_freezing`; **no later phase may begin** |
+| Restart | If marker absent/not frozen → `runtime_freezing`; never continue transform without durable freeze |
+| Next | `runtime_frozen` (verify session) |
 
-### 13.3 Numbered steps
+#### `runtime_frozen`
 
-| Step | Precondition | Object affected | Postcondition | Rerun | Failure | Recovery | Catalog assertion |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Connected as `postgres`; advisory lock free | `pg_advisory_lock(hashtext('srl_schema9_cutover'))` | Lock held | Re-acquire | Abort; version 8 | Retry | Lock held |
-| 2 | Lock held; max(version)=8 | Catalog vs schema-8 baseline | Expected objects present | Re-verify | Abort | Fix; restart | max(version)=8 |
-| 3 | Step 2 | **Runtime freeze**: REVOKE EXECUTE on §13.1; revoke gated table writes; upsert `schema9_cutover_state` → `runtime_frozen` | Entrypoints non-executable; marker frozen | Re-REVOKE; marker upsert | `cutover_failed`; keep revoked | Keep frozen; resume 3 | Freeze EXECUTE asserts false; state=`runtime_frozen` |
-| 4 | Step 3 frozen | Roles; schemas; CREATE revoke | Memberships correct; CREATE revoked | Idempotent | Keep frozen | Resume 4 | CREATE=false |
-| 5 | Step 4 | PUBLIC EXECUTE; defaults; create `research_crypto` + move pgcrypto | Crypto locked | Idempotent | Keep frozen; version 8 | Fix crypto; resume 5 | Extension in `research_crypto` |
-| 6 | Step 5 | Governance tables + chain indexes + decision CHECK + §12 triggers | Structures+triggers exist | IF NOT EXISTS | Keep frozen | Resume 6 | Triggers+indexes present |
-| 7 | Step 6 | Capacity events, archive UNIQUE, discrepancies, typed recorder shells; marker → `cutover_validating` | Objects exist; EXECUTE still revoked for new writers | Idempotent | Keep frozen | Resume 7 | Uniques+triggers |
-| 8 | Step 7 + State A/B (§13.4) | Legacy backfill / archive | Consumed capacity preserved | Skip existing keys | Keep frozen | Resume per state | Reconciliation |
-| 9 | Step 8 | Ledger conflict typed discrepancy inserts (owner session) | Conflicts recorded | Idempotent fingerprints | Keep frozen | Resume 9 | No capacity restore |
-| 10 | Step 9 | Create/replace governance+builder+activation+discrepancy bodies; **LEAVE EXECUTE revoked** | Bodies present; non-executable by APP/GOV | CREATE OR REPLACE | Keep frozen | Resume 10 | FQ crypto; no GUC; EXECUTE false for APP |
-| 11 | Step 10 | Rewrite snapshot/case-count/envelope immutability; remove reservation deps using **State A or State B name only** | Zero unresolved production deps | Idempotent | Keep frozen | Resume 11 | Dep scan |
-| 12 | Step 11 | Helper move to research_test | Helpers gone from research | DROP IF EXISTS | Keep frozen | Resume 12 | Inventory |
-| 13 | Step 12 | Round 4 path readiness (still revoked) | Non-pilot builder exists; EXECUTE false | Idempotent | Keep frozen | Resume 13 | Signature |
-| 14 | Step 13 + State A/B | Rename (State A only) or verify (State B); lockdown legacy; attach `trg_reject_legacy_capacity_table_mutation` | Legacy immutable; original absent | §13.4 | State C → cutover_failed | Resume per §13.4 | Original absent; legacy present |
-| 15 | Step 14 | Ownership/disabled/cred/auth zero-mutation asserts | Invariants hold | Re-assert | Keep frozen | Resume 15 | gemini disabled; 0 active |
-| 16 | Step 15 | Crypto+trigger inventory + freeze still held | Assert green | Re-assert | Keep frozen | Resume 16 | Five triggers; crypto OK |
-| 17 | Step 16 | Final ACL dry-run vs Appendix A **without granting** | Drift report empty | Re-run | Keep frozen | Resume 17 | Zero projected drift |
-| 18 | Step 17 | Insert version 9 row | max(version)=9 | Insert only if asserts green | Do not insert 9 | Fix; resume | max=9 |
-| 19 | Step 18 | Marker → `cutover_complete` | Marker complete | Idempotent | If fail: keep EXECUTE revoked; cutover_failed | Owner repair | state=`cutover_complete` |
-| 20 | Step 19 | **Exact Appendix A allowlist GRANT only** | Schema-9 grants exact; helpers absent | Re-GRANT exact | Revoke to freeze; cutover_failed | Fix; resume 20 | ACL=Appendix A |
+| Field | Rule |
+| --- | --- |
+| Entry | Freeze txn committed |
+| Transaction | **New session/txn**, verify-only |
+| Committed evidence | Optional checkpoint `freeze_verified` |
+| Re-read | cutover state; schema version; function ACLs; table ACLs; builder EXECUTE; provider/model disabled; active workflow count=0 |
+| Failure | If marker frozen but ACLs incomplete → `failed_frozen` (best-effort re-REVOKE) + owner inspection on contradiction |
+| Restart | Verified frozen → `transforming` (or later phase per checkpoints) |
+| Next | `transforming` |
+| Runtime | Blocked |
 
-### 13.4 Post-rename restart branches
+#### `transforming`
 
-#### State A — original table exists
+| Field | Rule |
+| --- | --- |
+| Entry | Durable freeze verified |
+| Transaction | Separately committed subphase scripts; checkpoint after each |
+| Checkpoints | `crypto_placed`, `governance_structures`, `capacity_structures`, `builders_rewritten`, `helpers_moved`, `defaults_locked`, … |
+| Permitted | Schema-9 DDL listed below; OWNER postgres |
+| Includes | `research_crypto` + pgcrypto move; governance tables/indexes/chains; activation guard without GUC; discrepancy structures; capacity events; controlled builders (EXECUTE still revoked); append-only triggers; helper isolation; ownership/default-privilege lockdown |
+| Prohibited | GRANT of builders to APP/N8N/GOV; version advance; allowlist restore |
+| Failure | `failed_frozen`; keep ACL revoked; resume from last checkpoint |
+| Restart | From latest verified transform checkpoint |
+| Next | `reconciling` |
+| Runtime | Blocked; old and new builders **both non-executable** |
+
+#### `reconciling`
+
+| Field | Rule |
+| --- | --- |
+| Entry | Transform checkpoints complete |
+| Transaction | Committed idempotent backfill/archive/ledger phases |
+| Evidence | `reservation_branch` A/B; `reconciliation_checksum`; event/archive/conflict counts; checkpoint `reconcile_complete` |
+| Uniques | Prevent duplicate events, archive rows, discrepancies, reconcile evidence |
+| Failure | `failed_frozen` |
+| Restart | Skip via UNIQUE + State A/B predicates (§13.6) |
+| Next | `validating` |
+| Runtime | Blocked |
+
+#### `validating`
+
+| Field | Rule |
+| --- | --- |
+| Entry | Reconcile complete |
+| Transaction | Assert-only; persist `validation_digest` |
+| Covers | Roles; memberships; schema privs; ownership; signatures; PUBLIC; defaults; crypto FQ; governance chains; triggers; builders present but non-executable; legacy deps; disabled provider/model; credential unchanged; 0 approvals/activations; inactive workflows; 0 envelopes/live calls |
+| Failure | `failed_frozen` |
+| Restart | Re-run validates |
+| Next | `version_advanced` |
+| Runtime | Blocked |
+
+#### `version_advanced`
+
+| Field | Rule |
+| --- | --- |
+| Entry | Validation green under durable freeze |
+| Transaction | **Separate commit**: insert `schema_version` = 9; set state=`version_advanced`; checkpoint `version_9` |
+| Evidence | max(version)=9 AND EXECUTE still revoked |
+| Failure | Do not insert 9 |
+| Restart | Accept `(version=9, state in version_advanced|runtime_restoring|failed_frozen, ACLs revoked)` — **do not** require fresh version 8 |
+| Next | `runtime_restoring` |
+| Runtime | Blocked |
+
+#### `runtime_restoring`
+
+| Field | Rule |
+| --- | --- |
+| Entry | version=9, freeze still proven |
+| Ordering (locked) | (1) Set state=`runtime_restoring`; (2) apply **exact** Appendix A GRANTs only; (3) post-grant assertions; (4) on success set state=`complete` and checkpoint `restore_complete`; on assert failure REVOKE schema-9 runtime grants again, set `failed_frozen` |
+| Never | Restore schema-8 builders; GRANT ALL; GRANT to PUBLIC |
+| Assert | Old builders unavailable; new builders only intended callers; provider/model disabled; no creds/approvals/activations/workflows/envelopes/live calls created |
+| Failure | Revoke schema-9 runtime grants; `failed_frozen`; do not restore schema-8 EXECUTE |
+| Restart | From `version_advanced` if grants incomplete |
+| Next | `complete` |
+| Runtime | Blocked until grant+assert success |
+
+#### `complete`
+
+Requires all of:
+
+```text
+schema_version = 9
+cutover_state = complete
+exact schema-9 allowlist present
+schema-8 builders unavailable
+provider disabled
+model disabled
+credential state unchanged
+zero proposal approval
+zero authorization activation
+workflows inactive
+zero live calls
+USD 0.00 paid usage
+```
+
+Restart: catalog verify → no-op success.
+
+#### `failed_frozen`
+
+Safe failure: runtime blocked; schema-8 builders revoked; schema-9 builders revoked unless owner recovery says otherwise; automatic resume only from latest verified checkpoint; contradictory catalog/state → **owner intervention**.
+
+### 13.3 Exact runtime function freeze inventory
+
+Roles losing EXECUTE: `research_app`, `n8n_app`, `research_governance`, `PUBLIC`. Owner: `postgres` unless noted.
+
+**Keep-EXECUTE allowlist during freeze** (read-only / non-live-path; exact identities only):
+
+* `research.gemini_pilot_5a_gate_status()`
+* `research.sha256_hex(p_text text)`
+* `research.pilot_capacity_snapshot(p_pilot_id uuid)`
+* `research.pilot_case_attempt_count(p_pilot_id uuid, p_benchmark_case_id uuid)`
+* `research._allowed_source_ids(p_question_uuid uuid)`
+* `research._append_completed_stage(p_run_id uuid, p_stage text)`
+* `research._evidence_bundle_for_question(p_question_uuid uuid)`
+* `research._record_failure(p_run_id uuid, p_stage text, p_class text, p_detail text)`
+* `research.build_decision_card(p_run_id uuid)`
+* `research.cancel_research_run(p_run_id uuid, p_reason text)`
+* `research.compute_priority_v1(constitutional_impact numeric, measured_performance_gap numeric, safety_impact numeric, expected_value numeric, urgency numeric, evidence_availability numeric, implementation_cost numeric, duplication_penalty numeric)`
+* `research.estimate_provider_cost_usd(p_provider_code text, p_input_tokens integer, p_output_tokens integer)`
+* `research.materialize_proposal_from_run(p_run_id uuid)`
+* `research.mock_model_for_stage(p_stage text)`
+* `research.mock_provider_for_stage(p_stage text)`
+* `research.proposal_has_evidence(p_evidence_ids uuid[])`
+* `research.try_enter_decision_from_partial(p_run_id uuid)`
+
+**Note:** keep-EXECUTE does **not** restore provider/live reachability; table-write freeze still blocks mutable provider/auth/envelope/usage paths. Functions that can reach governed or provider execution are listed in the freeze inventory below and lose EXECUTE.
+
+| Schema.name(signature) | Freeze reason | Schema-9 disposition |
+| --- | --- | --- |
+| `research.build_provider_request_envelope(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_canonical_request jsonb, p_claimed_credential_status text)` | Pilot envelope / live path | KEEP body rewritten; EXECUTE restored only at complete for APP |
+| `research.build_non_pilot_request_envelope(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_canonical_request jsonb, p_claimed_credential_status text)` | Non-pilot builder | NEW; EXECUTE APP only at complete |
+| `research.live_preflight(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_claimed_credential_status text, p_projected_input_tokens integer, p_projected_output_tokens integer, p_is_retry boolean, p_fallback_provider text)` | Live preflight | KEEP rewritten; EXECUTE APP at complete |
+| `research.orchestrate_research_run(p_run_id uuid)` | Can reach provider stages | KEEP; EXECUTE APP at complete |
+| `research.run_stage(p_run_id uuid, p_stage text, p_scenario_hint text)` | Stage/provider path | KEEP; EXECUTE APP at complete |
+| `research.record_authorization_spend(p_authorization_id uuid, p_requests integer, p_tokens integer, p_cost numeric, p_note text)` | Spend/usage | KEEP; rejects pilot; EXECUTE APP at complete |
+| `research.mock_adapter_invoke(p_request_id uuid)` | Adapter invoke | KEEP; EXECUTE APP at complete |
+| `research.parse_provider_fixture_response(p_provider_code text, p_fixture jsonb)` | Provider fixture parse | KEEP; EXECUTE APP at complete |
+| `research.activate_pilot_authorization(p_authorization_id uuid, p_pilot_code text)` | Activation | KEEP; EXECUTE GOV at complete |
+| `research.append_governance_action(p_action_type text, p_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_decision_value text, p_material_fingerprint char(64), p_supersedes_action_id uuid, p_issued_at timestamptz, p_expires_at timestamptz, p_payload jsonb)` | Governance write | NEW; EXECUTE GOV at complete |
+| `research.approve_pilot_proposal(p_pilot_code text)` | Proposal approve | NEW; EXECUTE GOV at complete |
+| `research.confirm_provider_credential_status(p_pilot_proposal_id uuid, p_provider_code text, p_n8n_credential_label text, p_governance_action_id uuid, p_note text)` | Credential confirm | NEW; EXECUTE GOV at complete |
+| `research.enable_provider_for_pilot(p_pilot_code text, p_provider_code text)` | Provider enable | NEW; EXECUTE GOV at complete |
+| `research.enable_model_for_pilot(p_pilot_code text, p_provider_code text, p_model_id_provisional text)` | Model enable | NEW; EXECUTE GOV at complete |
+| `research.disable_provider_for_pilot(p_pilot_code text, p_provider_code text)` | Provider disable | NEW; EXECUTE GOV at complete |
+| `research.disable_model_for_pilot(p_pilot_code text, p_provider_code text, p_model_id_provisional text)` | Model disable | NEW; EXECUTE GOV at complete |
+| `research.record_accounting_discrepancy(p_discrepancy_type text, p_pilot_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_benchmark_case_id uuid, p_idempotency_key text, p_operation text, p_observed_attempt_count bigint, p_observed_success_count bigint, p_observed_input_tokens bigint, p_observed_output_tokens bigint, p_observed_cost_usd numeric, p_expected_max_requests integer, p_expected_max_successful_calls integer, p_expected_max_input_tokens integer, p_expected_max_output_tokens integer, p_expected_max_cost_usd numeric, p_ledger_request_count bigint, p_ledger_success_count bigint, p_ledger_input_tokens bigint, p_ledger_output_tokens bigint, p_ledger_cost_usd numeric, p_schema_version integer, p_expected_fingerprint char(64))` | Discrepancy write | NEW; EXECUTE APP+GOV at complete |
+| `research.build_accounting_discrepancy_payload(p_discrepancy_type text, p_pilot_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_benchmark_case_id uuid, p_idempotency_key text, p_operation text, p_observed_attempt_count bigint, p_observed_success_count bigint, p_observed_input_tokens bigint, p_observed_output_tokens bigint, p_observed_cost_usd numeric, p_expected_max_requests integer, p_expected_max_successful_calls integer, p_expected_max_input_tokens integer, p_expected_max_output_tokens integer, p_expected_max_cost_usd numeric, p_ledger_request_count bigint, p_ledger_success_count bigint, p_ledger_input_tokens bigint, p_ledger_output_tokens bigint, p_ledger_cost_usd numeric, p_schema_version integer)` | Payload builder | NEW; EXECUTE NONE forever (DEFINER-internal) |
+| `research._r3_clone_question(p_code text, p_scenario text)` | Test helper | MOVED TO research_test |
+| `research._r3_new_run(p_code text, p_qid uuid, p_scenario text, p_budget numeric)` | Test helper | MOVED |
+| `research._r4_arm_provider(p_code text, p_enable_provider boolean, p_enable_model boolean, p_verify_model boolean, p_free_confirmed boolean, p_cred_present boolean, p_daily_req integer, p_daily_tok integer)` | Arm helper | MOVED |
+| `research._r4_case_id()` | Test helper | MOVED |
+| `research._r4_make_auth(p_provider text, p_model_id uuid, p_case uuid, p_max_req integer, p_max_tok integer, p_max_cost numeric, p_expires timestamptz)` | Auth fixture | MOVED |
+| `research._r4_reset_defaults()` | Reset helper | MOVED |
+| `research._r5a_assert_final_pilot_state()` | Test helper | MOVED |
+| `research._r5a_final_arm_gates()` | Arm helper | MOVED |
+| `research._r5a_final_assert_state()` | Test helper | MOVED |
+| `research._r5a_final_reset_defaults()` | Reset helper | MOVED |
+| `research._r5a_insert_fixture_auth(p_fixture text, p_pilot uuid, p_case uuid, p_provider uuid, p_model uuid)` | Fixture helper | MOVED |
+| `research._r5a_repair_reset_defaults()` | Reset helper | MOVED |
+| `research.cleanup_test_fixture(p_fixture_id text)` | Fixture cleanup | MOVED |
+| `research.record_pilot_usage_for_tests(p_authorization_id uuid, p_input_tokens integer, p_output_tokens integer, p_success boolean, p_fixture_id text, p_is_retry boolean)` | Test spend | MOVED |
+
+**Closed-world preflight rule:** every `research.*` function that currently grants `EXECUTE` to `research_app`, `n8n_app`, `research_governance`, or `PUBLIC` MUST appear in this freeze inventory **or** in the keep-EXECUTE allowlist at the top of this subsection. Preflight fails closed if any such grant exists for an unlisted function identity (schema + name + full argument signature). No open-ended “related functions” class exists.
+
+### 13.4 Exact direct-write freeze matrix
+
+During freeze: REVOKE INSERT, UPDATE, DELETE from `research_app`, `n8n_app`, `research_governance`, `PUBLIC` on every row below (n8n currently SELECT-only; revoke is idempotent). Schema-9 final = Appendix A.
+
+| Table | Role | Schema-8 / pre-cutover write | Freeze revocation | Schema-9 final | Reason |
+| --- | --- | --- | --- | --- | --- |
+| research.live_request_envelopes | research_app | may hold INSERT historically | REVOKE INSERT,UPDATE,DELETE | SELECT | envelopes |
+| research.provider_authorization_records | research_app | may hold UPDATE historically | REVOKE INSERT,UPDATE,DELETE | SELECT | authorizations |
+| research.provider_usage_ledger | research_app | may hold INSERT historically | REVOKE INSERT,UPDATE,DELETE | SELECT | usage |
+| research.provider_credential_status | research_app | may hold UPDATE historically | REVOKE INSERT,UPDATE,DELETE | SELECT | credentials |
+| research.providers | research_app | may hold UPDATE historically | REVOKE INSERT,UPDATE,DELETE | SELECT | providers |
+| research.provider_model_candidates | research_app | may hold UPDATE historically | REVOKE INSERT,UPDATE,DELETE | SELECT | models |
+| research.provider_pilot_proposals | research_app | may hold UPDATE historically | REVOKE INSERT,UPDATE,DELETE | SELECT | proposals |
+| research.pilot_capacity_reservations | research_app | INSERT/UPDATE historically | REVOKE INSERT,UPDATE,DELETE | N/A → legacy NONE | reservations |
+| research.provider_adapter_requests | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | requests |
+| research.provider_adapter_responses | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | requests |
+| research.provider_health_checks | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | provider health |
+| research.taha_governance_actions | research_app | none expected | REVOKE INSERT,UPDATE,DELETE | SELECT | governance |
+| research.pilot_capacity_events | research_app | n/a until created | REVOKE INSERT,UPDATE,DELETE until complete | SELECT | capacity |
+| research.accounting_discrepancies | research_app | n/a until created | REVOKE INSERT,UPDATE,DELETE until complete | SELECT | discrepancy |
+| research.legacy_reservation_archive | research_app | n/a | REVOKE all writes | SELECT | archive |
+| research.schema9_cutover_state | research_app | n/a | NONE forever | NONE | cutover |
+| research.schema9_cutover_checkpoints | research_app | n/a | NONE forever | NONE | cutover |
+| research.automatic_scores | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze all APP writes |
+| research.benchmark_runs | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
+| research.decision_rationales | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.evidence_claim_links | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.evidence_items | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.improvement_proposals | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
+| research.model_outputs | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.monthly_role_rankings | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.orchestration_failures | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.proposal_versions | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.reconsideration_conditions | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
+| research.repair_attempts | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.research_closure_records | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.research_findings | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.research_priorities | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
+| research.research_question_relationships | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.research_question_versions | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.research_questions | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
+| research.research_run_stages | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
+| research.research_runs | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
+| research.research_status_history | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.run_failures | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.source_snapshots | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.sources | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.taha_decisions | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.taha_scores | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
+| research.schema_version | research_app | none | REVOKE INSERT,UPDATE,DELETE | SELECT | version owner-only |
+| research.benchmark_cases | research_app | none | REVOKE INSERT,UPDATE,DELETE | SELECT | SELECT-only |
+| research.benchmark_suites | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
+| research.gemini_pilot_request_builder_specs | research_app | none | REVOKE INSERT,UPDATE,DELETE | SELECT | SELECT-only |
+| research.models | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
+| research.provider_adapter_versions | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
+| research.provider_budget_policies | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
+| research.provider_capabilities | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
+| research.provider_policy_verifications | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
+| research.provider_rate_limit_policies | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
+| research.question_status_transitions | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
+| research.pilot_capacity_reservations_legacy | research_app | n/a until rename | REVOKE INSERT, UPDATE,DELETE | NONE | legacy owner-only |
+
+**Role coverage (closed):** for every table row above, the freeze transaction also executes identical `REVOKE INSERT, UPDATE, DELETE` for `n8n_app`, `research_governance`, and `PUBLIC`. Schema-9 final privileges for those roles are exactly Appendix A.1 (SELECT or NONE as listed). Objects not present in Appendix A after schema 9 receive no write access.
+
+**Closed-world table rule:** preflight inventories every base table in schema `research` from `pg_tables`. Every such table MUST appear in this matrix. Unlisted tables fail preflight.
+
+### 13.5 Restart classification matrix
+
+| # | Classification | Signals | Recovery phase | Allowed | Forbidden | Owner? |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Fresh v8, no freeze | max(v)=8; no cutover row or state=preflight; ACL not frozen | preflight → runtime_freezing | inventory | transform/grants | No |
+| 2 | v8 freeze incomplete | max(v)=8; state≠runtime_frozen or ACL freeze asserts fail | runtime_freezing (full freeze txn) | freeze only | transform | No |
+| 3 | v8 durable freeze | max(v)=8; state=runtime_frozen; ACL OK; no transform checkpoints | transforming | transform DDL | grants/version | No |
+| 4 | v8 partially transformed | max(v)=8; frozen; some transform checkpoints | transforming from next missing checkpoint | remaining DDL | grants | No |
+| 5 | v8 reconciling | frozen; transform complete; reconcile incomplete | reconciling | idempotent backfill | grants/version | No |
+| 6 | v8 validation failed | frozen; validate failed / no digest | validating or failed_frozen | re-validate | grants/version | No unless contradiction |
+| 7 | v9 still frozen | max(v)=9; state=version_advanced; ACL frozen | runtime_restoring (after re-validate) | exact grants | schema-8 restore | No |
+| 8 | v9 restore incomplete | max(v)=9; state=runtime_restoring; grants partial/fail | runtime_restoring / failed_frozen | re-revoke+retry exact grants | broad grants | If ACL drift persists |
+| 9 | v9 complete | state=complete; allowlist match | complete no-op verify | none | mutate freeze | No |
+| 10 | Contradictory | State C; marker frozen but ACL open; version/state mismatch without checkpoint | failed_frozen | inspect | auto-advance/grants | **Yes** |
+
+### 13.6 Legacy State A/B/C predicates
+
+#### State A
 
 ```text
 to_regclass('research.pilot_capacity_reservations') IS NOT NULL
 to_regclass('research.pilot_capacity_reservations_legacy') IS NULL
 ```
 
-Run dependency inventory; reconcile/backfill; rewrite dependents targeting the **original** name; assert zero unresolved production deps; RENAME to legacy; continue lockdown.
+Completion predicates (all required before rename):
 
-#### State B — legacy table exists
+* checkpoint `src_inventory` evidence lists every reservation id/status;
+* checkpoint `backfill_events`: count(events from legacy) reconciles reserved/finalized rows;
+* checkpoint `archive_released`: every released row in `legacy_reservation_archive` with UNIQUE(legacy_reservation_id);
+* checkpoint `deps_rewritten`: `prosrc`/`pg_depend` scan shows zero production refs needing original name after rewrite scripts;
+* checkpoint `reconcile_checksum` matches recomputation;
+* checkpoint `rename_ready`: freeze ACL still held.
+
+Then RENAME to legacy in a committed subphase; checkpoint `renamed`.
+
+#### State B
 
 ```text
 to_regclass('research.pilot_capacity_reservations') IS NULL
 to_regclass('research.pilot_capacity_reservations_legacy') IS NOT NULL
 ```
 
-Do **not** rerun original-name rewrites. Inspect legacy + schema-9 events; verify reconciliation and archive uniqueness; verify zero production deps on legacy; recreate missing immutability trigger only if absent; continue from first incomplete **post-rename** step. **No State B step may reference the original table name.**
+Completion predicates:
 
-#### State C — both or neither
+* `backfill_events` + `archive_released` checkpoints present;
+* archive UNIQUE holds; no duplicate archive ids;
+* `trg_reject_legacy_capacity_table_mutation` enabled on legacy table;
+* production dependency scan on **legacy** name = zero executable runtime refs;
+* `reconcile_checksum` matches;
+* builders’ `prosrc` contain no `pilot_capacity_reservations` token (original name).
 
-Mark `cutover_failed`; keep runtime frozen; do not advance schema version; deterministic structural error; require owner intervention.
+**No State-B recovery step may reference the original table name.**
 
-Completion detection after rename: legacy exists; trigger present; EXECUTE still frozen until step 20; event/archive uniques. Duplicate backfill prevented by event UNIQUE keys and archive `UNIQUE(legacy_reservation_id)`.
+#### State C
 
-### 13.5 Partial-cutover matrix
+Both names exist or neither exists → `failed_frozen`; runtime blocked; do not advance version further; owner intervention.
 
-| Step | Runtime state | Schema version | Old builders executable | New builders executable | Recovery entrypoint |
-| --- | --- | ---: | --- | --- | --- |
-| 1 | locking | 8 | yes (pre-freeze) | no | step 1 |
-| 2 | locking | 8 | yes (pre-freeze) | no | step 2 |
-| 3 | `runtime_frozen` | 8 | **no** | **no** | step 3 |
-| 4–9 | frozen / validating | 8 | **no** | **no** | same step |
-| 10–17 | `cutover_validating` | 8 | **no** | **no** | same step |
-| 18 | validating | 9 | **no** | **no** | step 18/19 |
-| 19 | `cutover_complete` | 9 | **no** | **no** | step 20 |
-| 20 | `cutover_complete` | 9 | **no** (absent) | **yes** (allowlist only) | step 20 |
+### 13.7 Partial-cutover matrix (builders)
 
-Operators MUST NOT run application traffic during steps 1–2. From step 3 onward, old and new builders are never both executable; new builders become executable only at step 20.
+| State | Schema version | Old builders executable | New builders executable |
+| --- | ---: | --- | --- |
+| preflight | 8 | yes (pre-freeze) | no |
+| runtime_freezing (uncommitted) | 8 | indeterminate→rollback | no |
+| runtime_frozen … validating | 8 | **no** | **no** |
+| version_advanced | 9 | **no** | **no** |
+| runtime_restoring (pre-assert) | 9 | **no** | granting… |
+| complete | 9 | **no** | **yes** (allowlist only) |
+| failed_frozen | 8 or 9 | **no** | **no** |
 
 ---
 
@@ -952,16 +1237,16 @@ Future objects = NONE until an explicit allowlist migration updates Appendix A.
 
 | Topic | Decision |
 | --- | --- |
-| Freeze mechanism | Step-3 EXECUTE+table WRITE revoke + `schema9_cutover_state`; advisory lock is not protection |
-| Runtime re-enable point | Only after version 9 + `cutover_complete` + exact Appendix A grants |
-| Credential function signature | Proposal-scoped confirm with mandatory `p_pilot_proposal_id` + `p_governance_action_id` |
-| Discrepancy recorder signature | Typed scalars only; reconstructs payload; no APP JSONB |
-| Monetary canonical form | `numeric(20,8)` as fixed eight-decimal JSON strings |
-| Legacy restart detection | State A / B / C via `to_regclass` |
-| Trigger naming | Exact `trg_reject_*` objects bound to `reject_*` functions |
-| Schema-version advancement | Version 9 at step 18; EXECUTE re-grant only at step 20 |
-| Action-chain parent rule | `supersedes_action_id` = immediate same-scope parent; one child per parent |
-| Terminal-state rule | Enabled only if terminal action is enable + valid |
+| Cutover model | Multi-transaction controller (Model A) |
+| Controller | Owner PowerShell + separately committed phase SQL |
+| Durable freeze | Dedicated freeze txn commits before any transform |
+| Schema version | 9 only after validating under freeze; frozen v9 valid |
+| Final grants | Only in runtime_restoring after v9; fail → re-revoke + failed_frozen |
+| Action-chain parent | `supersedes_action_id` immediate same-scope parent |
+| Terminal-state | Terminal enable only |
+| Crypto | `research_crypto` FQ only |
+| Discrepancy | Typed recorder; literal normative fingerprint §8.1.1 |
+| Legacy restart | State A/B/C + checkpoints |
 
 ---
 
@@ -1028,8 +1313,10 @@ Privilege tokens: `NONE`, `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `EXECUTE`, `US
 | research.pilot_capacity_events | table | postgres | NONE | SELECT | SELECT | SELECT | NONE | NEW schema-9 |
 | research.accounting_discrepancies | table | postgres | NONE | SELECT | SELECT | SELECT | NONE | NEW schema-9 |
 | research.legacy_reservation_archive | table | postgres | NONE | SELECT | SELECT | SELECT | NONE | NEW schema-9 |
+| research.schema9_cutover_state | table | postgres | NONE | NONE | NONE | NONE | NONE | NEW schema-9; owner-only |
+| research.schema9_cutover_checkpoints | table | postgres | NONE | NONE | NONE | NONE | NONE | NEW schema-9; owner-only |
 
-DELETE = NONE for every table for every runtime role. `research.pilot_capacity_reservations` (unrenamed) MUST NOT exist after step 15.
+DELETE = NONE for every table for every runtime role. `research.pilot_capacity_reservations` (unrenamed) MUST NOT exist after the rename checkpoint (`renamed`) commits.
 
 ### A.2 Views
 
@@ -1169,5 +1456,5 @@ Columns: PUBLIC / research_app / n8n_app / research_governance EXECUTE (`Y` or `
 - Owner/`postgres` break-glass DML still possible; mitigated by append-only and activation triggers recomputing prerequisites.
 - Theft of `research_governance` login equals full governance power; keep local-only.
 - Round 4 adapters must call `build_non_pilot_request_envelope` after schema 9 implementation.
-- Human operator error during migration windows; mitigated by advisory lock and version-8 hold until step 20.
-- `ALTER EXTENSION … SET SCHEMA` requires exclusive migration window; failure blocks version advancement.
+- Human operator error during cutover windows; mitigated by durable freeze ACLs, catalog-derived restart classification, and version-8 hold until validation under freeze succeeds.
+- `ALTER EXTENSION … SET SCHEMA` requires exclusive migration window; failure keeps version 8 and runtime frozen (`failed_frozen`).
