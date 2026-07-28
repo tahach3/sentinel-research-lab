@@ -1,0 +1,42 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Database dumps and backups
+backups/**
+!backups/.gitkeep
+*.sql
+*.sql.gz
+*.dump
+*.backup
+
+# n8n credential-bearing exports
+workflows/**/*.json
+!workflows/.gitkeep
+
+# Generated proposal exports (commit only when explicitly approved later)
+exports/**
+!exports/.gitkeep
+
+# Logs and temp
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# Local Docker / IDE state
+.docker/
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+Desktop.ini
+
+# OS
+.DS_Store
+
+# Script scratch
+*.bak
+*.bak-sentinel

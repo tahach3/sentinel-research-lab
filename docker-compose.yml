@@ -1,0 +1,93 @@
+# SENTINEL Research Lab — Round 0B foundation
+# Images pinned by tag@digest after successful pulls. Do not use floating latest.
+
+name: sentinel-research-lab
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16@sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      N8N_DB_USER: ${N8N_DB_USER}
+      N8N_DB_PASSWORD: ${N8N_DB_PASSWORD}
+      RESEARCH_DB_USER: ${RESEARCH_DB_USER}
+      RESEARCH_DB_PASSWORD: ${RESEARCH_DB_PASSWORD}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - srl_postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - srl_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    mem_limit: 1073741824
+    cpus: 1.0
+
+  n8n:
+    image: n8nio/n8n:1.107.4@sha256:a49bc867def7800e99ec175dee46b62282961a6460cfb422b3adec3e53073d63
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${N8N_DB_USER}
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD}
+      DB_POSTGRESDB_SCHEMA: n8n
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_HOST: 127.0.0.1
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_LISTEN_ADDRESS: 0.0.0.0
+      N8N_SECURE_COOKIE: "false"
+      WEBHOOK_URL: http://127.0.0.1:5678/
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-UTC}
+      TZ: ${TZ:-UTC}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_COMMUNITY_PACKAGES_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"
+      EXECUTIONS_DATA_PRUNE_MAX_COUNT: "5000"
+    volumes:
+      - srl_n8n_data:/home/node/.n8n
+    ports:
+      - "127.0.0.1:5678:5678"
+    networks:
+      - srl_net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"require('http').get('http://127.0.0.1:5678/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    mem_limit: 1610612736
+    cpus: 1.5
+
+networks:
+  srl_net:
+    driver: bridge
+
+volumes:
+  srl_postgres_data:
+  srl_n8n_data:
