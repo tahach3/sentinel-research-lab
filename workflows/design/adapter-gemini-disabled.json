@@ -1,0 +1,70 @@
+{
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "name":  "SRL Adapter Gemini Disabled",
+    "tags":  [
+
+             ],
+    "active":  false,
+    "meta":  {
+                 "templateCredsSetupCompleted":  false,
+                 "srlRound":  4,
+                 "liveExecutionAllowed":  false,
+                 "srlInactiveByDesign":  true
+             },
+    "connections":  {
+                        "Manual Trigger":  {
+                                               "main":  [
+                                                            {
+                                                                "node":  "Mock Structured Step",
+                                                                "type":  "main",
+                                                                "index":  0
+                                                            }
+                                                        ]
+                                           }
+                    },
+    "nodes":  [
+                  {
+                      "id":  "0526fb38-00b6-4abd-a0fc-30c52c92624b-1",
+                      "name":  "Manual Trigger",
+                      "type":  "n8n-nodes-base.manualTrigger",
+                      "position":  [
+                                       0,
+                                       0
+                                   ],
+                      "parameters":  {
+
+                                     },
+                      "typeVersion":  1
+                  },
+                  {
+                      "id":  "0526fb38-00b6-4abd-a0fc-30c52c92624b-2",
+                      "name":  "Design Notes",
+                      "type":  "n8n-nodes-base.stickyNote",
+                      "position":  [
+                                       -380,
+                                       -40
+                                   ],
+                      "parameters":  {
+                                         "content":  "PLACEHOLDER / INACTIVE / ROUND 4\nGemini request build + fixture parse only. live_execution_allowed=false. No HTTP. No credentials.\nNo credentials. No HTTP. No AI nodes. No webhooks. No Execute Command.",
+                                         "width":  460,
+                                         "height":  260
+                                     },
+                      "typeVersion":  1
+                  },
+                  {
+                      "id":  "0526fb38-00b6-4abd-a0fc-30c52c92624b-3",
+                      "name":  "Mock Structured Step",
+                      "type":  "n8n-nodes-base.code",
+                      "position":  [
+                                       280,
+                                       0
+                                   ],
+                      "parameters":  {
+                                         "jsCode":  "return [{ json: { workflow: \u0027adapter-gemini-disabled.json\u0027, mode: \u0027design_mock\u0027, active: false, live_execution_allowed: false, postgres_binding: \u0027research.live_preflight / research.build_provider_request_envelope / research.parse_provider_fixture_response\u0027, failure_paths: [\u0027provider_disabled\u0027,\u0027credential_missing\u0027,\u0027authorization_expired\u0027,\u0027request_quota_exhausted\u0027,\u0027cost_budget_exhausted\u0027,\u0027confidentiality_blocked\u0027,\u0027malformed_provider_response\u0027] } }];"
+                                     },
+                      "typeVersion":  2
+                  }
+              ]
+}

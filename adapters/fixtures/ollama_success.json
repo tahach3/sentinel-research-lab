@@ -1,0 +1,12 @@
+{
+  "model": "llama3.2-local-provisional",
+  "model_version": "fixture-1",
+  "latency_ms": 5,
+  "message": {
+    "role": "assistant",
+    "content": "Synthetic Ollama fixture: local-only path remains optional and uninstalled."
+  },
+  "prompt_eval_count": 10,
+  "eval_count": 16,
+  "citations": []
+}

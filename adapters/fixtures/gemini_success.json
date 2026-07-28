@@ -1,0 +1,17 @@
+{
+  "model": "gemini-2.0-flash-provisional",
+  "model_version": "fixture-1",
+  "latency_ms": 12,
+  "candidates": [
+    {
+      "content": {
+        "parts": [{ "text": "Synthetic Gemini fixture: prefer pgvector until measured scale." }]
+      }
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 20,
+    "candidatesTokenCount": 30
+  },
+  "citations": []
+}

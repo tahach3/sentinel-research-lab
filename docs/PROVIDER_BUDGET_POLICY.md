@@ -5,6 +5,8 @@
 | Rule | Value |
 | --- | --- |
 | Free-only by default | **Yes** (`provider_budget_policies.free_only = true`) |
+| Paid fallback | **Forbidden** (`paid_fallback = false`) |
+| Daily cost limit | **0.00 USD** by default (`daily_cost_limit_usd`) |
 | Automatic funding | **Never** |
 | Silent paid fallback | **Forbidden** |
 | Silent provider switch | **Forbidden** |

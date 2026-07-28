@@ -1,0 +1,18 @@
+{
+  "model": "llama-3.1-8b-instant-provisional",
+  "model_version": "fixture-1",
+  "latency_ms": 8,
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "Synthetic Groq fixture: continue with PostgreSQL+pgvector."
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 18,
+    "completion_tokens": 22
+  },
+  "citations": []
+}

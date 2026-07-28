@@ -2,34 +2,29 @@
 
 ## Implemented
 
-### Round 0B
+### Round 0B–3
 
-- schemas `n8n` / `research`, roles, `vector`, `schema_version`
+Foundation, benchmarking, lifecycle, simulated orchestration (see prior docs).
 
-### Round 1
+### Round 4
 
-Benchmarking tables/views (providers, models, suites, cases, runs, scores, rankings).
+- `provider_capabilities`
+- `provider_model_candidates`
+- `provider_adapter_versions`
+- `provider_rate_limit_policies`
+- `provider_credential_status` (non-secret)
+- `provider_authorization_records`
+- `provider_usage_ledger` (append-only; `live_executed=false`)
+- `provider_health_checks`
+- `live_request_envelopes` (non-executable)
 
-### Round 2
+Budget policy columns: `paid_fallback`, `daily_cost_limit_usd` (defaults closed).
 
-Lifecycle tables and decision/evidence custody (see Round 2 docs).
+Views: `v_enabled_provider_readiness`, `v_missing_credentials`,
+`v_remaining_daily_quota`, `v_remaining_monthly_budget`,
+`v_unauthorized_call_warnings`, `v_provider_health_summary`,
+`v_models_awaiting_verification`.
 
-### Round 3
+## Explicit non-storage
 
-Orchestration tables:
-
-- `research_runs` (shared orchestration state)
-- `research_run_stages`
-- `provider_adapter_requests`
-- `provider_adapter_responses`
-- `repair_attempts`
-- `orchestration_failures`
-
-View: `v_simulated_decision_cards`
-
-Functions: `mock_adapter_invoke`, `run_stage`, `orchestrate_research_run`,
-`materialize_proposal_from_run`, `build_decision_card`, `cancel_research_run`.
-
-## Planned later
-
-Live provider adapters, SENTINEL export packages (not Round 3).
+No API keys, tokens, or credential secrets in PostgreSQL.

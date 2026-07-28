@@ -1,0 +1,18 @@
+{
+  "model": "openrouter-free-tier-provisional",
+  "model_version": "fixture-1",
+  "latency_ms": 15,
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "Synthetic OpenRouter fixture: no dedicated vector DB required now."
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 25,
+    "completion_tokens": 28
+  },
+  "citations": []
+}
