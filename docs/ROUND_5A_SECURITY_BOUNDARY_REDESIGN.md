@@ -1,12 +1,12 @@
-﻿# Round 5A — Security Boundary Redesign (Revision 6)
+﻿# Round 5A — Security Boundary Redesign (Revision 7)
 
 **Status:** Design only. Not implemented.
-**Baseline HEAD:** `196b4942016fd78449028ae981eaf5488af57282` / schema version 8 runtime
-**Supersedes:** Revision 5 content of this file at that commit
-**Scope:** Multi-transaction schema-9 cutover controller, durable freeze, catalog-derived restart, machine-exact privilege/governance/crypto/discrepancy design.
+**Baseline HEAD:** `5e705abc7e8958809cfb3dd41cbc38345585821b` / schema version 8 runtime
+**Supersedes:** Revision 6 content of this file at that commit
+**Scope:** Implementation-exact Model A cutover: read-only preflight, closed-world inventories, exact checkpoints, reconciliation categories, restoration transactions.
 **Non-goals:** Implementing SQL/controller scripts in this round; Round 5B live HTTP; Equitify/SENTINEL changes; changing live roles/grants.
 
-Resolves architecture critique: separately committed freeze; frozen version-9 recovery; exact write-freeze matrix; State A/B/C predicates; literal discrepancy fingerprint; explicit crypto and governance-transition tests.
+Resolves Codex Model A architecture findings: preflight upsert contradiction; row-exact function/table inventories; checkpoint ellipsis; reconciliation predicates; restoration transaction boundaries.
 
 ---
 
@@ -818,11 +818,14 @@ scripts/schema9-cutover.ps1
 database/schema9/phases/00-preflight.sql
 database/schema9/phases/10-freeze.sql
 database/schema9/phases/15-freeze-verify.sql
-database/schema9/phases/20-transform.sql
+database/schema9/phases/20-transform/   # one committed script per §13.8 checkpoint
 database/schema9/phases/30-reconcile.sql
 database/schema9/phases/40-validate.sql
 database/schema9/phases/50-version.sql
-database/schema9/phases/60-restore.sql
+database/schema9/phases/60-restore-a-grants.sql
+database/schema9/phases/61-restore-verify.sql
+database/schema9/phases/62-restore-b-complete.sql
+database/schema9/phases/69-restore-fail-revoke.sql
 ```
 
 ### 13.0 Persisted cutover evidence
@@ -833,21 +836,15 @@ research.schema9_cutover_state (
   starting_schema_version INT NOT NULL CHECK (starting_schema_version = 8),
   freeze_at TIMESTAMPTZ NULL,
   state TEXT NOT NULL CHECK (state IN (
-    'preflight',
-    'runtime_freezing',
-    'runtime_frozen',
-    'transforming',
-    'reconciling',
-    'validating',
-    'version_advanced',
-    'runtime_restoring',
-    'complete',
-    'failed_frozen'
+    'runtime_freezing','runtime_frozen','transforming','reconciling','validating',
+    'version_advanced','runtime_restoring','complete','failed_frozen'
   )),
   latest_checkpoint TEXT NOT NULL DEFAULT '',
-  reservation_branch TEXT NOT NULL DEFAULT '' CHECK (reservation_branch IN ('', 'A', 'B', 'C')),
+  reservation_branch TEXT NOT NULL DEFAULT '' CHECK (reservation_branch IN ('','A','B','C')),
   reconciliation_checksum TEXT NOT NULL DEFAULT '',
+  reconciliation_evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
   validation_digest TEXT NOT NULL DEFAULT '',
+  restore_grant_digest TEXT NOT NULL DEFAULT '',
   detail TEXT NOT NULL DEFAULT '',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 )
@@ -857,12 +854,14 @@ research.schema9_cutover_checkpoints (
   checkpoint_id TEXT NOT NULL,
   phase TEXT NOT NULL,
   committed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  catalog_digest CHAR(64) NOT NULL CHECK (catalog_digest ~ '^[0-9a-f]{64}$'),
   evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
   PRIMARY KEY (migration_id, checkpoint_id)
 )
 ```
 
 Privileges on both tables: PUBLIC / APP / N8N / GOV / TEST = **NONE** (owner-only).
+Note: cutover `state` has **no** `preflight` value — preflight never writes cutover state.
 
 ### 13.1 Schema-version rule (locked)
 
@@ -870,293 +869,432 @@ Privileges on both tables: PUBLIC / APP / N8N / GOV / TEST = **NONE** (owner-onl
 Version remains 8 through freeze, transformation, reconciliation, and validation.
 Version changes to 9 only after validation succeeds while runtime remains frozen.
 Version 9 with runtime frozen is a valid recoverable state.
-Exact schema-9 runtime grants occur only after version 9.
+Exact schema-9 runtime grants occur only after version 9 (restoration transaction A).
 Completion requires version 9, state=complete, and exact verified allowlist.
+Schema-9 runtime entrypoints MUST deny while cutover state <> 'complete'.
 ```
-
-Restarts must accept frozen version-8 and frozen version-9 incomplete states. Restarts must **not** require a fresh version-8-only entry for every recovery.
 
 ### 13.2 State machine
 
-#### `preflight`
+#### `preflight` (controller phase; not a persisted cutover state)
 
 | Field | Rule |
 | --- | --- |
 | Entry | Connected as `postgres`; controller start |
-| Transaction | Read-only validation; advisory `pg_advisory_lock(hashtext('srl_schema9_cutover'))` may be taken; **no** ACL/DDL/DML security mutations |
-| Committed evidence | Optional upsert of cutover row with `state='preflight'` **only if** no durable freeze yet; otherwise leave existing durable state untouched |
-| Permitted | Catalog inventory of roles, grants, functions, tables, triggers, extension schema, reservation `to_regclass` |
-| Prohibited runtime | None enforced yet (operator must stop app traffic) |
-| Assertions | Expected schema-8 baseline objects present |
-| Failure | Exit; no security-sensitive DB changes |
+| Transaction | **Read-only session.** May `SELECT pg_advisory_lock(hashtext('srl_schema9_cutover'))` and set transaction-local GUCs (`statement_timeout`, `lock_timeout`). **Forbidden:** INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, GRANT, REVOKE, schema-version changes, cutover-state changes |
+| Committed evidence | **None.** Preflight writes zero durable rows |
+| Permitted | Catalog reads; repository/baseline file checks; deterministic inventory generation; comparison to §13.3–§13.4 |
+| First mutation | Occurs only inside separately committed `runtime_freezing` |
+| Failure | Exit; **zero** database mutations |
 | Restart | Rerun `preflight` |
-| Next | `runtime_freezing` if max(version)=8 and no durable freeze; else jump via §13.5 classification |
+| Next | Catalog-derived §13.5 classification |
+
+#### Preflight-blocking conditions (§13.2.1)
+
+| Category | Catalog source | Expected inventory | Mismatch result | Auto-recoverable | Owner |
+| --- | --- | --- | --- | --- | --- |
+| Database roles | `pg_roles` | Exactly `postgres`, `research_app`, `n8n_app` as LOGIN for Research Lab; no unexpected LOGIN roles with CONNECT on this DB | Block | No | Yes |
+| Memberships | `pg_auth_members` | No APP/N8N membership in each other or future GOV; no unexpected grants | Block | No | Yes |
+| Runtime login roles | `pg_roles`+`pg_db_role_setting` | Only listed LOGIN roles | Block | No | Yes |
+| Schemas | `pg_namespace` | `research`, `n8n`, `public`, `pg_*` only (no `research_crypto`/`research_test` yet unless restart mid-transform — then defer to §13.5) | Block if unknown schema | No | Yes |
+| Schema owners | `pg_namespace.nspowner` | `research` owned by `postgres` | Block | No | Yes |
+| Schema privileges | `has_schema_privilege` / `aclexplode` | APP/N8N USAGE on `research`; CREATE=false for APP/N8N/PUBLIC/TEST | Block | No | Yes |
+| Base tables | `pg_tables` where schemaname=`research` | Exact set §13.4 tables (plus none unexpected) | Block | No | Yes |
+| Views | `pg_views` | Exact Appendix A.2 baseline set for schema 8 | Block | No | Yes |
+| Sequences | `pg_class` relkind=`S` in research | **Zero** sequences | Block | No | Yes |
+| Functions/overloads | `pg_proc`+`pg_namespace` | Exact §13.3 identities | Block | No | Yes |
+| Function owners | `pg_proc.proowner` | All `postgres` | Block | No | Yes |
+| Function ACLs | `aclexplode(proacl)` | Match §13.3 Current EXECUTE roles + PUBLIC EXECUTE column | Block | No | Yes |
+| Table ACLs | `aclexplode(relacl)` | Match §13.4 Direct INSERT/UPDATE/DELETE | Block | No | Yes |
+| Extensions | `pg_extension`+`extnamespace` | `vector` (and any pinned baseline only); `pgcrypto` location recorded for transform | Block if unknown ext | No | Yes |
+| Triggers | `pg_trigger` | Exact schema-8 trigger set | Block | No | Yes |
+| Schema version | `research.schema_version` | `max(version)=8` for fresh/frozen-v8 paths | Block if not 8 when expecting v8 entry | No | If contradiction |
+| Cutover-state rows | `to_regclass('research.schema9_cutover_state')` | Absent on fresh start; if present must match §13.5 | Block if corrupt | No | Yes |
+| Reservation State A/B/C | `to_regclass` both names | Exactly one of A or B; C blocks | Block on C | No | Yes on C |
+| Provider/model enabled | `providers`/`provider_model_candidates` | Gemini + `gemini-2.5-flash` `enabled=false` | Block | No | Yes |
+| Credential status | `provider_credential_status` | Unchanged baseline (`missing` / awaiting) | Block if mutated | No | Yes |
+| Active workflows | n8n workflow tables / documented probe | Count = 0 active | Block | No | Yes |
+| Unknown executable function | `pg_proc` EXECUTE effective for any LOGIN role | Must be in §13.3 | Block before freeze | No | Yes |
+| Unknown writable table | table WRITE effective for any LOGIN role | Must be in §13.4 | Block before freeze | No | Yes |
 
 #### `runtime_freezing`
 
-**One dedicated committed transaction** containing **only**:
+**First durable mutation.** One dedicated committed transaction containing **only**:
 
-1. Create/reconcile owner-controlled `schema9_cutover_state` row (do **not** set `runtime_frozen` until end of successful asserts).
-2. Exact `REVOKE EXECUTE` for every function in §13.3 from `research_app`, `n8n_app`, `research_governance`, `PUBLIC`.
-3. Exact write revocations per §13.4 matrix.
+1. CREATE cutover tables if absent; INSERT/reconcile `schema9_cutover_state` (do **not** set `runtime_frozen` until asserts pass).
+2. Exact `REVOKE EXECUTE` per §13.3 Freeze action (all non-KEEP rows) from every role listed in Current EXECUTE + PUBLIC.
+3. Exact write revocations per §13.4 Freeze action for every table-role pair.
 4. Catalog assertions proving every required revoke succeeded.
-5. Set `state='runtime_frozen'`, `freeze_at=now()`, insert checkpoint `freeze_committed`.
+5. Set `state='runtime_frozen'`, `freeze_at=now()`, insert checkpoint `freeze_committed` with `catalog_digest`.
 
 | Field | Rule |
 | --- | --- |
-| Entry | `preflight` OK or restart classification selecting freeze |
-| Transaction | **Single committed freeze txn**; no transform DDL inside |
-| Committed evidence | `state=runtime_frozen`, `freeze_at` set, checkpoint `freeze_committed`, ACL asserts true |
-| Failure | **Entire freeze txn rolls back**; no false `runtime_frozen` marker; controller returns to `preflight` or `runtime_freezing`; **no later phase may begin** |
-| Restart | If marker absent/not frozen → `runtime_freezing`; never continue transform without durable freeze |
-| Next | `runtime_frozen` (verify session) |
+| Entry | Preflight OK selecting freeze |
+| Transaction | **Single committed freeze txn**; no transform DDL |
+| Failure | Entire txn rolls back; no false `runtime_frozen`; no later phase |
+| Next | `runtime_frozen` verify session |
 
 #### `runtime_frozen`
 
-| Field | Rule |
-| --- | --- |
-| Entry | Freeze txn committed |
-| Transaction | **New session/txn**, verify-only |
-| Committed evidence | Optional checkpoint `freeze_verified` |
-| Re-read | cutover state; schema version; function ACLs; table ACLs; builder EXECUTE; provider/model disabled; active workflow count=0 |
-| Failure | If marker frozen but ACLs incomplete → `failed_frozen` (best-effort re-REVOKE) + owner inspection on contradiction |
-| Restart | Verified frozen → `transforming` (or later phase per checkpoints) |
-| Next | `transforming` |
-| Runtime | Blocked |
+New session/txn verify-only; optional checkpoint `freeze_verified`. Marker frozen + incomplete ACL → `failed_frozen` + owner. Runtime blocked. Next: `transforming`.
 
 #### `transforming`
 
-| Field | Rule |
-| --- | --- |
-| Entry | Durable freeze verified |
-| Transaction | Separately committed subphase scripts; checkpoint after each |
-| Checkpoints | `crypto_placed`, `governance_structures`, `capacity_structures`, `builders_rewritten`, `helpers_moved`, `defaults_locked`, … |
-| Permitted | Schema-9 DDL listed below; OWNER postgres |
-| Includes | `research_crypto` + pgcrypto move; governance tables/indexes/chains; activation guard without GUC; discrepancy structures; capacity events; controlled builders (EXECUTE still revoked); append-only triggers; helper isolation; ownership/default-privilege lockdown |
-| Prohibited | GRANT of builders to APP/N8N/GOV; version advance; allowlist restore |
-| Failure | `failed_frozen`; keep ACL revoked; resume from last checkpoint |
-| Restart | From latest verified transform checkpoint |
-| Next | `reconciling` |
-| Runtime | Blocked; old and new builders **both non-executable** |
+Separately committed subphases — **exactly** the §13.8 checkpoints (no ellipsis). Runtime blocked; builders non-executable. Failure → `failed_frozen`. Next: `reconciling` when all 18 checkpoints present with matching digests.
 
 #### `reconciling`
 
-| Field | Rule |
-| --- | --- |
-| Entry | Transform checkpoints complete |
-| Transaction | Committed idempotent backfill/archive/ledger phases |
-| Evidence | `reservation_branch` A/B; `reconciliation_checksum`; event/archive/conflict counts; checkpoint `reconcile_complete` |
-| Uniques | Prevent duplicate events, archive rows, discrepancies, reconcile evidence |
-| Failure | `failed_frozen` |
-| Restart | Skip via UNIQUE + State A/B predicates (§13.6) |
-| Next | `validating` |
-| Runtime | Blocked |
+Committed idempotent classification per §13.9. Persist §13.10 evidence. Failure/digest mismatch → `failed_frozen`. Next: `validating`.
 
 #### `validating`
 
-| Field | Rule |
-| --- | --- |
-| Entry | Reconcile complete |
-| Transaction | Assert-only; persist `validation_digest` |
-| Covers | Roles; memberships; schema privs; ownership; signatures; PUBLIC; defaults; crypto FQ; governance chains; triggers; builders present but non-executable; legacy deps; disabled provider/model; credential unchanged; 0 approvals/activations; inactive workflows; 0 envelopes/live calls |
-| Failure | `failed_frozen` |
-| Restart | Re-run validates |
-| Next | `version_advanced` |
-| Runtime | Blocked |
+Assert-only; persist `validation_digest`. Failure → `failed_frozen`. Next: `version_advanced`.
 
 #### `version_advanced`
 
-| Field | Rule |
-| --- | --- |
-| Entry | Validation green under durable freeze |
-| Transaction | **Separate commit**: insert `schema_version` = 9; set state=`version_advanced`; checkpoint `version_9` |
-| Evidence | max(version)=9 AND EXECUTE still revoked |
-| Failure | Do not insert 9 |
-| Restart | Accept `(version=9, state in version_advanced|runtime_restoring|failed_frozen, ACLs revoked)` — **do not** require fresh version 8 |
-| Next | `runtime_restoring` |
-| Runtime | Blocked |
+Separate commit: insert schema_version=9; state=`version_advanced`; checkpoint `version_9`. Runtime still frozen. Next: restoration txn A.
 
-#### `runtime_restoring`
+#### `runtime_restoring` — see §13.11 (transactions A/verify/B/fail)
 
-| Field | Rule |
-| --- | --- |
-| Entry | version=9, freeze still proven |
-| Ordering (locked) | (1) Set state=`runtime_restoring`; (2) apply **exact** Appendix A GRANTs only; (3) post-grant assertions; (4) on success set state=`complete` and checkpoint `restore_complete`; on assert failure REVOKE schema-9 runtime grants again, set `failed_frozen` |
-| Never | Restore schema-8 builders; GRANT ALL; GRANT to PUBLIC |
-| Assert | Old builders unavailable; new builders only intended callers; provider/model disabled; no creds/approvals/activations/workflows/envelopes/live calls created |
-| Failure | Revoke schema-9 runtime grants; `failed_frozen`; do not restore schema-8 EXECUTE |
-| Restart | From `version_advanced` if grants incomplete |
-| Next | `complete` |
-| Runtime | Blocked until grant+assert success |
+#### `complete` / `failed_frozen`
 
-#### `complete`
+Unchanged safety requirements; `complete` additionally requires entrypoint gate allowing calls only when state=`complete`.
 
-Requires all of:
+### 13.3 Exact executable-function inventory (schema-8 catalog)
 
-```text
-schema_version = 9
-cutover_state = complete
-exact schema-9 allowlist present
-schema-8 builders unavailable
-provider disabled
-model disabled
-credential state unchanged
-zero proposal approval
-zero authorization activation
-workflows inactive
-zero live calls
-USD 0.00 paid usage
-```
+**Baseline grant fact:** migrations issue `GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA research TO research_app`. Therefore Current EXECUTE roles = `research_app` for every row unless a later explicit REVOKE exists (none in schema 8). PUBLIC EXECUTE = `N`. n8n_app / research_governance / research_test Current EXECUTE = `none` (roles GOV/TEST may be absent pre-transform; if present with EXECUTE → preflight block).
 
-Restart: catalog verify → no-op success.
+**Owner:** `postgres` for every row. **Closed keep-EXECUTE set:** only rows with Freeze action = `KEEP EXECUTE DURING FREEZE` (justified read-only; cannot reach governed/provider execution).
 
-#### `failed_frozen`
+| Schema | Function | Full identity arguments | Return type | Owner | SECURITY mode | Current EXECUTE roles | PUBLIC EXECUTE | Runtime reachable | Freeze action | Schema-9 disposition | Final EXECUTE roles |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| research | forbid_mutation | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | enforce_completed_run_evidence | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | forbid_terminal_run_wipe | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | trg_set_priority_scores | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | trg_sync_question_priority | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | trg_question_status_validate | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | trg_question_status_history | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | trg_proposal_ready_requires_evidence | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | trg_question_decision_requires_supported_proposal | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | trg_block_evidence_delete_after_decision | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | trg_evidence_immutable_body | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | trg_run_stage_immutable | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | trg_authorization_validity_guard | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; REPLACE; GRANT TO NONE | KEEP redefined §10; EXECUTE NONE | NONE |
+| research | trg_usage_ledger_immutability | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; RETAIN OWNER-ONLY | KEEP trigger | NONE |
+| research | trg_envelope_immutability | `()` | trigger | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; REPLACE; GRANT TO NONE | KEEP rewritten; EXECUTE NONE | NONE |
+| research | gemini_pilot_5a_gate_status | `()` | jsonb | postgres | INVOKER | research_app | N | N | KEEP EXECUTE DURING FREEZE | KEEP | research_app,research_governance |
+| research | sha256_hex | `(p_text text)` | text | postgres | INVOKER | research_app | N | N | KEEP EXECUTE DURING FREEZE | KEEP; redefine research_crypto | research_app |
+| research | compute_priority_v1 | `(constitutional_impact numeric, measured_performance_gap numeric, safety_impact numeric, expected_value numeric, urgency numeric, evidence_availability numeric, implementation_cost numeric, duplication_penalty numeric)` | numeric | postgres | INVOKER | research_app | N | N | KEEP EXECUTE DURING FREEZE | KEEP | research_app |
+| research | proposal_has_evidence | `(p_evidence_ids uuid[])` | boolean | postgres | INVOKER | research_app | N | N | KEEP EXECUTE DURING FREEZE | KEEP | research_app |
+| research | estimate_provider_cost_usd | `(p_provider_code text, p_input_tokens integer, p_output_tokens integer)` | numeric | postgres | INVOKER | research_app | N | N | KEEP EXECUTE DURING FREEZE | KEEP | research_app |
+| research | pilot_capacity_snapshot | `(p_pilot_id uuid)` | TABLE | postgres | INVOKER | research_app | N | N | KEEP EXECUTE DURING FREEZE | KEEP rewrite events-only | research_app,research_governance |
+| research | pilot_case_attempt_count | `(p_pilot_id uuid, p_benchmark_case_id uuid)` | bigint | postgres | INVOKER | research_app | N | N | KEEP EXECUTE DURING FREEZE | KEEP rewrite events-only | research_app,research_governance |
+| research | mock_provider_for_stage | `(p_stage text)` | text | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | mock_model_for_stage | `(p_stage text)` | text | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | mock_adapter_invoke | `(p_request_id uuid)` | uuid | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | _append_completed_stage | `(p_run_id uuid, p_stage text)` | void | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | _record_failure | `(p_run_id uuid, p_stage text, p_class text, p_detail text)` | void | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | _evidence_bundle_for_question | `(p_question_uuid uuid)` | jsonb | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | _allowed_source_ids | `(p_question_uuid uuid)` | uuid[] | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | run_stage | `(p_run_id uuid, p_stage text, p_scenario_hint text)` | text | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | materialize_proposal_from_run | `(p_run_id uuid)` | uuid | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | build_decision_card | `(p_run_id uuid)` | jsonb | postgres | INVOKER | research_app | N | N | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | orchestrate_research_run | `(p_run_id uuid)` | text | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | cancel_research_run | `(p_run_id uuid, p_reason text)` | void | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | try_enter_decision_from_partial | `(p_run_id uuid)` | text | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | parse_provider_fixture_response | `(p_provider_code text, p_fixture jsonb)` | jsonb | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP | research_app |
+| research | activate_pilot_authorization | `(p_authorization_id uuid, p_pilot_code text)` | research.provider_authorization_records | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_governance | KEEP redefine §10 DEFINER | research_governance |
+| research | live_preflight | `(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_claimed_credential_status text, p_projected_input_tokens integer, p_projected_output_tokens integer, p_is_retry boolean, p_fallback_provider text)` | jsonb | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP redefine DEFINER | research_app |
+| research | build_provider_request_envelope | `(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_canonical_request jsonb, p_claimed_credential_status text)` | jsonb | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP redefine DEFINER | research_app |
+| research | record_authorization_spend | `(p_authorization_id uuid, p_requests integer, p_tokens integer, p_cost numeric, p_note text)` | jsonb | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; REPLACE; GRANT TO research_app | KEEP redefine DEFINER | research_app |
+| research | record_pilot_usage_for_tests | `(p_authorization_id uuid, p_input_tokens integer, p_output_tokens integer, p_success boolean, p_fixture_id text, p_is_retry boolean)` | uuid | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | cleanup_test_fixture | `(p_fixture_id text)` | void | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r5a_final_reset_defaults | `()` | void | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r5a_final_arm_gates | `()` | void | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r5a_insert_fixture_auth | `(p_fixture text, p_pilot uuid, p_case uuid, p_provider uuid, p_model uuid)` | uuid | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r5a_final_assert_state | `()` | void | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r5a_repair_reset_defaults | `()` | void | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r5a_assert_final_pilot_state | `()` | void | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r4_case_id | `()` | uuid | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r4_arm_provider | `(p_code text, p_enable_provider boolean, p_enable_model boolean, p_verify_model boolean, p_free_confirmed boolean, p_cred_present boolean, p_daily_req integer, p_daily_tok integer)` | void | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r4_make_auth | `(p_provider text, p_model_id uuid, p_case uuid, p_max_req integer, p_max_tok integer, p_max_cost numeric, p_expires timestamptz)` | uuid | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r4_reset_defaults | `()` | void | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r3_clone_question | `(p_code text, p_scenario text)` | uuid | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
+| research | _r3_new_run | `(p_code text, p_qid uuid, p_scenario text, p_budget numeric)` | uuid | postgres | INVOKER | research_app | N | Y | REVOKE DURING FREEZE; MOVE TO research_test | MOVED research_test | research_test |
 
-Safe failure: runtime blocked; schema-8 builders revoked; schema-9 builders revoked unless owner recovery says otherwise; automatic resume only from latest verified checkpoint; contradictory catalog/state → **owner intervention**.
+**Preflight function closed-world rules:** fail if catalog function missing from this table; inventory function absent without §13.5 restart predicate; owner/signature differs; unknown role has effective EXECUTE; PUBLIC has unlisted EXECUTE; unlisted function is runtime reachable.
 
-### 13.3 Exact runtime function freeze inventory
+**Schema-9 NEW functions** (created during transform; not present in schema-8 catalog): `append_governance_action`, `approve_pilot_proposal`, `confirm_provider_credential_status`, `enable_provider_for_pilot`, `enable_model_for_pilot`, `disable_provider_for_pilot`, `disable_model_for_pilot`, `build_non_pilot_request_envelope`, `build_accounting_discrepancy_payload`, `record_accounting_discrepancy`, five `reject_*` trigger functions — created with EXECUTE **NONE** to APP/N8N/GOV/PUBLIC until restoration txn A applies Appendix A. Exact identities: Appendix A.4.
 
-Roles losing EXECUTE: `research_app`, `n8n_app`, `research_governance`, `PUBLIC`. Owner: `postgres` unless noted.
+### 13.4 Exact role-by-table write matrix (schema-8 baseline)
 
-**Keep-EXECUTE allowlist during freeze** (read-only / non-live-path; exact identities only):
+**Catalog-derived baseline (locked):** cumulative grants leave `research_app` with Direct INSERT=`Y`, Direct UPDATE=`Y` (all columns), Direct DELETE=`Y` on every `research` base table; Effective inherited WRITE=`N` (no role inheritance). `n8n_app` Direct INSERT/UPDATE/DELETE=`N` (SELECT-only from migration 004+). `PUBLIC` all writes=`N`. `research_governance` / `research_test` must be **absent** at fresh schema-8 preflight; if present, Direct writes must be `N` or preflight blocks.
 
-* `research.gemini_pilot_5a_gate_status()`
-* `research.sha256_hex(p_text text)`
-* `research.pilot_capacity_snapshot(p_pilot_id uuid)`
-* `research.pilot_case_attempt_count(p_pilot_id uuid, p_benchmark_case_id uuid)`
-* `research._allowed_source_ids(p_question_uuid uuid)`
-* `research._append_completed_stage(p_run_id uuid, p_stage text)`
-* `research._evidence_bundle_for_question(p_question_uuid uuid)`
-* `research._record_failure(p_run_id uuid, p_stage text, p_class text, p_detail text)`
-* `research.build_decision_card(p_run_id uuid)`
-* `research.cancel_research_run(p_run_id uuid, p_reason text)`
-* `research.compute_priority_v1(constitutional_impact numeric, measured_performance_gap numeric, safety_impact numeric, expected_value numeric, urgency numeric, evidence_availability numeric, implementation_cost numeric, duplication_penalty numeric)`
-* `research.estimate_provider_cost_usd(p_provider_code text, p_input_tokens integer, p_output_tokens integer)`
-* `research.materialize_proposal_from_run(p_run_id uuid)`
-* `research.mock_model_for_stage(p_stage text)`
-* `research.mock_provider_for_stage(p_stage text)`
-* `research.proposal_has_evidence(p_evidence_ids uuid[])`
-* `research.try_enter_decision_from_partial(p_run_id uuid)`
+Freeze action for every writable APP cell: `REVOKE INSERT, UPDATE, DELETE`. Final WRITE = Appendix A.1 (APP column below). N8N/GOV final = SELECT or NONE per A.1. TEST/PUBLIC final = NONE.
 
-**Note:** keep-EXECUTE does **not** restore provider/live reachability; table-write freeze still blocks mutable provider/auth/envelope/usage paths. Functions that can reach governed or provider execution are listed in the freeze inventory below and lose EXECUTE.
+| Table | Owner | Role | Direct INSERT | Direct UPDATE | Update columns | Direct DELETE | Effective inherited WRITE | Freeze action | Schema-9 final WRITE | Reason |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| research.schema_version | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | orchestration/lifecycle freeze |
+| research.schema_version | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.schema_version | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.schema_version | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.schema_version | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.providers | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.providers | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.providers | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.providers | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.providers | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.models | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | orchestration/lifecycle freeze |
+| research.models | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.models | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.models | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.models | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.benchmark_suites | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | orchestration/lifecycle freeze |
+| research.benchmark_suites | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.benchmark_suites | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.benchmark_suites | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.benchmark_suites | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.benchmark_cases | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | orchestration/lifecycle freeze |
+| research.benchmark_cases | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.benchmark_cases | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.benchmark_cases | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.benchmark_cases | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.benchmark_runs | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | orchestration/lifecycle freeze |
+| research.benchmark_runs | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.benchmark_runs | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.benchmark_runs | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.benchmark_runs | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.model_outputs | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.model_outputs | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.model_outputs | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.model_outputs | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.model_outputs | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.automatic_scores | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | orchestration/lifecycle freeze |
+| research.automatic_scores | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.automatic_scores | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.automatic_scores | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.automatic_scores | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.taha_scores | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.taha_scores | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.taha_scores | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.taha_scores | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.taha_scores | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.run_failures | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.run_failures | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.run_failures | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.run_failures | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.run_failures | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.monthly_role_rankings | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.monthly_role_rankings | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.monthly_role_rankings | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.monthly_role_rankings | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.monthly_role_rankings | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_budget_policies | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.provider_budget_policies | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_budget_policies | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_budget_policies | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_budget_policies | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.question_status_transitions | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | orchestration/lifecycle freeze |
+| research.question_status_transitions | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.question_status_transitions | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.question_status_transitions | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.question_status_transitions | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_questions | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | orchestration/lifecycle freeze |
+| research.research_questions | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_questions | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_questions | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_questions | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_question_versions | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.research_question_versions | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_question_versions | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_question_versions | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_question_versions | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_question_relationships | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.research_question_relationships | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_question_relationships | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_question_relationships | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_question_relationships | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_priorities | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | orchestration/lifecycle freeze |
+| research.research_priorities | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_priorities | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_priorities | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_priorities | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_status_history | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.research_status_history | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_status_history | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_status_history | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_status_history | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_closure_records | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.research_closure_records | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_closure_records | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_closure_records | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_closure_records | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.sources | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.sources | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.sources | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.sources | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.sources | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.source_snapshots | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.source_snapshots | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.source_snapshots | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.source_snapshots | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.source_snapshots | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.evidence_items | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.evidence_items | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.evidence_items | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.evidence_items | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.evidence_items | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.evidence_claim_links | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.evidence_claim_links | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.evidence_claim_links | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.evidence_claim_links | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.evidence_claim_links | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_findings | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.research_findings | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_findings | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_findings | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_findings | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.improvement_proposals | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | orchestration/lifecycle freeze |
+| research.improvement_proposals | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.improvement_proposals | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.improvement_proposals | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.improvement_proposals | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.proposal_versions | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.proposal_versions | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.proposal_versions | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.proposal_versions | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.proposal_versions | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.taha_decisions | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.taha_decisions | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.taha_decisions | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.taha_decisions | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.taha_decisions | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.decision_rationales | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.decision_rationales | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.decision_rationales | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.decision_rationales | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.decision_rationales | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.reconsideration_conditions | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | orchestration/lifecycle freeze |
+| research.reconsideration_conditions | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.reconsideration_conditions | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.reconsideration_conditions | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.reconsideration_conditions | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_runs | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | orchestration/lifecycle freeze |
+| research.research_runs | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_runs | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_runs | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_runs | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_run_stages | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | orchestration/lifecycle freeze |
+| research.research_run_stages | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_run_stages | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.research_run_stages | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.research_run_stages | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_adapter_requests | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | governed/provider path |
+| research.provider_adapter_requests | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_adapter_requests | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_adapter_requests | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_adapter_requests | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_adapter_responses | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | governed/provider path |
+| research.provider_adapter_responses | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_adapter_responses | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_adapter_responses | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_adapter_responses | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.repair_attempts | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.repair_attempts | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.repair_attempts | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.repair_attempts | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.repair_attempts | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.orchestration_failures | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | orchestration/lifecycle freeze |
+| research.orchestration_failures | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.orchestration_failures | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.orchestration_failures | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.orchestration_failures | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_capabilities | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.provider_capabilities | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_capabilities | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_capabilities | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_capabilities | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_model_candidates | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.provider_model_candidates | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_model_candidates | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_model_candidates | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_model_candidates | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_adapter_versions | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.provider_adapter_versions | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_adapter_versions | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_adapter_versions | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_adapter_versions | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_rate_limit_policies | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.provider_rate_limit_policies | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_rate_limit_policies | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_rate_limit_policies | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_rate_limit_policies | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_credential_status | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.provider_credential_status | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_credential_status | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_credential_status | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_credential_status | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_authorization_records | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.provider_authorization_records | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_authorization_records | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_authorization_records | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_authorization_records | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_usage_ledger | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.provider_usage_ledger | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_usage_ledger | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_usage_ledger | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_usage_ledger | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_health_checks | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | governed/provider path |
+| research.provider_health_checks | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_health_checks | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_health_checks | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_health_checks | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.live_request_envelopes | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.live_request_envelopes | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.live_request_envelopes | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.live_request_envelopes | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.live_request_envelopes | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_policy_verifications | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.provider_policy_verifications | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_policy_verifications | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_policy_verifications | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_policy_verifications | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_pilot_proposals | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | governed/provider path |
+| research.provider_pilot_proposals | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_pilot_proposals | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.provider_pilot_proposals | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.provider_pilot_proposals | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.gemini_pilot_request_builder_specs | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | SELECT | orchestration/lifecycle freeze |
+| research.gemini_pilot_request_builder_specs | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.gemini_pilot_request_builder_specs | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | SELECT | closed-world role coverage |
+| research.gemini_pilot_request_builder_specs | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.gemini_pilot_request_builder_specs | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.pilot_capacity_reservations | postgres | research_app | Y | Y | ALL | Y | N | REVOKE INSERT,UPDATE,DELETE | NONE (renamed legacy) | governed/provider path |
+| research.pilot_capacity_reservations | postgres | n8n_app | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.pilot_capacity_reservations | postgres | research_governance | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.pilot_capacity_reservations | postgres | research_test | N | N | N | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
+| research.pilot_capacity_reservations | postgres | PUBLIC | N | N | n/a | N | N | REVOKE INSERT,UPDATE,DELETE (idempotent) | NONE | closed-world role coverage |
 
-| Schema.name(signature) | Freeze reason | Schema-9 disposition |
-| --- | --- | --- |
-| `research.build_provider_request_envelope(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_canonical_request jsonb, p_claimed_credential_status text)` | Pilot envelope / live path | KEEP body rewritten; EXECUTE restored only at complete for APP |
-| `research.build_non_pilot_request_envelope(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_canonical_request jsonb, p_claimed_credential_status text)` | Non-pilot builder | NEW; EXECUTE APP only at complete |
-| `research.live_preflight(p_provider_code text, p_model_provisional text, p_benchmark_case_id uuid, p_authorization_id uuid, p_role_code text, p_confidentiality_class text, p_claimed_credential_status text, p_projected_input_tokens integer, p_projected_output_tokens integer, p_is_retry boolean, p_fallback_provider text)` | Live preflight | KEEP rewritten; EXECUTE APP at complete |
-| `research.orchestrate_research_run(p_run_id uuid)` | Can reach provider stages | KEEP; EXECUTE APP at complete |
-| `research.run_stage(p_run_id uuid, p_stage text, p_scenario_hint text)` | Stage/provider path | KEEP; EXECUTE APP at complete |
-| `research.record_authorization_spend(p_authorization_id uuid, p_requests integer, p_tokens integer, p_cost numeric, p_note text)` | Spend/usage | KEEP; rejects pilot; EXECUTE APP at complete |
-| `research.mock_adapter_invoke(p_request_id uuid)` | Adapter invoke | KEEP; EXECUTE APP at complete |
-| `research.parse_provider_fixture_response(p_provider_code text, p_fixture jsonb)` | Provider fixture parse | KEEP; EXECUTE APP at complete |
-| `research.activate_pilot_authorization(p_authorization_id uuid, p_pilot_code text)` | Activation | KEEP; EXECUTE GOV at complete |
-| `research.append_governance_action(p_action_type text, p_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_decision_value text, p_material_fingerprint char(64), p_supersedes_action_id uuid, p_issued_at timestamptz, p_expires_at timestamptz, p_payload jsonb)` | Governance write | NEW; EXECUTE GOV at complete |
-| `research.approve_pilot_proposal(p_pilot_code text)` | Proposal approve | NEW; EXECUTE GOV at complete |
-| `research.confirm_provider_credential_status(p_pilot_proposal_id uuid, p_provider_code text, p_n8n_credential_label text, p_governance_action_id uuid, p_note text)` | Credential confirm | NEW; EXECUTE GOV at complete |
-| `research.enable_provider_for_pilot(p_pilot_code text, p_provider_code text)` | Provider enable | NEW; EXECUTE GOV at complete |
-| `research.enable_model_for_pilot(p_pilot_code text, p_provider_code text, p_model_id_provisional text)` | Model enable | NEW; EXECUTE GOV at complete |
-| `research.disable_provider_for_pilot(p_pilot_code text, p_provider_code text)` | Provider disable | NEW; EXECUTE GOV at complete |
-| `research.disable_model_for_pilot(p_pilot_code text, p_provider_code text, p_model_id_provisional text)` | Model disable | NEW; EXECUTE GOV at complete |
-| `research.record_accounting_discrepancy(p_discrepancy_type text, p_pilot_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_benchmark_case_id uuid, p_idempotency_key text, p_operation text, p_observed_attempt_count bigint, p_observed_success_count bigint, p_observed_input_tokens bigint, p_observed_output_tokens bigint, p_observed_cost_usd numeric, p_expected_max_requests integer, p_expected_max_successful_calls integer, p_expected_max_input_tokens integer, p_expected_max_output_tokens integer, p_expected_max_cost_usd numeric, p_ledger_request_count bigint, p_ledger_success_count bigint, p_ledger_input_tokens bigint, p_ledger_output_tokens bigint, p_ledger_cost_usd numeric, p_schema_version integer, p_expected_fingerprint char(64))` | Discrepancy write | NEW; EXECUTE APP+GOV at complete |
-| `research.build_accounting_discrepancy_payload(p_discrepancy_type text, p_pilot_proposal_id uuid, p_authorization_id uuid, p_provider_id uuid, p_model_id uuid, p_benchmark_case_id uuid, p_idempotency_key text, p_operation text, p_observed_attempt_count bigint, p_observed_success_count bigint, p_observed_input_tokens bigint, p_observed_output_tokens bigint, p_observed_cost_usd numeric, p_expected_max_requests integer, p_expected_max_successful_calls integer, p_expected_max_input_tokens integer, p_expected_max_output_tokens integer, p_expected_max_cost_usd numeric, p_ledger_request_count bigint, p_ledger_success_count bigint, p_ledger_input_tokens bigint, p_ledger_output_tokens bigint, p_ledger_cost_usd numeric, p_schema_version integer)` | Payload builder | NEW; EXECUTE NONE forever (DEFINER-internal) |
-| `research._r3_clone_question(p_code text, p_scenario text)` | Test helper | MOVED TO research_test |
-| `research._r3_new_run(p_code text, p_qid uuid, p_scenario text, p_budget numeric)` | Test helper | MOVED |
-| `research._r4_arm_provider(p_code text, p_enable_provider boolean, p_enable_model boolean, p_verify_model boolean, p_free_confirmed boolean, p_cred_present boolean, p_daily_req integer, p_daily_tok integer)` | Arm helper | MOVED |
-| `research._r4_case_id()` | Test helper | MOVED |
-| `research._r4_make_auth(p_provider text, p_model_id uuid, p_case uuid, p_max_req integer, p_max_tok integer, p_max_cost numeric, p_expires timestamptz)` | Auth fixture | MOVED |
-| `research._r4_reset_defaults()` | Reset helper | MOVED |
-| `research._r5a_assert_final_pilot_state()` | Test helper | MOVED |
-| `research._r5a_final_arm_gates()` | Arm helper | MOVED |
-| `research._r5a_final_assert_state()` | Test helper | MOVED |
-| `research._r5a_final_reset_defaults()` | Reset helper | MOVED |
-| `research._r5a_insert_fixture_auth(p_fixture text, p_pilot uuid, p_case uuid, p_provider uuid, p_model uuid)` | Fixture helper | MOVED |
-| `research._r5a_repair_reset_defaults()` | Reset helper | MOVED |
-| `research.cleanup_test_fixture(p_fixture_id text)` | Fixture cleanup | MOVED |
-| `research.record_pilot_usage_for_tests(p_authorization_id uuid, p_input_tokens integer, p_output_tokens integer, p_success boolean, p_fixture_id text, p_is_retry boolean)` | Test spend | MOVED |
-
-**Closed-world preflight rule:** every `research.*` function that currently grants `EXECUTE` to `research_app`, `n8n_app`, `research_governance`, or `PUBLIC` MUST appear in this freeze inventory **or** in the keep-EXECUTE allowlist at the top of this subsection. Preflight fails closed if any such grant exists for an unlisted function identity (schema + name + full argument signature). No open-ended “related functions” class exists.
-
-### 13.4 Exact direct-write freeze matrix
-
-During freeze: REVOKE INSERT, UPDATE, DELETE from `research_app`, `n8n_app`, `research_governance`, `PUBLIC` on every row below (n8n currently SELECT-only; revoke is idempotent). Schema-9 final = Appendix A.
-
-| Table | Role | Schema-8 / pre-cutover write | Freeze revocation | Schema-9 final | Reason |
-| --- | --- | --- | --- | --- | --- |
-| research.live_request_envelopes | research_app | may hold INSERT historically | REVOKE INSERT,UPDATE,DELETE | SELECT | envelopes |
-| research.provider_authorization_records | research_app | may hold UPDATE historically | REVOKE INSERT,UPDATE,DELETE | SELECT | authorizations |
-| research.provider_usage_ledger | research_app | may hold INSERT historically | REVOKE INSERT,UPDATE,DELETE | SELECT | usage |
-| research.provider_credential_status | research_app | may hold UPDATE historically | REVOKE INSERT,UPDATE,DELETE | SELECT | credentials |
-| research.providers | research_app | may hold UPDATE historically | REVOKE INSERT,UPDATE,DELETE | SELECT | providers |
-| research.provider_model_candidates | research_app | may hold UPDATE historically | REVOKE INSERT,UPDATE,DELETE | SELECT | models |
-| research.provider_pilot_proposals | research_app | may hold UPDATE historically | REVOKE INSERT,UPDATE,DELETE | SELECT | proposals |
-| research.pilot_capacity_reservations | research_app | INSERT/UPDATE historically | REVOKE INSERT,UPDATE,DELETE | N/A → legacy NONE | reservations |
-| research.provider_adapter_requests | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | requests |
-| research.provider_adapter_responses | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | requests |
-| research.provider_health_checks | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | provider health |
-| research.taha_governance_actions | research_app | none expected | REVOKE INSERT,UPDATE,DELETE | SELECT | governance |
-| research.pilot_capacity_events | research_app | n/a until created | REVOKE INSERT,UPDATE,DELETE until complete | SELECT | capacity |
-| research.accounting_discrepancies | research_app | n/a until created | REVOKE INSERT,UPDATE,DELETE until complete | SELECT | discrepancy |
-| research.legacy_reservation_archive | research_app | n/a | REVOKE all writes | SELECT | archive |
-| research.schema9_cutover_state | research_app | n/a | NONE forever | NONE | cutover |
-| research.schema9_cutover_checkpoints | research_app | n/a | NONE forever | NONE | cutover |
-| research.automatic_scores | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze all APP writes |
-| research.benchmark_runs | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
-| research.decision_rationales | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.evidence_claim_links | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.evidence_items | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.improvement_proposals | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
-| research.model_outputs | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.monthly_role_rankings | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.orchestration_failures | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.proposal_versions | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.reconsideration_conditions | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
-| research.repair_attempts | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.research_closure_records | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.research_findings | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.research_priorities | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
-| research.research_question_relationships | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.research_question_versions | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.research_questions | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
-| research.research_run_stages | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
-| research.research_runs | research_app | INSERT,UPDATE | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT,UPDATE | cutover freeze |
-| research.research_status_history | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.run_failures | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.source_snapshots | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.sources | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.taha_decisions | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.taha_scores | research_app | INSERT | REVOKE INSERT,UPDATE,DELETE | SELECT,INSERT | cutover freeze |
-| research.schema_version | research_app | none | REVOKE INSERT,UPDATE,DELETE | SELECT | version owner-only |
-| research.benchmark_cases | research_app | none | REVOKE INSERT,UPDATE,DELETE | SELECT | SELECT-only |
-| research.benchmark_suites | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
-| research.gemini_pilot_request_builder_specs | research_app | none | REVOKE INSERT,UPDATE,DELETE | SELECT | SELECT-only |
-| research.models | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
-| research.provider_adapter_versions | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
-| research.provider_budget_policies | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
-| research.provider_capabilities | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
-| research.provider_policy_verifications | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
-| research.provider_rate_limit_policies | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
-| research.question_status_transitions | research_app | none | REVOKE INSERT, UPDATE,DELETE | SELECT | SELECT-only |
-| research.pilot_capacity_reservations_legacy | research_app | n/a until rename | REVOKE INSERT, UPDATE,DELETE | NONE | legacy owner-only |
-
-**Role coverage (closed):** for every table row above, the freeze transaction also executes identical `REVOKE INSERT, UPDATE, DELETE` for `n8n_app`, `research_governance`, and `PUBLIC`. Schema-9 final privileges for those roles are exactly Appendix A.1 (SELECT or NONE as listed). Objects not present in Appendix A after schema 9 receive no write access.
-
-**Closed-world table rule:** preflight inventories every base table in schema `research` from `pg_tables`. Every such table MUST appear in this matrix. Unlisted tables fail preflight.
+**Preflight table closed-world rules:** fail if additional writable role exists; table absent from matrix; catalog privileges differ from expected Y/N cells; runtime role owns production table; role can write via membership not represented.
 
 ### 13.5 Restart classification matrix
 
 | # | Classification | Signals | Recovery phase | Allowed | Forbidden | Owner? |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Fresh v8, no freeze | max(v)=8; no cutover row or state=preflight; ACL not frozen | preflight → runtime_freezing | inventory | transform/grants | No |
-| 2 | v8 freeze incomplete | max(v)=8; state≠runtime_frozen or ACL freeze asserts fail | runtime_freezing (full freeze txn) | freeze only | transform | No |
-| 3 | v8 durable freeze | max(v)=8; state=runtime_frozen; ACL OK; no transform checkpoints | transforming | transform DDL | grants/version | No |
-| 4 | v8 partially transformed | max(v)=8; frozen; some transform checkpoints | transforming from next missing checkpoint | remaining DDL | grants | No |
-| 5 | v8 reconciling | frozen; transform complete; reconcile incomplete | reconciling | idempotent backfill | grants/version | No |
-| 6 | v8 validation failed | frozen; validate failed / no digest | validating or failed_frozen | re-validate | grants/version | No unless contradiction |
-| 7 | v9 still frozen | max(v)=9; state=version_advanced; ACL frozen | runtime_restoring (after re-validate) | exact grants | schema-8 restore | No |
-| 8 | v9 restore incomplete | max(v)=9; state=runtime_restoring; grants partial/fail | runtime_restoring / failed_frozen | re-revoke+retry exact grants | broad grants | If ACL drift persists |
-| 9 | v9 complete | state=complete; allowlist match | complete no-op verify | none | mutate freeze | No |
-| 10 | Contradictory | State C; marker frozen but ACL open; version/state mismatch without checkpoint | failed_frozen | inspect | auto-advance/grants | **Yes** |
+| 1 | Fresh v8, no freeze | max(v)=8; no cutover table/row; ACL not frozen | preflight → runtime_freezing | inventory | transform/grants | No |
+| 2 | v8 freeze incomplete | max(v)=8; state≠runtime_frozen or ACL fail | runtime_freezing | freeze only | transform | No |
+| 3 | v8 durable freeze | frozen; no transform checkpoints | transforming @ crypto_schema_complete | transform | grants/version | No |
+| 4 | v8 partially transformed | frozen; some §13.8 checkpoints | next missing checkpoint | remaining DDL | grants | No |
+| 5 | v8 reconciling | transform complete; reconcile incomplete | reconciling | idempotent classify | grants/version | No |
+| 6 | v8 validation failed | frozen; no/invalid validation_digest | validating or failed_frozen | re-validate | grants | If contradiction |
+| 7 | v9 + version_advanced | max(v)=9; state=version_advanced; freeze ACL | restore txn A | exact grants | schema-8 restore | No |
+| 8a | v9 + runtime_restoring; no grants | ACL still freeze matrix | restore txn A | grants | complete | No |
+| 8b | v9 + runtime_restoring; partial grants | ACL ≠ freeze and ≠ Appendix A | **re-freeze revoke txn** then failed_frozen or retry A | re-revoke | broad grants | If revoke fails |
+| 8c | v9 + failed_frozen | state=failed_frozen | owner recovery / restore-fail path | inspect | auto-complete | Yes |
+| 9 | v9 complete ACL match | state=complete; allowlist match | no-op verify | none | mutate | No |
+| 9b | v9 complete ACL mismatch | state=complete; ACL≠A | set failed_frozen + revoke A grants | re-revoke | serve traffic | Yes |
+| 10 | Contradictory / State C | corrupt evidence | failed_frozen | inspect | auto-advance | **Yes** |
 
 ### 13.6 Legacy State A/B/C predicates
 
@@ -1167,16 +1305,7 @@ to_regclass('research.pilot_capacity_reservations') IS NOT NULL
 to_regclass('research.pilot_capacity_reservations_legacy') IS NULL
 ```
 
-Completion predicates (all required before rename):
-
-* checkpoint `src_inventory` evidence lists every reservation id/status;
-* checkpoint `backfill_events`: count(events from legacy) reconciles reserved/finalized rows;
-* checkpoint `archive_released`: every released row in `legacy_reservation_archive` with UNIQUE(legacy_reservation_id);
-* checkpoint `deps_rewritten`: `prosrc`/`pg_depend` scan shows zero production refs needing original name after rewrite scripts;
-* checkpoint `reconcile_checksum` matches recomputation;
-* checkpoint `rename_ready`: freeze ACL still held.
-
-Then RENAME to legacy in a committed subphase; checkpoint `renamed`.
+Completion requires §13.10 equality (not checkpoint flags alone), then RENAME → checkpoint `renamed`.
 
 #### State B
 
@@ -1185,32 +1314,137 @@ to_regclass('research.pilot_capacity_reservations') IS NULL
 to_regclass('research.pilot_capacity_reservations_legacy') IS NOT NULL
 ```
 
-Completion predicates:
-
-* `backfill_events` + `archive_released` checkpoints present;
-* archive UNIQUE holds; no duplicate archive ids;
-* `trg_reject_legacy_capacity_table_mutation` enabled on legacy table;
-* production dependency scan on **legacy** name = zero executable runtime refs;
-* `reconcile_checksum` matches;
-* builders’ `prosrc` contain no `pilot_capacity_reservations` token (original name).
-
-**No State-B recovery step may reference the original table name.**
+**Independent completeness proof (required):** recompute digests from legacy PK set, event `source_reservation_id` set, archive `legacy_reservation_id` set, discrepancy source ids, and compare to persisted `reconciliation_evidence`. Checkpoint presence alone is **insufficient**. Digest mismatch → `failed_frozen`. **No State-B step may reference the original table name.**
 
 #### State C
 
-Both names exist or neither exists → `failed_frozen`; runtime blocked; do not advance version further; owner intervention.
+Both or neither names → `failed_frozen`; runtime blocked; owner intervention.
 
-### 13.7 Partial-cutover matrix (builders)
+### 13.7 Partial-cutover builder matrix
 
 | State | Schema version | Old builders executable | New builders executable |
 | --- | ---: | --- | --- |
 | preflight | 8 | yes (pre-freeze) | no |
-| runtime_freezing (uncommitted) | 8 | indeterminate→rollback | no |
-| runtime_frozen … validating | 8 | **no** | **no** |
-| version_advanced | 9 | **no** | **no** |
-| runtime_restoring (pre-assert) | 9 | **no** | granting… |
-| complete | 9 | **no** | **yes** (allowlist only) |
+| runtime_frozen through version_advanced | 8 or 9 | **no** | **no** |
+| runtime_restoring (grants applied, state≠complete) | 9 | **no** | **ACL may exist but entrypoint gate denies** |
+| complete | 9 | **no** | **yes** (allowlist + gate) |
 | failed_frozen | 8 or 9 | **no** | **no** |
+
+### 13.8 Transformation checkpoints (exact; no ellipsis)
+
+Each checkpoint = one committed subphase script. Evidence row MUST store `catalog_digest` = SHA-256 of canonical catalog snapshot for listed predicates. Flag-without-digest is invalid.
+
+| Checkpoint | Transaction | Objects affected | Completion evidence | Catalog predicates | Rerun no-op predicate | Conflict predicate | Failure state |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `crypto_schema_complete` | `20a-crypto.sql` | research_crypto schema; pgcrypto SET SCHEMA; digest+gen_random_uuid in research_crypto | checkpoint row + catalog_digest | extschema=research_crypto; to_regprocedure digest/gen_random_uuid in research_crypto | same predicates already true | pgcrypto elsewhere OR digest missing | failed_frozen |
+| `role_and_default_privileges_complete` | `20b-roles.sql` | research_governance; research_test; memberships; ALTER DEFAULT PRIVILEGES §14 | checkpoint row + catalog_digest | roles exist; NOINHERIT; CREATE denied; defaults NONE | roles+defaults match digest | extra membership OR CREATE privilege | failed_frozen |
+| `governance_tables_complete` | `20c-gov-tables.sql` | taha_governance_actions + indexes | checkpoint row + catalog_digest | table+indexes exist; owner postgres; APP write NONE | relation+index OIDs match digest | partial table without required indexes | failed_frozen |
+| `governance_chain_constraints_complete` | `20d-gov-chains.sql` | unique terminal; parent FKs; transition CHECKs | checkpoint row + catalog_digest | constraints named exactly; CHECK expressions match | constraint catalog digest match | missing/extra constraint | failed_frozen |
+| `credential_scope_complete` | `20e-cred.sql` | confirm_provider_credential_status DEFINER | checkpoint row + catalog_digest | function identity exact; EXECUTE NONE until restore | prosrc+acl digest | wrong signature/EXECUTE grant | failed_frozen |
+| `provider_model_enablement_complete` | `20f-enable.sql` | enable/disable provider/model DEFINER funcs | checkpoint row + catalog_digest | four functions exist; EXECUTE NONE | identity+acl digest | EXECUTE granted early | failed_frozen |
+| `authorization_activation_invariants_complete` | `20g-activate.sql` | activate_pilot_authorization + validity guard without GUC | checkpoint row + catalog_digest | prosrc has no allow_pilot_activation; EXECUTE NONE | prosrc+acl digest | GUC path present | failed_frozen |
+| `discrepancy_structures_complete` | `20h-disc-tables.sql` | accounting_discrepancies table+unique fingerprint | checkpoint row + catalog_digest | table+UNIQUE; write NONE | relation digest | writable by APP | failed_frozen |
+| `discrepancy_functions_complete` | `20i-disc-funcs.sql` | build_accounting_discrepancy_payload; record_accounting_discrepancy | checkpoint row + catalog_digest | signatures exact; EXECUTE NONE | identity+acl digest | EXECUTE granted | failed_frozen |
+| `capacity_event_structures_complete` | `20j-capacity.sql` | pilot_capacity_events; legacy_reservation_archive | checkpoint row + catalog_digest | tables+uniques; write NONE | relation digest | missing unique | failed_frozen |
+| `pilot_builder_complete` | `20k-pilot-builder.sql` | build_provider_request_envelope redefine | checkpoint row + catalog_digest | signature exact; EXECUTE NONE; FQ crypto | prosrc+acl digest | EXECUTE granted OR unqualified crypto | failed_frozen |
+| `non_pilot_builder_complete` | `20l-nonpilot-builder.sql` | build_non_pilot_request_envelope | checkpoint row + catalog_digest | signature exact; EXECUTE NONE | prosrc+acl digest | EXECUTE granted | failed_frozen |
+| `append_only_trigger_functions_complete` | `20m-trg-funcs.sql` | five reject_* trigger functions | checkpoint row + catalog_digest | five functions exist; OWNER postgres | identity digest | missing function | failed_frozen |
+| `append_only_triggers_attached` | `20n-trg-attach.sql` | five trg_reject_* triggers ENABLE | checkpoint row + catalog_digest | pg_trigger rows exact | trigger catalog digest | disabled/missing trigger | failed_frozen |
+| `test_helpers_isolated` | `20o-helpers.sql` | move _r3/_r4/_r5a/cleanup/record_pilot_usage to research_test | checkpoint row + catalog_digest | absent from research or EXECUTE NONE for APP/N8N/GOV | helper inventory digest | helper still APP-executable in research | failed_frozen |
+| `unsafe_functions_replaced` | `20p-unsafe.sql` | remaining elevated bodies FQ + search_path=pg_catalog | checkpoint row + catalog_digest | zero unqualified crypto; prosecdef where required | prosrc scan digest | unqualified digest/gen_random_uuid | failed_frozen |
+| `ownership_locked` | `20q-owner.sql` | all research/research_crypto security objects OWNER postgres | checkpoint row + catalog_digest | pg_class/pg_proc owners | owner digest | runtime role owns object | failed_frozen |
+| `default_privileges_locked` | `20r-defaults.sql` | §14 defaults committed | checkpoint row + catalog_digest | pg_default_acl matches §14 | default_acl digest | future PUBLIC EXECUTE default | failed_frozen |
+
+Requirements: runtime remains frozen; old and new builders non-executable; conflicting partial objects fail closed.
+
+### 13.9 Exact reconciliation classification
+
+Ambiguous consumed capacity remains consumed. Malformed/conflicting data never restores capacity. Each source row maps to **exactly one** category via first-match ordered evaluation (invalid_status → missing_* → duplicates → conflicts → happy paths).
+
+| Category | Exact predicate | Capacity effect | Event/archive result | Discrepancy result | Pilot state | Automatic recovery | Owner action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `reserved_with_envelope` | status='reserved' AND envelope_id IS NOT NULL | attempt_consumed event linked | event row; no archive | none | capacity held | Y if UNIQUE ok | none |
+| `reserved_without_envelope` | status='reserved' AND envelope_id IS NULL | legacy_orphan consumed | event consumption_kind=legacy_orphan | none unless ledger conflict | capacity held | Y | none |
+| `finalized_with_envelope` | status='finalized' AND envelope_id IS NOT NULL | attempt_consumed | event linked | none | capacity held | Y | none |
+| `finalized_without_envelope` | status='finalized' AND envelope_id IS NULL | legacy_orphan consumed | event legacy_orphan | none | capacity held | Y | none |
+| `released` | status='released' | zero capacity | archive row UNIQUE(legacy_reservation_id) | none | unchanged | Y | none |
+| `invalid_status` | status NOT IN ('reserved','finalized','released') | consumed fail-closed | conflict record | discrepancy typed | pilot blocked | N | classify/fix |
+| `missing_proposal` | pilot_proposal_id IS NULL OR NOT EXISTS proposal | consumed fail-closed | conflict record | discrepancy | pilot blocked | N | inspect |
+| `missing_authorization` | authorization_id IS NULL OR NOT EXISTS auth | consumed fail-closed | conflict | discrepancy | pilot blocked | N | inspect |
+| `missing_case` | benchmark_case_id IS NULL OR NOT EXISTS case | consumed fail-closed | conflict | discrepancy | pilot blocked | N | inspect |
+| `duplicate_idempotency_key` | two+ rows same (pilot,case,idempotency_key) active | first wins; extras conflict | one event; extras conflict rows | discrepancy | pilot blocked | N | dedupe approve |
+| `duplicate_case_attempt` | two+ attempt_consumed same (pilot,case) | capacity held once | conflict on second | discrepancy | pilot blocked | N | inspect |
+| `duplicate_envelope_link` | two+ events same envelope_id | capacity held | conflict | discrepancy | pilot blocked | N | inspect |
+| `reservation_event_conflict` | reservation consumed but event missing/mismatched after backfill attempt | consumed | conflict row | discrepancy | pilot blocked | N | inspect |
+| `reservation_ledger_request_conflict` | ledger request_count vs events disagree per §7.4 | consumed; builder blocks | events unchanged | discrepancy fingerprint | pilot blocked | N | inspect |
+| `reservation_ledger_success_conflict` | ledger success vs events disagree | consumed; builder blocks | events unchanged | discrepancy | pilot blocked | N | inspect |
+| `token_conflict` | projected token sums disagree with policy sources | consumed; builder blocks | conflict | discrepancy | pilot blocked | N | inspect |
+| `cost_conflict` | cost_usd disagree or cost>0 for free pilot | consumed; builder blocks | conflict | discrepancy | pilot blocked | N | inspect |
+| `negative_or_malformed_counters` | any counter <0 OR null where forbidden | consumed fail-closed | conflict | discrepancy | pilot blocked | N | inspect |
+| `unresolved_discrepancy` | discrepancy row without acknowledgment governance action | consumed; builder blocks | existing discrepancy | retained | pilot blocked | N | acknowledge |
+| `orphaned_ledger_row` | ledger row with no reservation/auth binding in scope | no capacity restore | orphan conflict | discrepancy | pilot blocked if pilot-scoped | N | inspect |
+| `orphaned_envelope_row` | envelope with no matching capacity event after reconcile | no capacity restore | orphan conflict | discrepancy | pilot blocked | N | inspect |
+
+Uniqueness keys (rerun-safe): `pilot_capacity_events (pilot_id, benchmark_case_id, idempotency_key)`; `legacy_reservation_archive (legacy_reservation_id)`; `accounting_discrepancies (discrepancy_fingerprint)`; reconciliation evidence `(migration_id)`.
+
+### 13.10 Reconciliation completeness evidence
+
+Persisted in `schema9_cutover_state.reconciliation_evidence` JSONB + `reconciliation_checksum`:
+
+* `source_row_count`, `source_pk_set_digest`
+* `migrated_event_count`, `migrated_event_identity_set_digest`
+* `archive_count`, `archive_identity_set_digest`
+* `conflict_count`, `conflict_identity_set_digest`
+* `orphan_count`, `unresolved_discrepancy_count`, `dependency_count`
+* `reconciliation_algorithm_version` = `schema9_reconcile_v1`
+
+**State A completion equality:**
+
+```text
+classified_source_rows
+  = migrated_events + archived_releases + immutable_conflict_or_discrepancy_records
+```
+
+If persisted evidence ≠ independently recomputed evidence → `failed_frozen`; runtime blocked; owner investigation.
+
+### 13.11 Runtime-restoration transaction model
+
+#### Restoration transaction A — install exact grants
+
+One transaction:
+
+1. Require: schema version 9; state `version_advanced` or recoverable `failed_frozen` with freeze ACL true; `validation_digest` valid; freeze ACL assertions true.
+2. Set state=`runtime_restoring`.
+3. Apply **only** exact Appendix A schema-9 GRANTs (never ALL; never PUBLIC elevated; never schema-8 builders).
+4. Store `restore_grant_digest`.
+5. **Do not** set `complete`.
+6. Commit.
+
+After commit: every schema-9 runtime entrypoint MUST still deny because `cutover_state <> 'complete'`.
+
+#### Restoration verification (new session)
+
+Compare ACLs to Appendix A; schema-8 builders revoked; unknown functions/roles no runtime privs; state still `runtime_restoring`; provider/model disabled; credential unchanged; zero approvals/activations/workflows/envelopes/live calls/paid usage.
+
+#### Restoration transaction B — complete
+
+Only after verification succeeds: set state=`complete`; commit; reverify in a new session.
+
+#### Restoration failure transaction (separate owner txn)
+
+If grant install or verification fails — **never** recover inside an aborted txn:
+
+1. Open **new** owner transaction.
+2. REVOKE every Appendix A schema-9 runtime grant.
+3. Assert freeze ACL matrix.
+4. Set state=`failed_frozen`.
+5. Commit.
+
+If this failure-revocation txn fails: entrypoints still deny (state≠complete); return `BLOCKED_OWNER_RECOVERY`; owner intervention.
+
+Schema-8 grants are **never** restored.
+
+Restart: §13.5 rows 7, 8a, 8b, 8c, 9, 9b.
 
 ---
 
@@ -1238,15 +1472,15 @@ Future objects = NONE until an explicit allowlist migration updates Appendix A.
 | Topic | Decision |
 | --- | --- |
 | Cutover model | Multi-transaction controller (Model A) |
-| Controller | Owner PowerShell + separately committed phase SQL |
-| Durable freeze | Dedicated freeze txn commits before any transform |
-| Schema version | 9 only after validating under freeze; frozen v9 valid |
-| Final grants | Only in runtime_restoring after v9; fail → re-revoke + failed_frozen |
-| Action-chain parent | `supersedes_action_id` immediate same-scope parent |
-| Terminal-state | Terminal enable only |
-| Crypto | `research_crypto` FQ only |
-| Discrepancy | Typed recorder; literal normative fingerprint §8.1.1 |
-| Legacy restart | State A/B/C + checkpoints |
+| Preflight | Strictly read-only; no cutover upsert |
+| Durable freeze | First mutation; dedicated txn before transform |
+| Inventories | Closed-world function rows + role×table write rows |
+| Checkpoints | Exact 18 units with catalog_digest |
+| Reconciliation | Per-category predicates + independent digests |
+| Restoration | Txn A grants → verify session → Txn B complete; fail uses new revoke txn |
+| Entrypoint gate | Deny unless cutover state=`complete` |
+| Schema version | 9 only after validate under freeze |
+| Crypto / discrepancy / governance | Unchanged normative contracts |
 
 ---
 
