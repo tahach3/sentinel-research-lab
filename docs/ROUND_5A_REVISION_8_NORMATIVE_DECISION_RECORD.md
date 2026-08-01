@@ -11,7 +11,7 @@ Governing decisions accepted for this record:
 1. Phase 1 (`EV-*`) and Phase 2 (`ND-*`) are independent workstreams.
 2. Reconciliation uses an ordered 22-rule cascade (rules 1–21 define outcomes; rule 22 = `UNCLASSIFIABLE → failed_frozen`).
 3. Source/outcome mapping is a total deterministic mapping from every source identity to exactly one outcome slot (events are not the codomain; shared events store canonical source-reference sets). The word “bijection” is forbidden in normative text.
-4. Every normative row carries `EV-*` and/or `ND-*` provenance. Catalog-dependent fields use `EVIDENCE_REQUIRED(<exact evidence set or row>)`. Missing input yields `BLOCKED_MISSING_INPUT`.
+4. Every normative row carries `EV-*` and/or `ND-*` provenance. Catalog-dependent fields use classed evidence markers: `RECONSTRUCTED_REFERENCE_ACCEPTED(<EV-...>)`, `EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(<EV-...>)`, or `PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(<EV-...>)` (see `docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md` and §Revision 8 Evidence-Class Amendment). Missing required live/runtime evidence yields `BLOCKED_LIVE_PREFLIGHT_REQUIRED`, `BLOCKED_RUNTIME_REVALIDATION_REQUIRED`, `BLOCKED_MISSING_INPUT`, or `failed_frozen` per class.
 
 ---
 
@@ -25,7 +25,7 @@ Every decision below states:
 | decision | Normative choice |
 | rationale | Why this choice is locked |
 | normative input | Revision 7 / governing decision text used |
-| catalog input required | Exact `EVIDENCE_REQUIRED(...)` or `none` |
+| catalog input required | Exact classed evidence marker(s) (`RECONSTRUCTED_REFERENCE_ACCEPTED` / `EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED` / `PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED`) or `none` |
 | failure behavior | Exact fail-closed state |
 | test obligation | Exact `ND-TEST-*` coverage required |
 
@@ -126,7 +126,7 @@ Authoritative names (order fixed):
 | decision | One algorithm `schema9_checkpoint_digest_v1` for every checkpoint `catalog_digest` |
 | rationale | Flag-without-digest is invalid; digests must be OID-free and reorder-stable |
 | normative input | Governing Decision 4; Revision 7 §13.8 digest requirement |
-| catalog input required | EVIDENCE_REQUIRED(EV-FUNCTIONS, EV-FUNCTION-ACLS, EV-TABLES, EV-TABLE-ACLS, EV-COLUMNS, EV-COLUMN-ACLS, EV-CONSTRAINTS, EV-INDEXES, EV-TRIGGERS, EV-EXTENSIONS, EV-SCHEMAS, EV-SCHEMA-PRIVS, EV-ROLES, EV-MEMBERSHIPS, EV-DEFAULT-PRIVS, EV-CRYPTO-LOCATION) as applicable per checkpoint |
+| catalog input required | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-FUNCTIONS, EV-TABLES, EV-COLUMNS, EV-CONSTRAINTS, EV-INDEXES, EV-TRIGGERS, EV-EXTENSIONS, EV-SCHEMAS, EV-CRYPTO-LOCATION); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-ACLS, EV-TABLE-ACLS, EV-COLUMN-ACLS, EV-SCHEMA-PRIVS, EV-ROLES, EV-MEMBERSHIPS, EV-DEFAULT-PRIVS) as applicable per checkpoint |
 | failure behavior | Digest mismatch / algorithm-version mismatch → `failed_frozen` |
 | test obligation | ND-TEST-DIGEST-* |
 
@@ -181,24 +181,24 @@ Column meanings for the master table:
 
 | ND ID | Checkpoint | Exact object set | Exact catalog predicates | Canonical snapshot columns | Ordering | Serialization | Digest algorithm | Completion evidence | No-op predicate | Conflict predicate | Failure state | EV dependencies |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ND-CHECKPOINT-01 | `crypto_schema_complete` | Schema `research_crypto`; extension `pgcrypto` relocated into `research_crypto`; procedures `research_crypto.digest(bytea,text)` and `research_crypto.gen_random_uuid()` | `EVIDENCE_REQUIRED(EV-CRYPTO-LOCATION)` proves extschema=`research_crypto`; both procedures resolve in `research_crypto`; no `digest`/`gen_random_uuid` remain executable as unqualified public/research shadows for runtime roles | `extname,extschema,proc_identity,proc_schema,proc_owner` | COLLATE "C" by natural key | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | predicates already true and digest unchanged | pgcrypto in other schema OR either procedure missing/wrong schema | failed_frozen | EVIDENCE_REQUIRED(EV-CRYPTO-LOCATION, EV-EXTENSIONS, EV-FUNCTIONS, EV-FUNCTION-ACLS) |
-| ND-CHECKPOINT-02 | `role_and_default_privileges_complete` | Roles `research_governance`, `research_test`; memberships per §2; default privileges statements in §14 | Roles exist with LOGIN/NOINHERIT attributes as designed; CREATE denied on `research`/`research_crypto` for APP/N8N/GOV/TEST/PUBLIC; default ACL rows match §14 revoke-all set | `rolname,rolcanlogin,rolinherit,member_tuple,schema_priv_tuple,default_acl_tuple` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | roles+defaults digest unchanged | extra membership OR CREATE privilege present | failed_frozen | EVIDENCE_REQUIRED(EV-ROLES, EV-MEMBERSHIPS, EV-SCHEMA-PRIVS, EV-DEFAULT-PRIVS) |
-| ND-CHECKPOINT-03 | `governance_tables_complete` | `research.taha_governance_actions` with indexes `EVIDENCE_REQUIRED(EV-INDEXES)` for PK/`uq_taha_gov_one_child_per_parent` and any additional indexes named in EV-INDEXES for that table | Table exists; owner=`postgres`; APP/N8N/GOV/PUBLIC Direct INSERT/UPDATE/DELETE = NONE (`EVIDENCE_REQUIRED(EV-TABLE-WRITES)`); required indexes present | `rel_identity,owner,acl_expanded,index_identity,indexdef` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | relation+index digest unchanged | table missing required index OR writable by runtime role | failed_frozen | EVIDENCE_REQUIRED(EV-TABLES, EV-TABLE-ACLS, EV-TABLE-WRITES, EV-INDEXES) |
-| ND-CHECKPOINT-04 | `governance_chain_constraints_complete` | Constraints on `research.taha_governance_actions`: CHECK action_type set; CHECK authority_identifier=`Taha`; CHECK decision_value map; CHECK expires_at; FK parent; unique one-child-per-parent index; plus `EVIDENCE_REQUIRED(EV-CONSTRAINTS)` exact names/definitions | Every listed constraint/index definition equals normative text after whitespace-normalized `pg_get_constraintdef` / `pg_get_indexdef` | `conname,contype,condef,index_identity,indexdef` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | constraint digest unchanged | missing/extra/altered constraint | failed_frozen | EVIDENCE_REQUIRED(EV-CONSTRAINTS, EV-INDEXES) |
-| ND-CHECKPOINT-05 | `credential_scope_complete` | `research.confirm_provider_credential_status(p_pilot_proposal_id uuid, p_provider_code text, p_n8n_credential_label text, p_governance_action_id uuid, p_note text)` SECURITY DEFINER OWNER postgres | Identity exact; EXECUTE NONE to APP/N8N/GOV/PUBLIC/TEST until restore (`EVIDENCE_REQUIRED(EV-FUNCTION-ACLS, EV-FUNCTION-EFFECTIVE)`); body contains no secret credential payload parameters | `proc_identity,owner,prosecdef,acl_expanded,prosrc_sha256` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | identity+acl+prosrc digest unchanged | wrong signature OR EXECUTE granted early | failed_frozen | EVIDENCE_REQUIRED(EV-FUNCTIONS, EV-FUNCTION-ACLS, EV-FUNCTION-EFFECTIVE) |
-| ND-CHECKPOINT-06 | `provider_model_enablement_complete` | Exactly four functions: `enable_provider_for_pilot`, `disable_provider_for_pilot`, `enable_model_for_pilot`, `disable_model_for_pilot` with Appendix A.4 identities | All four exist; OWNER postgres; SECURITY DEFINER; EXECUTE NONE until restore | `proc_identity,owner,prosecdef,acl_expanded` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | identity+acl digest unchanged | missing function OR EXECUTE granted early | failed_frozen | EVIDENCE_REQUIRED(EV-FUNCTIONS, EV-FUNCTION-ACLS) |
-| ND-CHECKPOINT-07 | `authorization_activation_invariants_complete` | `research.activate_pilot_authorization(p_authorization_id uuid, p_pilot_code text)`; `research.trg_authorization_validity_guard()` | `prosrc` contains no `allow_pilot_activation` GUC path; EXECUTE NONE to APP/N8N/PUBLIC/TEST until restore (GOV final later); validity guard redefined without session-GUC bypass | `proc_identity,owner,prosecdef,acl_expanded,prosrc_sha256,guc_path_absent(t/f)` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | prosrc+acl digest unchanged | GUC path present OR EXECUTE granted to APP | failed_frozen | EVIDENCE_REQUIRED(EV-FUNCTIONS, EV-FUNCTION-ACLS) |
-| ND-CHECKPOINT-08 | `discrepancy_structures_complete` | `research.accounting_discrepancies` + UNIQUE(`discrepancy_fingerprint`) + append-only readiness predicates | Table exists; UNIQUE present; Direct WRITE NONE for APP/N8N/GOV/PUBLIC/TEST | `rel_identity,owner,acl_expanded,unique_index_identity` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | relation digest unchanged | writable by APP OR unique missing | failed_frozen | EVIDENCE_REQUIRED(EV-TABLES, EV-TABLE-WRITES, EV-INDEXES, EV-CONSTRAINTS) |
-| ND-CHECKPOINT-09 | `discrepancy_functions_complete` | `research.build_accounting_discrepancy_payload(...)` and `research.record_accounting_discrepancy(...)` exact Appendix A.4 identities | Signatures exact; OWNER postgres; SECURITY DEFINER; EXECUTE NONE for build to APP/N8N/GOV/PUBLIC; record EXECUTE NONE until restore | `proc_identity,owner,prosecdef,acl_expanded` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | identity+acl digest unchanged | EXECUTE granted early OR signature drift | failed_frozen | EVIDENCE_REQUIRED(EV-FUNCTIONS, EV-FUNCTION-ACLS) |
-| ND-CHECKPOINT-10 | `capacity_event_structures_complete` | `research.pilot_capacity_events`; `research.legacy_reservation_archive`; UNIQUEs `(pilot_proposal_id, idempotency_key)`, `(pilot_proposal_id, benchmark_case_id)`, `(legacy_reservation_id)` | Tables exist; UNIQUEs present; Direct WRITE NONE for runtime roles | `rel_identity,owner,acl_expanded,unique_index_identity` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | relation digest unchanged | missing unique OR writable | failed_frozen | EVIDENCE_REQUIRED(EV-TABLES, EV-TABLE-WRITES, EV-INDEXES, EV-CONSTRAINTS) |
-| ND-CHECKPOINT-11 | `pilot_builder_complete` | `research.build_provider_request_envelope(...)` redefined SECURITY DEFINER; crypto calls fully qualified to `research_crypto.*` | Signature exact; EXECUTE NONE until restore; `prosrc` has zero unqualified `digest`/`gen_random_uuid` | `proc_identity,owner,prosecdef,acl_expanded,prosrc_sha256,unqualified_crypto_count` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | prosrc+acl digest unchanged | EXECUTE granted OR unqualified crypto remains | failed_frozen | EVIDENCE_REQUIRED(EV-FUNCTIONS, EV-FUNCTION-ACLS, EV-CRYPTO-LOCATION) |
-| ND-CHECKPOINT-12 | `non_pilot_builder_complete` | `research.build_non_pilot_request_envelope(...)` exact Appendix A.4 identity | Signature exact; OWNER postgres; SECURITY DEFINER; EXECUTE NONE until restore | `proc_identity,owner,prosecdef,acl_expanded` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | identity+acl digest unchanged | EXECUTE granted early | failed_frozen | EVIDENCE_REQUIRED(EV-FUNCTIONS, EV-FUNCTION-ACLS) |
-| ND-CHECKPOINT-13 | `append_only_trigger_functions_complete` | Exactly: `reject_taha_governance_action_mutation`, `reject_pilot_capacity_event_mutation`, `reject_accounting_discrepancy_mutation`, `reject_legacy_reservation_archive_mutation`, `reject_legacy_capacity_table_mutation` | All five exist in `research`; OWNER postgres; identities exact | `proc_identity,owner` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | identity digest unchanged | missing/extra reject_* function | failed_frozen | EVIDENCE_REQUIRED(EV-FUNCTIONS) |
-| ND-CHECKPOINT-14 | `append_only_triggers_attached` | Exactly five ENABLE triggers in Appendix A.4b | `pg_trigger` rows match names/tables/functions/enabled; no disabled required trigger | `tg_identity,table_identity,function_identity,enabled` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | trigger digest unchanged | disabled/missing/extra required trigger | failed_frozen | EVIDENCE_REQUIRED(EV-TRIGGERS) |
-| ND-CHECKPOINT-15 | `test_helpers_isolated` | Helper set: `_r3_clone_question`, `_r3_new_run`, `_r4_arm_provider`, `_r4_case_id`, `_r4_make_auth`, `_r4_reset_defaults`, `_r5a_assert_final_pilot_state`, `_r5a_final_arm_gates`, `_r5a_final_assert_state`, `_r5a_final_reset_defaults`, `_r5a_insert_fixture_auth`, `_r5a_repair_reset_defaults`, `cleanup_test_fixture`, `record_pilot_usage_for_tests` | Each helper is absent from `research` **or** EXECUTE NONE for APP/N8N/GOV/PUBLIC; helpers live in `research_test` when moved | `proc_identity,schema,acl_expanded,app_exec(t/f),n8n_exec(t/f),gov_exec(t/f)` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | helper inventory digest unchanged | helper still APP-executable in `research` | failed_frozen | EVIDENCE_REQUIRED(EV-HELPER-FUNCTIONS, EV-FUNCTIONS, EV-FUNCTION-EFFECTIVE) |
-| ND-CHECKPOINT-16 | `unsafe_functions_replaced` | All elevated/runtime bodies that must call crypto/`gen_random_uuid` | Zero unqualified `digest`/`gen_random_uuid` in covered `prosrc`; `search_path=pg_catalog` where SECURITY DEFINER required; `prosecdef` matches disposition | `proc_identity,prosecdef,search_path_setting,unqualified_crypto_count,prosrc_sha256` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | prosrc scan digest unchanged | any unqualified crypto remains | failed_frozen | EVIDENCE_REQUIRED(EV-FUNCTIONS, EV-FUNCTION-ACLS, EV-CRYPTO-LOCATION) |
-| ND-CHECKPOINT-17 | `ownership_locked` | All security objects in `research` and `research_crypto` | Every covered table/view/sequence/function/trigger function owner = `postgres`; no runtime role owner | `object_class,object_identity,owner_name` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | owner digest unchanged | runtime role owns object | failed_frozen | EVIDENCE_REQUIRED(EV-TABLES, EV-VIEWS, EV-SEQUENCES, EV-FUNCTIONS, EV-TRIGGERS) |
-| ND-CHECKPOINT-18 | `default_privileges_locked` | §14 default-privilege revoke set for `postgres` in `research` and `research_crypto` | `pg_default_acl` matches revoke-all normative tuples; no future PUBLIC EXECUTE default for those schemas | `role_name,schema_name,objtype,acl_expanded` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | default_acl digest unchanged | PUBLIC EXECUTE default present OR revoke missing | failed_frozen | EVIDENCE_REQUIRED(EV-DEFAULT-PRIVS) |
+| ND-CHECKPOINT-01 | `crypto_schema_complete` | Schema `research_crypto`; extension `pgcrypto` relocated into `research_crypto`; procedures `research_crypto.digest(bytea,text)` and `research_crypto.gen_random_uuid()` | `RECONSTRUCTED_REFERENCE_ACCEPTED(EV-CRYPTO-LOCATION)` proves extschema=`research_crypto`; both procedures resolve in `research_crypto`; no `digest`/`gen_random_uuid` remain executable as unqualified public/research shadows for runtime roles | `extname,extschema,proc_identity,proc_schema,proc_owner` | COLLATE "C" by natural key | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | predicates already true and digest unchanged | pgcrypto in other schema OR either procedure missing/wrong schema | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-CRYPTO-LOCATION, EV-EXTENSIONS, EV-FUNCTIONS); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-ACLS) |
+| ND-CHECKPOINT-02 | `role_and_default_privileges_complete` | Roles `research_governance`, `research_test`; memberships per §2; default privileges statements in §14 | Roles exist with LOGIN/NOINHERIT attributes as designed; CREATE denied on `research`/`research_crypto` for APP/N8N/GOV/TEST/PUBLIC; default ACL rows match §14 revoke-all set | `rolname,rolcanlogin,rolinherit,member_tuple,schema_priv_tuple,default_acl_tuple` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | roles+defaults digest unchanged | extra membership OR CREATE privilege present | failed_frozen | EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-ROLES, EV-MEMBERSHIPS, EV-SCHEMA-PRIVS, EV-DEFAULT-PRIVS) |
+| ND-CHECKPOINT-03 | `governance_tables_complete` | `research.taha_governance_actions` with indexes `RECONSTRUCTED_REFERENCE_ACCEPTED(EV-INDEXES)` for PK/`uq_taha_gov_one_child_per_parent` and any additional indexes named in EV-INDEXES for that table | Table exists; owner=`postgres`; APP/N8N/GOV/PUBLIC Direct INSERT/UPDATE/DELETE = NONE (`EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-TABLE-WRITES)`); required indexes present | `rel_identity,owner,acl_expanded,index_identity,indexdef` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | relation+index digest unchanged | table missing required index OR writable by runtime role | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-TABLES, EV-INDEXES); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-TABLE-ACLS, EV-TABLE-WRITES) |
+| ND-CHECKPOINT-04 | `governance_chain_constraints_complete` | Constraints on `research.taha_governance_actions`: CHECK action_type set; CHECK authority_identifier=`Taha`; CHECK decision_value map; CHECK expires_at; FK parent; unique one-child-per-parent index; plus `RECONSTRUCTED_REFERENCE_ACCEPTED(EV-CONSTRAINTS)` exact names/definitions | Every listed constraint/index definition equals normative text after whitespace-normalized `pg_get_constraintdef` / `pg_get_indexdef` | `conname,contype,condef,index_identity,indexdef` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | constraint digest unchanged | missing/extra/altered constraint | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-CONSTRAINTS, EV-INDEXES) |
+| ND-CHECKPOINT-05 | `credential_scope_complete` | `research.confirm_provider_credential_status(p_pilot_proposal_id uuid, p_provider_code text, p_n8n_credential_label text, p_governance_action_id uuid, p_note text)` SECURITY DEFINER OWNER postgres | Identity exact; EXECUTE NONE to APP/N8N/GOV/PUBLIC/TEST until restore (`EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-ACLS, EV-FUNCTION-EFFECTIVE)`); body contains no secret credential payload parameters | `proc_identity,owner,prosecdef,acl_expanded,prosrc_sha256` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | identity+acl+prosrc digest unchanged | wrong signature OR EXECUTE granted early | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-FUNCTIONS); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-ACLS, EV-FUNCTION-EFFECTIVE) |
+| ND-CHECKPOINT-06 | `provider_model_enablement_complete` | Exactly four functions: `enable_provider_for_pilot`, `disable_provider_for_pilot`, `enable_model_for_pilot`, `disable_model_for_pilot` with Appendix A.4 identities | All four exist; OWNER postgres; SECURITY DEFINER; EXECUTE NONE until restore | `proc_identity,owner,prosecdef,acl_expanded` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | identity+acl digest unchanged | missing function OR EXECUTE granted early | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-FUNCTIONS); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-ACLS) |
+| ND-CHECKPOINT-07 | `authorization_activation_invariants_complete` | `research.activate_pilot_authorization(p_authorization_id uuid, p_pilot_code text)`; `research.trg_authorization_validity_guard()` | `prosrc` contains no `allow_pilot_activation` GUC path; EXECUTE NONE to APP/N8N/PUBLIC/TEST until restore (GOV final later); validity guard redefined without session-GUC bypass | `proc_identity,owner,prosecdef,acl_expanded,prosrc_sha256,guc_path_absent(t/f)` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | prosrc+acl digest unchanged | GUC path present OR EXECUTE granted to APP | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-FUNCTIONS); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-ACLS) |
+| ND-CHECKPOINT-08 | `discrepancy_structures_complete` | `research.accounting_discrepancies` + UNIQUE(`discrepancy_fingerprint`) + append-only readiness predicates | Table exists; UNIQUE present; Direct WRITE NONE for APP/N8N/GOV/PUBLIC/TEST | `rel_identity,owner,acl_expanded,unique_index_identity` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | relation digest unchanged | writable by APP OR unique missing | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-TABLES, EV-INDEXES, EV-CONSTRAINTS); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-TABLE-WRITES) |
+| ND-CHECKPOINT-09 | `discrepancy_functions_complete` | `research.build_accounting_discrepancy_payload(...)` and `research.record_accounting_discrepancy(...)` exact Appendix A.4 identities | Signatures exact; OWNER postgres; SECURITY DEFINER; EXECUTE NONE for build to APP/N8N/GOV/PUBLIC; record EXECUTE NONE until restore | `proc_identity,owner,prosecdef,acl_expanded` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | identity+acl digest unchanged | EXECUTE granted early OR signature drift | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-FUNCTIONS); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-ACLS) |
+| ND-CHECKPOINT-10 | `capacity_event_structures_complete` | `research.pilot_capacity_events`; `research.legacy_reservation_archive`; UNIQUEs `(pilot_proposal_id, idempotency_key)`, `(pilot_proposal_id, benchmark_case_id)`, `(legacy_reservation_id)` | Tables exist; UNIQUEs present; Direct WRITE NONE for runtime roles | `rel_identity,owner,acl_expanded,unique_index_identity` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | relation digest unchanged | missing unique OR writable | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-TABLES, EV-INDEXES, EV-CONSTRAINTS); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-TABLE-WRITES) |
+| ND-CHECKPOINT-11 | `pilot_builder_complete` | `research.build_provider_request_envelope(...)` redefined SECURITY DEFINER; crypto calls fully qualified to `research_crypto.*` | Signature exact; EXECUTE NONE until restore; `prosrc` has zero unqualified `digest`/`gen_random_uuid` | `proc_identity,owner,prosecdef,acl_expanded,prosrc_sha256,unqualified_crypto_count` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | prosrc+acl digest unchanged | EXECUTE granted OR unqualified crypto remains | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-FUNCTIONS, EV-CRYPTO-LOCATION); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-ACLS) |
+| ND-CHECKPOINT-12 | `non_pilot_builder_complete` | `research.build_non_pilot_request_envelope(...)` exact Appendix A.4 identity | Signature exact; OWNER postgres; SECURITY DEFINER; EXECUTE NONE until restore | `proc_identity,owner,prosecdef,acl_expanded` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | identity+acl digest unchanged | EXECUTE granted early | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-FUNCTIONS); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-ACLS) |
+| ND-CHECKPOINT-13 | `append_only_trigger_functions_complete` | Exactly: `reject_taha_governance_action_mutation`, `reject_pilot_capacity_event_mutation`, `reject_accounting_discrepancy_mutation`, `reject_legacy_reservation_archive_mutation`, `reject_legacy_capacity_table_mutation` | All five exist in `research`; OWNER postgres; identities exact | `proc_identity,owner` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | identity digest unchanged | missing/extra reject_* function | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-FUNCTIONS) |
+| ND-CHECKPOINT-14 | `append_only_triggers_attached` | Exactly five ENABLE triggers in Appendix A.4b | `pg_trigger` rows match names/tables/functions/enabled; no disabled required trigger | `tg_identity,table_identity,function_identity,enabled` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | trigger digest unchanged | disabled/missing/extra required trigger | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-TRIGGERS) |
+| ND-CHECKPOINT-15 | `test_helpers_isolated` | Helper set: `_r3_clone_question`, `_r3_new_run`, `_r4_arm_provider`, `_r4_case_id`, `_r4_make_auth`, `_r4_reset_defaults`, `_r5a_assert_final_pilot_state`, `_r5a_final_arm_gates`, `_r5a_final_assert_state`, `_r5a_final_reset_defaults`, `_r5a_insert_fixture_auth`, `_r5a_repair_reset_defaults`, `cleanup_test_fixture`, `record_pilot_usage_for_tests` | Each helper is absent from `research` **or** EXECUTE NONE for APP/N8N/GOV/PUBLIC; helpers live in `research_test` when moved | `proc_identity,schema,acl_expanded,app_exec(t/f),n8n_exec(t/f),gov_exec(t/f)` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | helper inventory digest unchanged | helper still APP-executable in `research` | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-HELPER-FUNCTIONS, EV-FUNCTIONS); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-EFFECTIVE) |
+| ND-CHECKPOINT-16 | `unsafe_functions_replaced` | All elevated/runtime bodies that must call crypto/`gen_random_uuid` | Zero unqualified `digest`/`gen_random_uuid` in covered `prosrc`; `search_path=pg_catalog` where SECURITY DEFINER required; `prosecdef` matches disposition | `proc_identity,prosecdef,search_path_setting,unqualified_crypto_count,prosrc_sha256` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | prosrc scan digest unchanged | any unqualified crypto remains | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-FUNCTIONS, EV-CRYPTO-LOCATION); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-ACLS) |
+| ND-CHECKPOINT-17 | `ownership_locked` | All security objects in `research` and `research_crypto` | Every covered table/view/sequence/function/trigger function owner = `postgres`; no runtime role owner | `object_class,object_identity,owner_name` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | owner digest unchanged | runtime role owns object | failed_frozen | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-TABLES, EV-VIEWS, EV-SEQUENCES, EV-FUNCTIONS, EV-TRIGGERS) |
+| ND-CHECKPOINT-18 | `default_privileges_locked` | §14 default-privilege revoke set for `postgres` in `research` and `research_crypto` | `pg_default_acl` matches revoke-all normative tuples; no future PUBLIC EXECUTE default for those schemas | `role_name,schema_name,objtype,acl_expanded` | COLLATE "C" | U+001F/U+001E | ND-DIGEST-CHECKPOINT-V1 | checkpoint row + digest | default_acl digest unchanged | PUBLIC EXECUTE default present OR revoke missing | failed_frozen | EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-DEFAULT-PRIVS) |
 
 ### ND-CHECKPOINT-COMMON — common checkpoint failure rules
 
@@ -208,7 +208,7 @@ Column meanings for the master table:
 | decision | Runtime remains frozen through all 18 checkpoints; builders non-executable until restoration; any conflict/partial object → `failed_frozen` |
 | rationale | Matches Revision 7 cutover safety |
 | normative input | Revision 7 §13.8 requirements paragraph |
-| catalog input required | EVIDENCE_REQUIRED(EV-CUTOVER-STATE, EV-FUNCTION-EFFECTIVE, EV-TABLE-WRITES) |
+| catalog input required | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-CUTOVER-STATE); EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-FUNCTION-EFFECTIVE, EV-TABLE-WRITES) |
 | failure behavior | `failed_frozen` |
 | test obligation | ND-TEST-CP-COMMON |
 
@@ -224,7 +224,7 @@ Column meanings for the master table:
 | decision | Source reservation identity `S` = `legacy_reservation_id` UUID of `research.pilot_capacity_reservations` (pre-rename) / `research.pilot_capacity_reservations_legacy` (post-rename) primary key |
 | rationale | Natural durable key; no OID; no migration row order |
 | normative input | Revision 7 §7.4 |
-| catalog input required | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-TABLES, EV-COLUMNS) for exact PK/column names present in schema 8 |
+| catalog input required | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-TABLES, EV-COLUMNS) for exact PK/column names present in schema 8 |
 | failure behavior | Missing PK column → `BLOCKED_MISSING_INPUT`; during reconcile → `failed_frozen` |
 | test obligation | ND-TEST-IDENTITY-SOURCE |
 
@@ -242,7 +242,7 @@ source_v1 | <lowercase uuid text>
 | decision | Event identity = `(pilot_proposal_id, idempotency_key)` for `attempt_consumed` rows in `research.pilot_capacity_events` |
 | rationale | Matches UNIQUE contract in Revision 7 §7.1 |
 | normative input | Revision 7 §7.1 |
-| catalog input required | none for target schema-9 shape; baseline absence uses EVIDENCE_REQUIRED(EV-TABLES) |
+| catalog input required | none for target schema-9 shape; baseline absence uses RECONSTRUCTED_REFERENCE_ACCEPTED(EV-TABLES) |
 | failure behavior | Duplicate natural key → conflict path under cascade |
 | test obligation | ND-TEST-IDENTITY-EVENT |
 
@@ -254,7 +254,7 @@ source_v1 | <lowercase uuid text>
 | decision | Archive outcome identity = `legacy_reservation_id` in `research.legacy_reservation_archive` |
 | rationale | UNIQUE(`legacy_reservation_id`) |
 | normative input | Revision 7 §7.5 |
-| catalog input required | none for target; presence EVIDENCE_REQUIRED(EV-TABLES) after checkpoint 10 |
+| catalog input required | none for target; presence RECONSTRUCTED_REFERENCE_ACCEPTED(EV-TABLES) after checkpoint 10 |
 | failure behavior | Duplicate archive identity → `failed_frozen` |
 | test obligation | ND-TEST-IDENTITY-ARCHIVE |
 
@@ -280,7 +280,7 @@ source_v1 | <lowercase uuid text>
 | decision | Orphan evidence identity = `orphan_kind` + U+001F + durable natural key of orphaned ledger/envelope row (`ledger_id` or `envelope_id` lowercase uuid) |
 | rationale | OID-free conflict/orphan addressing |
 | normative input | Revision 7 §13.9 orphan/conflict categories |
-| catalog input required | EVIDENCE_REQUIRED(EV-SAFETY-BASELINE, EV-COLUMNS) for exact ledger/envelope PK column names |
+| catalog input required | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-COLUMNS); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) for exact ledger/envelope PK column names |
 | failure behavior | Unaddressable orphan/conflict → rule 22 / `failed_frozen` |
 | test obligation | ND-TEST-IDENTITY-CONFLICT, ND-TEST-IDENTITY-ORPHAN |
 
@@ -320,7 +320,7 @@ source_v1 | <lowercase uuid text>
 | decision | First-match-wins over the fixed order below. Evaluation order follows Revision 7 §13.9 text: invalid_status → missing_* → duplicates → conflicts → happy paths; then rule 22 fallback |
 | rationale | Deterministic selection; semantic correctness proven by witness tests |
 | normative input | Revision 7 §13.9 (“invalid_status → missing_* → duplicates → conflicts → happy paths”); Governing Decision 2 |
-| catalog input required | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-COLUMNS, EV-SAFETY-BASELINE) for exact source column names and related row sets |
+| catalog input required | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) for exact source column names and related row sets |
 | failure behavior | Rule 22 → cutover state `failed_frozen` |
 | test obligation | ND-TEST-RECON-PRECEDENCE, ND-TEST-RECON-SHADOW, ND-TEST-RECON-REACH, ND-TEST-RECON-FALLBACK, ND-TEST-RECON-MUTATE |
 
@@ -339,27 +339,27 @@ Unless noted, `Source identity` = ND-IDENTITY-SOURCE serialization. Capacity eff
 
 | Rule | ND ID | Exact predicate | Explicit exclusions | Source identity | Capacity effect | Outcome slot | Event/archive behavior | Discrepancy behavior | Pilot state | Automatic recovery | Owner action | EV dependencies |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | ND-RECON-01 | `status IS NULL OR status NOT IN ('reserved','finalized','released')` | none | S | consumed fail-closed | slot_conflict + slot_discrepancy | conflict record keyed by S; no archive; no happy-path event | discrepancy_type=`invalid_status` | pilot blocked | N | classify/fix | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-COLUMNS) |
-| 2 | ND-RECON-02 | `pilot_proposal_id IS NULL OR NOT EXISTS (SELECT 1 FROM research.provider_pilot_proposals p WHERE p.id = source.pilot_proposal_id)` | excludes rule 1 true | S | consumed fail-closed | slot_conflict + slot_discrepancy | conflict record; no archive | discrepancy_type=`missing_proposal` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-SAFETY-BASELINE, EV-COLUMNS) |
-| 3 | ND-RECON-03 | `authorization_id IS NULL OR NOT EXISTS (SELECT 1 FROM research.provider_authorization_records a WHERE a.id = source.authorization_id)` | excludes rules 1–2 true | S | consumed fail-closed | slot_conflict + slot_discrepancy | conflict record | discrepancy_type=`missing_authorization` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-SAFETY-BASELINE, EV-COLUMNS) |
-| 4 | ND-RECON-04 | `benchmark_case_id IS NULL OR NOT EXISTS (SELECT 1 FROM research.benchmark_cases c WHERE c.id = source.benchmark_case_id)` | excludes rules 1–3 true | S | consumed fail-closed | slot_conflict + slot_discrepancy | conflict record | discrepancy_type=`missing_case` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-SAFETY-BASELINE, EV-COLUMNS) |
-| 5 | ND-RECON-05 | Exists another source S2 with same `(pilot_proposal_id, benchmark_case_id, idempotency_key)` and S2 ≠ S and both pass rules 1–4 false; S is not the ND-RECON-DUP-ORDER winner | excludes rules 1–4 true; winners excluded | S | capacity held once for winner only | slot_conflict + slot_discrepancy for non-winners | non-winner: conflict only; winner deferred to later matching rule | discrepancy_type=`duplicate_idempotency_key` | pilot blocked | N | dedupe approve | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-COLUMNS) |
-| 6 | ND-RECON-06 | Exists another source S2 with same `(pilot_proposal_id, benchmark_case_id)`, both would create `attempt_consumed`, S is not ND-RECON-DUP-ORDER winner among that group after excluding rule-5 non-winners | excludes rules 1–5 true | S | capacity held once | slot_conflict + slot_discrepancy | conflict on non-winner | discrepancy_type=`duplicate_case_attempt` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-COLUMNS) |
-| 7 | ND-RECON-07 | `envelope_id IS NOT NULL` AND exists another source/event claiming same `envelope_id` with different S, and S is not winner by min(envelope claim source serialization) | excludes rules 1–6 true | S | capacity held | slot_conflict + slot_discrepancy | conflict | discrepancy_type=`duplicate_envelope_link` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-SAFETY-BASELINE, EV-COLUMNS) |
-| 8 | ND-RECON-08 | Source status in (`reserved`,`finalized`) AND after attempting event materialization, required event natural key missing OR event fields mismatch source (`pilot_proposal_id`,`authorization_id`,`benchmark_case_id`,`idempotency_key`, envelope/legacy linkage) | excludes rules 1–7 true | S | consumed | slot_conflict + slot_discrepancy | conflict row; no silent rewrite | discrepancy_type=`reservation_event_conflict` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-RESERVATION-STATE) |
-| 9 | ND-RECON-09 | For source pilot scope, `provider_usage_ledger` reporting request aggregates for bound auth/case are not equal to event-count authority defined in §7.2 (events-only request authority). Equality predicate: `ledger_request_count_reporting = COUNT(events)` is NOT required to authorize; conflict when ledger is used as enforcement input OR when recorded ledger request fields contradict event-derived request count under the typed discrepancy payload comparison | excludes rules 1–8 true | S | consumed; builder blocks | slot_discrepancy | events unchanged | discrepancy_type=`reservation_ledger_request_conflict` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-SAFETY-BASELINE) |
-| 10 | ND-RECON-10 | Ledger success count for pilot-bound non-test rows ≠ COUNT of success authority rows defined in §7.2 while source is in scope | excludes rules 1–9 true | S | consumed; builder blocks | slot_discrepancy | events unchanged | discrepancy_type=`reservation_ledger_success_conflict` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-SAFETY-BASELINE) |
-| 11 | ND-RECON-11 | Projected token sums from events for the source’s pilot/case scope ≠ policy max token fields on the bound authorization/policy row under typed integer equality | excludes rules 1–10 true | S | consumed; builder blocks | slot_conflict + slot_discrepancy | conflict | discrepancy_type=`token_conflict` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-SAFETY-BASELINE) |
-| 12 | ND-RECON-12 | `projected_cost_usd <> 0` on materializing event OR ledger `estimated_cost_usd > 0` for free-pilot scope OR cost fields disagree under numeric(20,8) eight-decimal equality | excludes rules 1–11 true | S | consumed; builder blocks | slot_conflict + slot_discrepancy | conflict | discrepancy_type=`cost_conflict` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-SAFETY-BASELINE) |
-| 13 | ND-RECON-13 | Any counter among source-linked projected/ledger/policy integer fields is NULL where NOT NULL required OR value < 0 | excludes rules 1–12 true | S | consumed fail-closed | slot_conflict + slot_discrepancy | conflict | discrepancy_type=`negative_or_malformed_counters` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-COLUMNS, EV-SAFETY-BASELINE) |
-| 14 | ND-RECON-14 | Exists `accounting_discrepancies` row for source pilot scope with no terminal `accounting_discrepancy_acknowledged` governance action in discrepancy scope | excludes rules 1–13 true | S | consumed; builder blocks | slot_discrepancy | retain existing discrepancy | discrepancy retained | pilot blocked | N | acknowledge | EVIDENCE_REQUIRED(EV-SAFETY-BASELINE) |
-| 15 | ND-RECON-15 | Exists ledger row in pilot scope with no reservation/auth binding natural key matching any source S or event identity | excludes rules 1–14 true; evaluated over ledger orphans discovered during reconcile | ledger orphan natural key | no capacity restore | slot_orphan_ledger + slot_discrepancy | orphan conflict | discrepancy_type=`orphaned_ledger_row` | pilot blocked if pilot-scoped | N | inspect | EVIDENCE_REQUIRED(EV-SAFETY-BASELINE, EV-COLUMNS) |
-| 16 | ND-RECON-16 | Exists envelope row with no matching capacity event natural key after reconcile pass | excludes rules 1–15 true | envelope natural key | no capacity restore | slot_orphan_envelope + slot_discrepancy | orphan conflict | discrepancy_type=`orphaned_envelope_row` | pilot blocked | N | inspect | EVIDENCE_REQUIRED(EV-SAFETY-BASELINE, EV-COLUMNS) |
-| 17 | ND-RECON-17 | `status='reserved' AND envelope_id IS NOT NULL` | excludes rules 1–16 true | S | attempt_consumed normal | slot_event_normal | insert/reuse event with `consumption_kind='normal'` and that `envelope_id`; no archive; event `source_refs` includes S | none | capacity held | Y if UNIQUE ok | none | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-COLUMNS) |
-| 18 | ND-RECON-18 | `status='reserved' AND envelope_id IS NULL` | excludes rules 1–17 true | S | legacy_orphan consumed | slot_event_legacy_orphan | event `consumption_kind='legacy_orphan'`, `envelope_id NULL`, `legacy_reservation_id=S`; no archive | none unless later ledger conflict rules already excluded | capacity held | Y | none | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-COLUMNS) |
-| 19 | ND-RECON-19 | `status='finalized' AND envelope_id IS NOT NULL` | excludes rules 1–18 true | S | attempt_consumed normal | slot_event_normal | event linked as normal; no archive | none | capacity held | Y | none | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-COLUMNS) |
-| 20 | ND-RECON-20 | `status='finalized' AND envelope_id IS NULL` | excludes rules 1–19 true | S | legacy_orphan consumed | slot_event_legacy_orphan | event legacy_orphan; no archive | none | capacity held | Y | none | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-COLUMNS) |
-| 21 | ND-RECON-21 | `status='released'` | excludes rules 1–20 true | S | zero capacity | slot_archive_released | archive row UNIQUE(legacy_reservation_id=S), `archived_status='released'`; no `attempt_consumed` | none | unchanged | Y | none | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-COLUMNS) |
+| 1 | ND-RECON-01 | `status IS NULL OR status NOT IN ('reserved','finalized','released')` | none | S | consumed fail-closed | slot_conflict + slot_discrepancy | conflict record keyed by S; no archive; no happy-path event | discrepancy_type=`invalid_status` | pilot blocked | N | classify/fix | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS) |
+| 2 | ND-RECON-02 | `pilot_proposal_id IS NULL OR NOT EXISTS (SELECT 1 FROM research.provider_pilot_proposals p WHERE p.id = source.pilot_proposal_id)` | excludes rule 1 true | S | consumed fail-closed | slot_conflict + slot_discrepancy | conflict record; no archive | discrepancy_type=`missing_proposal` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 3 | ND-RECON-03 | `authorization_id IS NULL OR NOT EXISTS (SELECT 1 FROM research.provider_authorization_records a WHERE a.id = source.authorization_id)` | excludes rules 1–2 true | S | consumed fail-closed | slot_conflict + slot_discrepancy | conflict record | discrepancy_type=`missing_authorization` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 4 | ND-RECON-04 | `benchmark_case_id IS NULL OR NOT EXISTS (SELECT 1 FROM research.benchmark_cases c WHERE c.id = source.benchmark_case_id)` | excludes rules 1–3 true | S | consumed fail-closed | slot_conflict + slot_discrepancy | conflict record | discrepancy_type=`missing_case` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 5 | ND-RECON-05 | Exists another source S2 with same `(pilot_proposal_id, benchmark_case_id, idempotency_key)` and S2 ≠ S and both pass rules 1–4 false; S is not the ND-RECON-DUP-ORDER winner | excludes rules 1–4 true; winners excluded | S | capacity held once for winner only | slot_conflict + slot_discrepancy for non-winners | non-winner: conflict only; winner deferred to later matching rule | discrepancy_type=`duplicate_idempotency_key` | pilot blocked | N | dedupe approve | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS) |
+| 6 | ND-RECON-06 | Exists another source S2 with same `(pilot_proposal_id, benchmark_case_id)`, both would create `attempt_consumed`, S is not ND-RECON-DUP-ORDER winner among that group after excluding rule-5 non-winners | excludes rules 1–5 true | S | capacity held once | slot_conflict + slot_discrepancy | conflict on non-winner | discrepancy_type=`duplicate_case_attempt` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS) |
+| 7 | ND-RECON-07 | `envelope_id IS NOT NULL` AND exists another source/event claiming same `envelope_id` with different S, and S is not winner by min(envelope claim source serialization) | excludes rules 1–6 true | S | capacity held | slot_conflict + slot_discrepancy | conflict | discrepancy_type=`duplicate_envelope_link` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 8 | ND-RECON-08 | Source status in (`reserved`,`finalized`) AND after attempting event materialization, required event natural key missing OR event fields mismatch source (`pilot_proposal_id`,`authorization_id`,`benchmark_case_id`,`idempotency_key`, envelope/legacy linkage) | excludes rules 1–7 true | S | consumed | slot_conflict + slot_discrepancy | conflict row; no silent rewrite | discrepancy_type=`reservation_event_conflict` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE) |
+| 9 | ND-RECON-09 | For source pilot scope, `provider_usage_ledger` reporting request aggregates for bound auth/case are not equal to event-count authority defined in §7.2 (events-only request authority). Equality predicate: `ledger_request_count_reporting = COUNT(events)` is NOT required to authorize; conflict when ledger is used as enforcement input OR when recorded ledger request fields contradict event-derived request count under the typed discrepancy payload comparison | excludes rules 1–8 true | S | consumed; builder blocks | slot_discrepancy | events unchanged | discrepancy_type=`reservation_ledger_request_conflict` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 10 | ND-RECON-10 | Ledger success count for pilot-bound non-test rows ≠ COUNT of success authority rows defined in §7.2 while source is in scope | excludes rules 1–9 true | S | consumed; builder blocks | slot_discrepancy | events unchanged | discrepancy_type=`reservation_ledger_success_conflict` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 11 | ND-RECON-11 | Projected token sums from events for the source’s pilot/case scope ≠ policy max token fields on the bound authorization/policy row under typed integer equality | excludes rules 1–10 true | S | consumed; builder blocks | slot_conflict + slot_discrepancy | conflict | discrepancy_type=`token_conflict` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 12 | ND-RECON-12 | `projected_cost_usd <> 0` on materializing event OR ledger `estimated_cost_usd > 0` for free-pilot scope OR cost fields disagree under numeric(20,8) eight-decimal equality | excludes rules 1–11 true | S | consumed; builder blocks | slot_conflict + slot_discrepancy | conflict | discrepancy_type=`cost_conflict` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 13 | ND-RECON-13 | Any counter among source-linked projected/ledger/policy integer fields is NULL where NOT NULL required OR value < 0 | excludes rules 1–12 true | S | consumed fail-closed | slot_conflict + slot_discrepancy | conflict | discrepancy_type=`negative_or_malformed_counters` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 14 | ND-RECON-14 | Exists `accounting_discrepancies` row for source pilot scope with no terminal `accounting_discrepancy_acknowledged` governance action in discrepancy scope | excludes rules 1–13 true | S | consumed; builder blocks | slot_discrepancy | retain existing discrepancy | discrepancy retained | pilot blocked | N | acknowledge | PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 15 | ND-RECON-15 | Exists ledger row in pilot scope with no reservation/auth binding natural key matching any source S or event identity | excludes rules 1–14 true; evaluated over ledger orphans discovered during reconcile | ledger orphan natural key | no capacity restore | slot_orphan_ledger + slot_discrepancy | orphan conflict | discrepancy_type=`orphaned_ledger_row` | pilot blocked if pilot-scoped | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-COLUMNS); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 16 | ND-RECON-16 | Exists envelope row with no matching capacity event natural key after reconcile pass | excludes rules 1–15 true | envelope natural key | no capacity restore | slot_orphan_envelope + slot_discrepancy | orphan conflict | discrepancy_type=`orphaned_envelope_row` | pilot blocked | N | inspect | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-COLUMNS); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
+| 17 | ND-RECON-17 | `status='reserved' AND envelope_id IS NOT NULL` | excludes rules 1–16 true | S | attempt_consumed normal | slot_event_normal | insert/reuse event with `consumption_kind='normal'` and that `envelope_id`; no archive; event `source_refs` includes S | none | capacity held | Y if UNIQUE ok | none | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS) |
+| 18 | ND-RECON-18 | `status='reserved' AND envelope_id IS NULL` | excludes rules 1–17 true | S | legacy_orphan consumed | slot_event_legacy_orphan | event `consumption_kind='legacy_orphan'`, `envelope_id NULL`, `legacy_reservation_id=S`; no archive | none unless later ledger conflict rules already excluded | capacity held | Y | none | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS) |
+| 19 | ND-RECON-19 | `status='finalized' AND envelope_id IS NOT NULL` | excludes rules 1–18 true | S | attempt_consumed normal | slot_event_normal | event linked as normal; no archive | none | capacity held | Y | none | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS) |
+| 20 | ND-RECON-20 | `status='finalized' AND envelope_id IS NULL` | excludes rules 1–19 true | S | legacy_orphan consumed | slot_event_legacy_orphan | event legacy_orphan; no archive | none | capacity held | Y | none | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS) |
+| 21 | ND-RECON-21 | `status='released'` | excludes rules 1–20 true | S | zero capacity | slot_archive_released | archive row UNIQUE(legacy_reservation_id=S), `archived_status='released'`; no `attempt_consumed` | none | unchanged | Y | none | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-COLUMNS) |
 
 ### Rule 22 — ND-RECON-22
 
@@ -389,7 +389,7 @@ Unless noted, `Source identity` = ND-IDENTITY-SOURCE serialization. Capacity eff
 | decision | For every source identity S in the reconcile domain, `classify(S)` returns exactly one primary outcome slot O via the cascade; side-effect records (conflict/discrepancy) are attached to that classification but do not create a second primary slot for S |
 | rationale | Governing Decision 3 totality and determinism |
 | normative input | Governing Decision 3 |
-| catalog input required | EVIDENCE_REQUIRED(EV-RESERVATION-STATE) for domain membership |
+| catalog input required | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE) for domain membership |
 | failure behavior | Unclassified S → rule 22 / `failed_frozen`; multiple primary slots → `failed_frozen` |
 | test obligation | ND-TEST-MAP-TOTAL |
 
@@ -417,7 +417,7 @@ Requirements locked:
 | decision | State A completeness is set equality over identities, not counts |
 | rationale | Revision 7 §13.10 strengthened to identity sets |
 | normative input | Revision 7 §13.10; Governing Decision 3 |
-| catalog input required | EVIDENCE_REQUIRED(EV-RESERVATION-STATE) |
+| catalog input required | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE) |
 | failure behavior | Inequality → `failed_frozen` |
 | test obligation | ND-TEST-STATE-A |
 
@@ -461,7 +461,7 @@ Each set digest = SHA-256 over sorted unique identity strings joined by U+001E u
 | decision | State B independently recomputes all State A sets and digests from durable legacy + schema-9 tables only; checkpoint presence is insufficient |
 | rationale | Prevents flag-only false completion |
 | normative input | Revision 7 §13.7 / §13.10 independent completeness proof |
-| catalog input required | EVIDENCE_REQUIRED(EV-RESERVATION-STATE, EV-TABLES, EV-SAFETY-BASELINE) |
+| catalog input required | RECONSTRUCTED_REFERENCE_ACCEPTED(EV-RESERVATION-STATE, EV-TABLES); PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-SAFETY-BASELINE) |
 | failure behavior | Any mismatch → `failed_frozen` |
 | test obligation | ND-TEST-STATE-B |
 
@@ -511,14 +511,14 @@ These dispositions are normative for Revision 8 architecture rows and must be ci
 
 | ND ID | Decision |
 | --- | --- |
-| ND-FREEZE-REVOKE-WRITES | During freeze, REVOKE INSERT/UPDATE/DELETE from all runtime roles on all research base tables that currently grant them (`EVIDENCE_REQUIRED(EV-TABLE-WRITES)` enumerates cells) |
+| ND-FREEZE-REVOKE-WRITES | During freeze, REVOKE INSERT/UPDATE/DELETE from all runtime roles on all research base tables that currently grant them (`EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-TABLE-WRITES)` enumerates cells) |
 | ND-FREEZE-REVOKE-EXECUTE | During freeze, REVOKE EXECUTE on all functions not in the keep-EXECUTE set; keep-EXECUTE set is normative names `gemini_pilot_5a_gate_status`, `sha256_hex`, `compute_priority_v1`, `proposal_has_evidence`, `estimate_provider_cost_usd`, `pilot_capacity_snapshot`, `pilot_case_attempt_count` only after EV-FUNCTIONS confirms identities |
 | ND-FINAL-GRANT-APPENDIX-A | Final grants after restoration txn A are exactly Appendix A tables/functions; no ALL; no PUBLIC elevated |
 | ND-FINAL-HELPERS-TEST | Helpers final EXECUTE only `research_test` after move |
 
 ---
 
-## 9. EVIDENCE_REQUIRED marker inventory
+## 9. Evidence marker inventory (classed; prior EV identities preserved)
 
 Total markers used in this record (unique):
 
@@ -554,15 +554,77 @@ Total markers used in this record (unique):
 30. EV-DRIFT-START
 31. EV-DRIFT-END
 
-No catalog fact in this document is asserted as observed. All catalog-dependent fields remain `EVIDENCE_REQUIRED(...)`.
+No catalog fact in this document is asserted as historical live observation. Catalog-dependent fields use classed markers per the Revision 8 Evidence-Class Amendment and `docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md`. Of 31 markers: 17 are `RECONSTRUCTED_REFERENCE_ACCEPTED` for deterministic reconstructed design facts only; 11 remain `EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED` with value `UNKNOWN_UNTIL_LIVE_PREFLIGHT`; 3 remain `PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED` with value `UNKNOWN_UNTIL_RUNTIME_REVALIDATION`. Zero markers are labeled `LIVE_CATALOG`.
 
 ---
 
 ## 10. Unresolved normative decisions
 
-NONE within Phase 2 scope. Remaining work is evidence resolution (Phase 1) before Revision 8 architecture authoring.
+NONE within Phase 2 normative decision scope. Evidence-class amendment (2026-08-01) classifies all 31 markers: 17 reconstructed-reference accepted for design of deterministic facts only; 11 execution-time live preflight required; 3 pilot-time runtime revalidation required. Historical live schema-8 was not recovered. Revision 8 architecture (Phase 3) remains unauthorized until separately authorized.
 
 ---
+
+
+
+---
+
+## Revision 8 Evidence-Class Amendment
+
+**Amendment date:** 2026-08-01
+
+**Evidence policy:** `docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md`
+
+**Canonical reconstructed manifest SHA-256:** `09C2EA9957FEF7357B89824796B46C36DE5E0B9DE414D617F642F4EFC1D5BCB2`
+
+**Evidence crosswalk SHA-256:** `9D38F04D3BE2B519C59837ACD825B9DD74CA3724D793BAC7495B29C4B66E141F`
+
+**Evidence class of reference artifacts:** `RECONSTRUCTED_REFERENCE_SCHEMA8`
+
+**Required reconstructed metadata:** `SOURCE_BACKUP_SCHEMA=5`; `REPLAYED_MIGRATIONS=6,7,8`; `NOT_HISTORICAL_LIVE_CATALOG=true`
+
+### Classification totals (from actual crosswalk rows)
+
+| Disposition | Count |
+| --- | ---: |
+| Reconstructed reference accepted (deterministic design facts only) | 17 |
+| Execution-time live preflight required (not resolved) | 11 |
+| Pilot-time runtime revalidation required (not resolved) | 3 |
+| Total markers (prior EV identities preserved) | 31 |
+| Falsely labeled LIVE_CATALOG | 0 |
+
+### Evidence hierarchy
+
+1. `LIVE_CATALOG`
+2. `RECONSTRUCTED_REFERENCE_SCHEMA8`
+3. `EXECUTION_TIME_LIVE_PREFLIGHT`
+4. `PILOT_TIME_RUNTIME_REVALIDATION`
+
+### Precedence (highest first)
+
+1. current LIVE_CATALOG evidence
+2. execution-time live preflight
+3. reconstructed reference evidence
+4. migration intent or prose
+
+### Limitation
+
+Historical live schema-8 catalog state was **not** recovered and is **not** reproduced by reconstructed reference evidence. Reconstructed evidence must not be claimed as historical live catalog.
+
+### Mandatory gates
+
+* Execution-time live preflight is required for all 11 privilege/role/default-ACL markers before schema-9 execution (`BLOCKED_LIVE_PREFLIGHT_REQUIRED` or `failed_frozen`).
+* Pilot-time runtime revalidation is required for EV-SAFETY-BASELINE, EV-DRIFT-START, and EV-DRIFT-END before any pilot/live/paid operation (`BLOCKED_RUNTIME_REVALIDATION_REQUIRED`).
+* Fail-closed: no invented defaults; no silent mismatch normalization; no automatic repair; unknown values remain `UNKNOWN_UNTIL_LIVE_PREFLIGHT` or `UNKNOWN_UNTIL_RUNTIME_REVALIDATION`.
+
+### Marker encoding change (traceability)
+
+Generic unresolved `EVIDENCE_REQUIRED(EV-...)` markers in this record are replaced with classed forms that preserve the original `EV-*` identity:
+
+* `RECONSTRUCTED_REFERENCE_ACCEPTED(EV-...)`
+* `EXECUTION_TIME_LIVE_PREFLIGHT_REQUIRED(EV-...)`
+* `PILOT_TIME_RUNTIME_REVALIDATION_REQUIRED(EV-...)`
+
+Compound cells join class wrappers with `; ` when multiple classes appear. Original marker identities remain the sole EV identifiers; see the Evidence Policy normative table for per-marker provenance.
 
 ## 11. Validation checklist (Phase 2)
 
@@ -571,6 +633,7 @@ NONE within Phase 2 scope. Remaining work is evidence resolution (Phase 1) befor
 * test plan untouched in this phase
 * no SQL / schema-9 implementation added
 * no catalog facts invented
+* evidence-class amendment applied (17/11/3); see Evidence Policy
 * 18 checkpoints named exactly from Revision 7 §13.8
 * 22-rule cascade defined with rule 22 fallback
 * total source-to-outcome mapping defined without calling it a bijection
