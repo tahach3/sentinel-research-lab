@@ -1,0 +1,73 @@
+{
+  "artifact_type": "registry_manifest",
+  "schema_version": "1.0.0",
+  "registry_manifest": {
+    "architecture_reset_name": "Round 5A Architecture Reset",
+    "schema_version": "1.0.0",
+    "registry_version": "1.0.0",
+    "artifact_hashes": [
+      {
+        "artifact_type": "catalog_contract",
+        "path": "specs/round5a/catalog_contract.yaml",
+        "sha256": "a0a1e1482b8b24a93cae5f08305c177d89a351125889b3b439d1e2774c185c48",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "checkpoint_registry",
+        "path": "specs/round5a/checkpoints.yaml",
+        "sha256": "ef96df85d79be6be10fff5d843560f0de35d00ab1ea810a0180612fae016da37",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "reconciliation_rule_registry",
+        "path": "specs/round5a/reconciliation_rules.yaml",
+        "sha256": "5233bb4d033c0aaebe16a073579309f087b916d9fa85bd6e5cf7aa3cd6f4fc9b",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "decision_record",
+        "path": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md",
+        "sha256": "b52736afcdfdf8b31e505813d648c5c13d1148781d230c9b9db31e06c5c5875b",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "evidence_policy",
+        "path": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md",
+        "sha256": "c62174f34e18e92f0ecacc7bc8c2356eb03fcf86261ad67e412dffaf28d3374f",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "generated_document",
+        "path": "specs/round5a/schema/round5a_registry.schema.json",
+        "sha256": "c6d9f19a6fc30dce9f6e3dcdc11fd480f8175fce6187b2940cad2853d6c65959",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "generated_document",
+        "path": "docs/ROUND_5A_SECURITY_BOUNDARY_REDESIGN.md",
+        "sha256": "455aa39e1d65adcefe5c52b3c16002f39fe48b3c821589187fbc00e2c4108519",
+        "authority_class": "generated_document"
+      },
+      {
+        "artifact_type": "generated_document",
+        "path": "docs/ROUND_5A_SECURITY_BOUNDARY_TEST_PLAN.md",
+        "sha256": "cd23eab536629b6296728bba44ee4adae10697e814bb2aa62398e17334866a0f",
+        "authority_class": "generated_document"
+      }
+    ],
+    "decision_record_commit": "eb1d0b7a936df8ed98cd7a0913457fdeb208e233",
+    "evidence_policy_commit": "7f10e1e32f7f0df2255b70d624ec3928b4c33737",
+    "reconstructed_evidence_manifest": {
+      "path": "C:\\Users\\tahai\\AppData\\Local\\Temp\\srl-schema8-reconstruction-20260801_151349\\SHA256SUMS.txt",
+      "sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+      "authority_class": "runtime_evidence"
+    },
+    "evidence_crosswalk": {
+      "path": "C:\\Users\\tahai\\AppData\\Local\\Temp\\srl-schema8-reconstruction-20260801_151349\\RECONSTRUCTED_EVIDENCE_CROSSWALK.tsv",
+      "sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+      "authority_class": "runtime_evidence"
+    },
+    "generated_at": "2026-08-02T05:12:54Z",
+    "generator_version": "round5a-phaseb-generator/1.0.0"
+  }
+}

@@ -1,0 +1,4060 @@
+{
+  "artifact_type": "catalog_contract",
+  "schema_version": "1.0.0",
+  "provenance": {
+    "decision_refs": [
+      "ND-CHECKPOINT-COMMON",
+      "ND-DIGEST-CHECKPOINT-V1",
+      "ND-FREEZE-REVOKE-WRITES",
+      "ND-FREEZE-REVOKE-EXECUTE"
+    ],
+    "evidence_refs": [
+      "EV-SCHEMA-VERSION",
+      "EV-CUTOVER-STATE"
+    ],
+    "evidence_class": "NORMATIVE_DECISION_ONLY",
+    "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md; specs/round5a/SCHEMA_CONTRACT.md"
+  },
+  "catalog_contract": {
+    "role_discovery": {
+      "mode": "CATALOG_DISCOVERY",
+      "discovery_primitive_ref": "PRIMITIVE-ROLE-DISCOVERY",
+      "evaluate_every_discovered_role": true,
+      "required_roles": [
+        "research_governance",
+        "research_test",
+        "research_app",
+        "n8n_app",
+        "postgres"
+      ],
+      "prohibited_roles": [],
+      "special_semantic_roles": [
+        {
+          "role_name": "PUBLIC",
+          "semantic": "public_grant_target_oid_zero_expanded_as_PUBLIC",
+          "decision_refs": [
+            "ND-CHECKPOINT-02",
+            "ND-FREEZE-REVOKE-EXECUTE"
+          ]
+        },
+        {
+          "role_name": "postgres",
+          "semantic": "migration_and_security_object_owner",
+          "decision_refs": [
+            "ND-CHECKPOINT-17"
+          ]
+        }
+      ]
+    },
+    "privilege_dimensions": [
+      "USAGE",
+      "CREATE",
+      "CONNECT",
+      "EXECUTE",
+      "SELECT",
+      "INSERT",
+      "UPDATE",
+      "DELETE",
+      "TRUNCATE",
+      "REFERENCES",
+      "TRIGGER",
+      "SET_ROLE"
+    ],
+    "privilege_paths": [
+      "direct",
+      "public",
+      "inherited",
+      "set_role_only",
+      "owner_derived",
+      "superuser_derived",
+      "schema_gated",
+      "exercisable"
+    ],
+    "column_acl_semantics": {
+      "null_attacl_means": "no_column_specific_acl",
+      "table_privileges_independently_authoritative": true,
+      "acldefault_column_prohibited": true,
+      "effective_column_rules": {
+        "mode": "empty_column_acl_set_with_effective_from_table",
+        "decision_refs": [
+          "ND-DIGEST-CHECKPOINT-V1"
+        ]
+      }
+    },
+    "function_acl_semantics": {
+      "acl_resolution": "coalesce_proacl_acldefault_f_proowner",
+      "public_execute_supported": true,
+      "overload_specific_identity": true,
+      "schema_usage_gating": true
+    },
+    "table_acl_semantics": {
+      "acl_resolution": "acldefault_r_owner",
+      "owner_default_privilege_provenance": true
+    },
+    "sequence_acl_semantics": {
+      "acl_resolution": "acldefault_s_owner",
+      "owner_default_privilege_provenance": true
+    },
+    "objects": [
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PostgreSQL 16.14 reconstructed image family",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1"
+          ],
+          "evidence_refs": [
+            "EV-PG-VERSION"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-PG-VERSION; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-PG-VERSION",
+          "marker_id": "MARKER-PG-VERSION",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "PostgreSQL 16.14 reconstructed image family",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "max(version)=8",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-SCHEMA-VERSION; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-SCHEMA-VERSION",
+          "marker_id": "MARKER-SCHEMA-VERSION",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "max(version)=8",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-02"
+          ],
+          "evidence_refs": [
+            "EV-ROLES"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-ROLES; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-ROLES",
+          "marker_id": "MARKER-ROLES",
+          "marker_state": "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "QUERY-LIVE-PREFLIGHT-COMPARE"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-02"
+          ],
+          "evidence_refs": [
+            "EV-MEMBERSHIPS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-MEMBERSHIPS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-MEMBERSHIPS",
+          "marker_id": "MARKER-MEMBERSHIPS",
+          "marker_state": "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "QUERY-LIVE-PREFLIGHT-COMPARE"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "research,n8n,public present",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-01",
+            "ND-CHECKPOINT-02",
+            "ND-CHECKPOINT-17"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMAS"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-SCHEMAS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-SCHEMAS",
+          "marker_id": "MARKER-SCHEMAS",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "research,n8n,public present",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-02"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-PRIVS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-SCHEMA-PRIVS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-SCHEMA-PRIVS",
+          "marker_id": "MARKER-SCHEMA-PRIVS",
+          "marker_state": "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "QUERY-LIVE-PREFLIGHT-COMPARE"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "pgcrypto/public;uuid-ossp/n8n;vector/public",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-01",
+            "ND-DIGEST-CHECKPOINT-V1"
+          ],
+          "evidence_refs": [
+            "EV-EXTENSIONS"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-EXTENSIONS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-EXTENSIONS",
+          "marker_id": "MARKER-EXTENSIONS",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "pgcrypto/public;uuid-ossp/n8n;vector/public",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "function",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "52 research functions after migrations 6-8",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-05",
+            "ND-FREEZE-REVOKE-EXECUTE"
+          ],
+          "evidence_refs": [
+            "EV-FUNCTIONS"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-FUNCTIONS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-FUNCTIONS",
+          "marker_id": "MARKER-FUNCTIONS",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "52 research functions after migrations 6-8",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "function",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-05",
+            "ND-FREEZE-REVOKE-EXECUTE"
+          ],
+          "evidence_refs": [
+            "EV-FUNCTION-ACLS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-FUNCTION-ACLS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-FUNCTION-ACLS",
+          "marker_id": "MARKER-FUNCTION-ACLS",
+          "marker_state": "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "QUERY-LIVE-PREFLIGHT-COMPARE"
+        }
+      },
+      {
+        "object_kind": "function",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-FUNCTION-PUBLIC"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-FUNCTION-PUBLIC; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-FUNCTION-PUBLIC",
+          "marker_id": "MARKER-FUNCTION-PUBLIC",
+          "marker_state": "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "QUERY-LIVE-PREFLIGHT-COMPARE"
+        }
+      },
+      {
+        "object_kind": "function",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-05",
+            "ND-CHECKPOINT-15"
+          ],
+          "evidence_refs": [
+            "EV-FUNCTION-EFFECTIVE"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-FUNCTION-EFFECTIVE; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-FUNCTION-EFFECTIVE",
+          "marker_id": "MARKER-FUNCTION-EFFECTIVE",
+          "marker_state": "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "QUERY-LIVE-PREFLIGHT-COMPARE"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "48 research base tables; no schema-9 tables",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-03",
+            "ND-CHECKPOINT-08",
+            "ND-CHECKPOINT-10",
+            "ND-CHECKPOINT-17"
+          ],
+          "evidence_refs": [
+            "EV-TABLES"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-TABLES; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-TABLES",
+          "marker_id": "MARKER-TABLES",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "48 research base tables; no schema-9 tables",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-03",
+            "ND-CHECKPOINT-08",
+            "ND-CHECKPOINT-10"
+          ],
+          "evidence_refs": [
+            "EV-TABLE-ACLS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-TABLE-ACLS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-TABLE-ACLS",
+          "marker_id": "MARKER-TABLE-ACLS",
+          "marker_state": "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "QUERY-LIVE-PREFLIGHT-COMPARE"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-03",
+            "ND-FREEZE-REVOKE-WRITES"
+          ],
+          "evidence_refs": [
+            "EV-TABLE-WRITES"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-TABLE-WRITES; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-TABLE-WRITES",
+          "marker_id": "MARKER-TABLE-WRITES",
+          "marker_state": "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "QUERY-LIVE-PREFLIGHT-COMPARE"
+        }
+      },
+      {
+        "object_kind": "column",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "research columns enumerated after replay",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-IDENTITY-SOURCE",
+            "ND-RECON-CASCADE-ORDER"
+          ],
+          "evidence_refs": [
+            "EV-COLUMNS"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-COLUMNS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-COLUMNS",
+          "marker_id": "MARKER-COLUMNS",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "research columns enumerated after replay",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "column",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1"
+          ],
+          "evidence_refs": [
+            "EV-COLUMN-ACLS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-COLUMN-ACLS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-COLUMN-ACLS",
+          "marker_id": "MARKER-COLUMN-ACLS",
+          "marker_state": "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "QUERY-LIVE-PREFLIGHT-COMPARE"
+        }
+      },
+      {
+        "object_kind": "column",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1"
+          ],
+          "evidence_refs": [
+            "EV-COLUMN-EFFECTIVE"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-COLUMN-EFFECTIVE; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-COLUMN-EFFECTIVE",
+          "marker_id": "MARKER-COLUMN-EFFECTIVE",
+          "marker_state": "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "QUERY-LIVE-PREFLIGHT-COMPARE"
+        }
+      },
+      {
+        "object_kind": "view",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "views including gemini pilot status view",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-17"
+          ],
+          "evidence_refs": [
+            "EV-VIEWS"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-VIEWS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-VIEWS",
+          "marker_id": "MARKER-VIEWS",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "views including gemini pilot status view",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "sequence",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "empty research sequence inventory",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-17"
+          ],
+          "evidence_refs": [
+            "EV-SEQUENCES"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-SEQUENCES; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-SEQUENCES",
+          "marker_id": "MARKER-SEQUENCES",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "empty research sequence inventory",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "trigger",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "triggers including authorization validity guard",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-14"
+          ],
+          "evidence_refs": [
+            "EV-TRIGGERS"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-TRIGGERS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-TRIGGERS",
+          "marker_id": "MARKER-TRIGGERS",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "triggers including authorization validity guard",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "row_security_policy",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "empty research RLS inventory",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1"
+          ],
+          "evidence_refs": [
+            "EV-RLS"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-RLS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-RLS",
+          "marker_id": "MARKER-RLS",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "empty research RLS inventory",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "constraint",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "266 constraint rows captured",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-04",
+            "ND-CHECKPOINT-08",
+            "ND-CHECKPOINT-10"
+          ],
+          "evidence_refs": [
+            "EV-CONSTRAINTS"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-CONSTRAINTS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-CONSTRAINTS",
+          "marker_id": "MARKER-CONSTRAINTS",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "266 constraint rows captured",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "index",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "76 index rows captured",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-03",
+            "ND-CHECKPOINT-04",
+            "ND-CHECKPOINT-08",
+            "ND-CHECKPOINT-10"
+          ],
+          "evidence_refs": [
+            "EV-INDEXES"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-INDEXES; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-INDEXES",
+          "marker_id": "MARKER-INDEXES",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "76 index rows captured",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "default_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-02",
+            "ND-CHECKPOINT-18"
+          ],
+          "evidence_refs": [
+            "EV-DEFAULT-PRIVS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-DEFAULT-PRIVS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-DEFAULT-PRIVS",
+          "marker_id": "MARKER-DEFAULT-PRIVS",
+          "marker_state": "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "QUERY-LIVE-PREFLIGHT-COMPARE"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_runtime_revalidation",
+          "query_or_predicate_ref": "PRIMITIVE-RUNTIME-SAFE-STATE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_RUNTIME_REVALIDATION_REQUIRED",
+            "comparison_outcomes": [
+              "RUNTIME_STATE_MISMATCH",
+              "UNSAFE_UNDECLARED_VARIANCE"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-RECON-02",
+            "ND-STATE-B-RECOMPUTE"
+          ],
+          "evidence_refs": [
+            "EV-SAFETY-BASELINE"
+          ],
+          "evidence_class": "PILOT_TIME_RUNTIME_REVALIDATION",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-SAFETY-BASELINE; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-SAFETY-BASELINE",
+          "marker_id": "MARKER-SAFETY-BASELINE",
+          "marker_state": "UNKNOWN_UNTIL_RUNTIME_REVALIDATION",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_RUNTIME_REVALIDATION_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "PRIMITIVE-RUNTIME-SAFE-STATE"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "pilot_capacity_reservations exists; 0 rows after migration 8",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-IDENTITY-SOURCE",
+            "ND-OUTCOME-MAP-TOTAL"
+          ],
+          "evidence_refs": [
+            "EV-RESERVATION-STATE"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-RESERVATION-STATE; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-RESERVATION-STATE",
+          "marker_id": "MARKER-RESERVATION-STATE",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "pilot_capacity_reservations exists; 0 rows after migration 8",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "no schema_version=9; no research_crypto; no taha_governance_actions",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-CUTOVER-STATE"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-CUTOVER-STATE; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-CUTOVER-STATE",
+          "marker_id": "MARKER-CUTOVER-STATE",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "no schema_version=9; no research_crypto; no taha_governance_actions",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "function",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "helper identities/locations in research post-migration",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-15",
+            "ND-FINAL-HELPERS-TEST"
+          ],
+          "evidence_refs": [
+            "EV-HELPER-FUNCTIONS"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-HELPER-FUNCTIONS; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-HELPER-FUNCTIONS",
+          "marker_id": "MARKER-HELPER-FUNCTIONS",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "helper identities/locations in research post-migration",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "pgcrypto in public; digest/gen_random_uuid not in research_crypto",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-01",
+            "ND-CHECKPOINT-11",
+            "ND-CHECKPOINT-16"
+          ],
+          "evidence_refs": [
+            "EV-CRYPTO-LOCATION"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-CRYPTO-LOCATION; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-CRYPTO-LOCATION",
+          "marker_id": "MARKER-CRYPTO-LOCATION",
+          "marker_state": "RECONSTRUCTED_REFERENCE_ACCEPTED",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "failed_frozen",
+          "deterministic_reference_value": "pgcrypto in public; digest/gen_random_uuid not in research_crypto",
+          "required_primitive": "PRIMITIVE-CHECKPOINT-OBJECT-SET"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_runtime_revalidation",
+          "query_or_predicate_ref": "PRIMITIVE-RUNTIME-SAFE-STATE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_RUNTIME_REVALIDATION_REQUIRED",
+            "comparison_outcomes": [
+              "RUNTIME_STATE_MISMATCH",
+              "UNSAFE_UNDECLARED_VARIANCE"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-DRIFT-START"
+          ],
+          "evidence_class": "PILOT_TIME_RUNTIME_REVALIDATION",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-DRIFT-START; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-DRIFT-START",
+          "marker_id": "MARKER-DRIFT-START",
+          "marker_state": "UNKNOWN_UNTIL_RUNTIME_REVALIDATION",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_RUNTIME_REVALIDATION_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "PRIMITIVE-RUNTIME-SAFE-STATE"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "marker_identity"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "casefold_ascii"
+            }
+          ],
+          "serialization_order": [
+            "marker_identity"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_runtime_revalidation",
+          "query_or_predicate_ref": "PRIMITIVE-RUNTIME-SAFE-STATE",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_RUNTIME_REVALIDATION_REQUIRED",
+            "comparison_outcomes": [
+              "RUNTIME_STATE_MISMATCH",
+              "UNSAFE_UNDECLARED_VARIANCE"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-DRIFT-END"
+          ],
+          "evidence_class": "PILOT_TIME_RUNTIME_REVALIDATION",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-DRIFT-END; reconstructed_manifest_sha256=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "marker_identity": "EV-DRIFT-END",
+          "marker_id": "MARKER-DRIFT-END",
+          "marker_state": "UNKNOWN_UNTIL_RUNTIME_REVALIDATION",
+          "canonical_manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+          "evidence_crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
+          "not_historical_live_catalog": true,
+          "source_backup_schema": 5,
+          "replayed_migrations": "6,7,8",
+          "comparison_outcomes": "MATCHES_RECONSTRUCTED_REFERENCE|SAFE_DECLARED_VARIANCE|UNSAFE_UNDECLARED_VARIANCE|MISSING_REQUIRED_OBJECT|PRIVILEGE_EXPANSION|PRIVILEGE_REDUCTION|OWNER_MISMATCH|RUNTIME_STATE_MISMATCH",
+          "failure_behavior": "BLOCKED_RUNTIME_REVALIDATION_REQUIRED",
+          "deterministic_reference_value": "UNKNOWN",
+          "required_primitive": "PRIMITIVE-RUNTIME-SAFE-STATE"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-ROLE-DISCOVERY",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-ROLE-DISCOVERY",
+          "selector_scope": "database",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-ROLE-MEMBERSHIP-PATHS",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-ROLE-MEMBERSHIP-PATHS",
+          "selector_scope": "database",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-SCHEMA-OWNER-INVENTORY",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-SCHEMA-OWNER-INVENTORY",
+          "selector_scope": "database",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-SCHEMA-PRIVILEGES",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-SCHEMA-PRIVILEGES",
+          "selector_scope": "schema",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "function",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-FUNCTION-OVERLOAD-INVENTORY",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-FUNCTION-OVERLOAD-INVENTORY",
+          "selector_scope": "function_overload",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "function",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-FUNCTION-ACL-EXPAND",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-FUNCTION-ACL-EXPAND",
+          "selector_scope": "function_overload",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "effective_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-FUNCTION-EXECUTE-EFFECTIVE",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-FUNCTION-EXECUTE-EFFECTIVE",
+          "selector_scope": "function_overload",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-TABLE-OWNER-INVENTORY",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-TABLE-OWNER-INVENTORY",
+          "selector_scope": "relation",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-TABLE-ACL-EXPAND",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-TABLE-ACL-EXPAND",
+          "selector_scope": "relation",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "effective_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-TABLE-PRIV-EFFECTIVE",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-TABLE-PRIV-EFFECTIVE",
+          "selector_scope": "relation",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "column",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-COLUMN-INVENTORY",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-COLUMN-INVENTORY",
+          "selector_scope": "column",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "column",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-COLUMN-ACL-EXPAND",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-COLUMN-ACL-EXPAND",
+          "selector_scope": "column",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "sequence",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-SEQUENCE-ACL-EXPAND",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-SEQUENCE-ACL-EXPAND",
+          "selector_scope": "sequence",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "view",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-VIEW-INVENTORY",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-VIEW-INVENTORY",
+          "selector_scope": "relation",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "trigger",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-TRIGGER-INVENTORY",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-TRIGGER-INVENTORY",
+          "selector_scope": "trigger",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "row_security_policy",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-RLS-POLICY-INVENTORY",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-RLS-POLICY-INVENTORY",
+          "selector_scope": "policy",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "constraint",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-CONSTRAINT-INVENTORY",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-CONSTRAINT-INVENTORY",
+          "selector_scope": "constraint",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "index",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-INDEX-INVENTORY",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-INDEX-INVENTORY",
+          "selector_scope": "index",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "default_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-DEFAULT-PRIVILEGES",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-DEFAULT-PRIVILEGES",
+          "selector_scope": "schema",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "default_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-DEFAULT-PRIV-OWNER-PROVENANCE",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-DEFAULT-PRIV-OWNER-PROVENANCE",
+          "selector_scope": "schema",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-RUNTIME-SAFE-STATE",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-RUNTIME-SAFE-STATE",
+          "selector_scope": "database",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-CRYPTO-EXTENSION-LOCATION",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-CRYPTO-EXTENSION-LOCATION",
+          "selector_scope": "schema",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-CHECKPOINT-OBJECT-SET",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-CHECKPOINT-OBJECT-SET",
+          "selector_scope": "database",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "QUERY-CHECKPOINT-DIGEST-ROWS",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "QUERY-CHECKPOINT-DIGEST-ROWS",
+          "selector_scope": "database",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "effective_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "QUERY-LIVE-PREFLIGHT-COMPARE",
+          "selector_scope": "database",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-RECON-SOURCE-DOMAIN",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-RECON-SOURCE-DOMAIN",
+          "selector_scope": "relation",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-RECON-LEDGER-ORPHANS",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-RECON-LEDGER-ORPHANS",
+          "selector_scope": "relation",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-RECON-ENVELOPE-ORPHANS",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-RECON-ENVELOPE-ORPHANS",
+          "selector_scope": "relation",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-DUP-ORDER-WINNER",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-DUP-ORDER-WINNER",
+          "selector_scope": "relation",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "primitive_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "primitive_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "PRIMITIVE-EVENT-NATURAL-KEY",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1",
+            "ND-CHECKPOINT-COMMON"
+          ],
+          "evidence_refs": [
+            "EV-SCHEMA-VERSION"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md; specs/round5a/SCHEMA_CONTRACT.md#restricted-ast"
+        },
+        "attributes": {
+          "primitive_id": "PRIMITIVE-EVENT-NATURAL-KEY",
+          "selector_scope": "relation",
+          "oid_free": true,
+          "unrestricted_sql_prohibited": true,
+          "deterministic_ordering": "COLLATE_C",
+          "evidence_class_note": "primitive_definition_normative_decision_only"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "schemaname"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "relname"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "schemaname",
+            "relname"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "research.taha_governance_actions",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-03",
+            "ND-CHECKPOINT-08",
+            "ND-CHECKPOINT-10"
+          ],
+          "evidence_refs": [
+            "EV-CUTOVER-STATE"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md#2.1; EV-CUTOVER-STATE proves absence in reconstructed schema-8"
+        },
+        "attributes": {
+          "schemaname": "research",
+          "relname": "taha_governance_actions",
+          "inventory_class": "schema9_new_design_object",
+          "reconstructed_presence": "absent"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "schemaname"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "relname"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "schemaname",
+            "relname"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "research.accounting_discrepancies",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-03",
+            "ND-CHECKPOINT-08",
+            "ND-CHECKPOINT-10"
+          ],
+          "evidence_refs": [
+            "EV-CUTOVER-STATE"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md#2.1; EV-CUTOVER-STATE proves absence in reconstructed schema-8"
+        },
+        "attributes": {
+          "schemaname": "research",
+          "relname": "accounting_discrepancies",
+          "inventory_class": "schema9_new_design_object",
+          "reconstructed_presence": "absent"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "schemaname"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "relname"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "schemaname",
+            "relname"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "research.pilot_capacity_events",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-03",
+            "ND-CHECKPOINT-08",
+            "ND-CHECKPOINT-10"
+          ],
+          "evidence_refs": [
+            "EV-CUTOVER-STATE"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md#2.1; EV-CUTOVER-STATE proves absence in reconstructed schema-8"
+        },
+        "attributes": {
+          "schemaname": "research",
+          "relname": "pilot_capacity_events",
+          "inventory_class": "schema9_new_design_object",
+          "reconstructed_presence": "absent"
+        }
+      },
+      {
+        "object_kind": "base_table",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "schemaname"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "relname"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "schemaname",
+            "relname"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "research.legacy_reservation_archive",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-03",
+            "ND-CHECKPOINT-08",
+            "ND-CHECKPOINT-10"
+          ],
+          "evidence_refs": [
+            "EV-CUTOVER-STATE"
+          ],
+          "evidence_class": "NORMATIVE_DECISION_ONLY",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md#2.1; EV-CUTOVER-STATE proves absence in reconstructed schema-8"
+        },
+        "attributes": {
+          "schemaname": "research",
+          "relname": "legacy_reservation_archive",
+          "inventory_class": "schema9_new_design_object",
+          "reconstructed_presence": "absent"
+        }
+      },
+      {
+        "object_kind": "schema",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "extname"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "extschema"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "extname",
+            "extschema"
+          ]
+        },
+        "expected_state": {
+          "kind": "deterministic_value",
+          "value": "pgcrypto.public",
+          "data_type": "string"
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-01"
+          ],
+          "evidence_refs": [
+            "EV-CRYPTO-LOCATION",
+            "EV-EXTENSIONS"
+          ],
+          "evidence_class": "RECONSTRUCTED_REFERENCE_SCHEMA8",
+          "source_location": "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md#EV-CRYPTO-LOCATION; manifest=09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2"
+        },
+        "attributes": {
+          "extname": "pgcrypto",
+          "extschema": "public",
+          "baseline_only": true,
+          "post_checkpoint_target_extschema": "research_crypto",
+          "post_checkpoint_evidence_class": "NORMATIVE_DECISION_ONLY"
+        }
+      },
+      {
+        "object_kind": "column",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "column_acl_policy_id"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "column_acl_policy_id"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "PRIMITIVE-COLUMN-ACL-EXPAND",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-DIGEST-CHECKPOINT-V1"
+          ],
+          "evidence_refs": [
+            "EV-COLUMN-ACLS",
+            "EV-COLUMN-EFFECTIVE"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_SECURITY_BOUNDARY_REDESIGN.md; no exact column×role matrix in sources — empty column ACL + effective-from-table"
+        },
+        "attributes": {
+          "column_acl_policy_id": "EMPTY_COLUMN_ACL_SET_WITH_EFFECTIVE_FROM_TABLE",
+          "explicit_column_matrix_cells": 0
+        },
+        "privilege_cells": []
+      }
+    ],
+    "default_privileges": [
+      {
+        "object_kind": "default_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "role_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "schema_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "objtype"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "role_name",
+            "schema_name",
+            "objtype"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "PRIMITIVE-DEFAULT-PRIVILEGES",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-02",
+            "ND-CHECKPOINT-18"
+          ],
+          "evidence_refs": [
+            "EV-DEFAULT-PRIVS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md#ND-CHECKPOINT-02"
+        },
+        "attributes": {
+          "role_name": "postgres",
+          "schema_name": "research",
+          "objtype": "r",
+          "owner_rule_provenance_outcomes": "OWNER_RULE_MATCH|NO_OWNER_RULE_MATCH|MULTIPLE_OR_AMBIGUOUS_RULES|NOT_APPLICABLE"
+        }
+      },
+      {
+        "object_kind": "default_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "role_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "schema_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "objtype"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "role_name",
+            "schema_name",
+            "objtype"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "PRIMITIVE-DEFAULT-PRIVILEGES",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-02",
+            "ND-CHECKPOINT-18"
+          ],
+          "evidence_refs": [
+            "EV-DEFAULT-PRIVS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md#ND-CHECKPOINT-02"
+        },
+        "attributes": {
+          "role_name": "postgres",
+          "schema_name": "research",
+          "objtype": "f",
+          "owner_rule_provenance_outcomes": "OWNER_RULE_MATCH|NO_OWNER_RULE_MATCH|MULTIPLE_OR_AMBIGUOUS_RULES|NOT_APPLICABLE"
+        }
+      },
+      {
+        "object_kind": "default_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "role_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "schema_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "objtype"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "role_name",
+            "schema_name",
+            "objtype"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "PRIMITIVE-DEFAULT-PRIVILEGES",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-02",
+            "ND-CHECKPOINT-18"
+          ],
+          "evidence_refs": [
+            "EV-DEFAULT-PRIVS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md#ND-CHECKPOINT-02"
+        },
+        "attributes": {
+          "role_name": "postgres",
+          "schema_name": "research",
+          "objtype": "S",
+          "owner_rule_provenance_outcomes": "OWNER_RULE_MATCH|NO_OWNER_RULE_MATCH|MULTIPLE_OR_AMBIGUOUS_RULES|NOT_APPLICABLE"
+        }
+      },
+      {
+        "object_kind": "default_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "role_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "schema_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "objtype"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "role_name",
+            "schema_name",
+            "objtype"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "PRIMITIVE-DEFAULT-PRIVILEGES",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-02",
+            "ND-CHECKPOINT-18"
+          ],
+          "evidence_refs": [
+            "EV-DEFAULT-PRIVS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md#ND-CHECKPOINT-02"
+        },
+        "attributes": {
+          "role_name": "postgres",
+          "schema_name": "research_crypto",
+          "objtype": "r",
+          "owner_rule_provenance_outcomes": "OWNER_RULE_MATCH|NO_OWNER_RULE_MATCH|MULTIPLE_OR_AMBIGUOUS_RULES|NOT_APPLICABLE"
+        }
+      },
+      {
+        "object_kind": "default_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "role_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "schema_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "objtype"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "role_name",
+            "schema_name",
+            "objtype"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "PRIMITIVE-DEFAULT-PRIVILEGES",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-02",
+            "ND-CHECKPOINT-18"
+          ],
+          "evidence_refs": [
+            "EV-DEFAULT-PRIVS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md#ND-CHECKPOINT-02"
+        },
+        "attributes": {
+          "role_name": "postgres",
+          "schema_name": "research_crypto",
+          "objtype": "f",
+          "owner_rule_provenance_outcomes": "OWNER_RULE_MATCH|NO_OWNER_RULE_MATCH|MULTIPLE_OR_AMBIGUOUS_RULES|NOT_APPLICABLE"
+        }
+      },
+      {
+        "object_kind": "default_privilege",
+        "identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "role_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "schema_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            },
+            {
+              "scope": "catalog_object",
+              "path": [
+                "objtype"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "role_name",
+            "schema_name",
+            "objtype"
+          ]
+        },
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "PRIMITIVE-DEFAULT-PRIVILEGES",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "provenance": {
+          "decision_refs": [
+            "ND-CHECKPOINT-02",
+            "ND-CHECKPOINT-18"
+          ],
+          "evidence_refs": [
+            "EV-DEFAULT-PRIVS"
+          ],
+          "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+          "source_location": "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md#ND-CHECKPOINT-02"
+        },
+        "attributes": {
+          "role_name": "postgres",
+          "schema_name": "research_crypto",
+          "objtype": "S",
+          "owner_rule_provenance_outcomes": "OWNER_RULE_MATCH|NO_OWNER_RULE_MATCH|MULTIPLE_OR_AMBIGUOUS_RULES|NOT_APPLICABLE"
+        }
+      }
+    ],
+    "effective_privileges": [
+      {
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "schemaname"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "schemaname"
+          ]
+        },
+        "role_binding": {
+          "binding_kind": "discovered_role"
+        },
+        "privilege": "USAGE",
+        "paths": [
+          "direct",
+          "public",
+          "inherited",
+          "set_role_only",
+          "owner_derived",
+          "superuser_derived",
+          "schema_gated",
+          "exercisable"
+        ],
+        "expected_state": {
+          "kind": "unknown_until_live_preflight",
+          "query_or_predicate_ref": "PRIMITIVE-SCHEMA-PRIVILEGES",
+          "blocking_behavior": {
+            "failure_outcome": "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+            "comparison_outcomes": [
+              "UNSAFE_UNDECLARED_VARIANCE",
+              "PRIVILEGE_EXPANSION",
+              "PRIVILEGE_REDUCTION"
+            ]
+          }
+        },
+        "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
+        "decision_refs": [
+          "ND-CHECKPOINT-02"
+        ],
+        "evidence_refs": [
+          "EV-SCHEMA-PRIVS"
+        ],
+        "comparison_outcomes": [
+          "PRIVILEGE_EXPANSION",
+          "PRIVILEGE_REDUCTION",
+          "UNSAFE_UNDECLARED_VARIANCE",
+          "MATCHES_RECONSTRUCTED_REFERENCE"
+        ]
+      }
+    ],
+    "deny_by_default": true,
+    "live_unknown_representation": {
+      "unknown_kinds": [
+        "unknown_until_live_preflight",
+        "unknown_until_runtime_revalidation"
+      ]
+    }
+  }
+}
