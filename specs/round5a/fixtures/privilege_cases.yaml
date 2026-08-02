@@ -1,0 +1,7092 @@
+{
+  "artifact_type": "privilege_fixture_pack",
+  "schema_version": "1.0.0",
+  "provenance": {
+    "decision_refs": [
+      "ND-CHECKPOINT-02",
+      "ND-FREEZE-REVOKE-EXECUTE"
+    ],
+    "evidence_refs": [
+      "EV-TABLE-ACLS",
+      "EV-FUNCTION-ACLS"
+    ],
+    "evidence_class": "NORMATIVE_DECISION_ONLY",
+    "source_location": "specs/round5a/catalog_contract.yaml"
+  },
+  "privilege_fixture_pack": {
+    "fixtures": [
+      {
+        "fixture_id": "FIXTURE-PRIV-SCHEMA-USAGE",
+        "object_kind": "SCHEMA",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "none"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-NULL-ACL",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-PUBLIC-DEFAULT",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-PUBLIC-REVOKE",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=X/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-PUBLIC-GRANT",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "=X/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-DIRECT",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=X/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-INHERITED",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_governance=X/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-SETROLE",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_governance=X/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-OWNER",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-SUPERUSER",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-SCHEMA-DENIED",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=X/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-OVERLOAD-A",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=X/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-OVERLOAD-B",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-DEFINER",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=X/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-INVOKER",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=X/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-AFTER-GRANT",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=X/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_f_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-EMPTY-ACL",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "{}",
+        "default_acl_semantics": {
+          "kind": "none"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-FN-EMPTY-KEEP",
+        "object_kind": "FUNCTION",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "{}",
+        "default_acl_semantics": {
+          "kind": "none"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "EXECUTE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "EXECUTE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-NULL",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-EMPTY",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "{}",
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-INSERT",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=a/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-UPDATE",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=w/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-DELETE",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=d/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-PUBLIC",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "=arwd/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-INHERITED",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_governance=arwd/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-SETROLE",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_governance=arwd/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-OWNER",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-SUPER",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-SCHEMA-DENIED",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=arwd/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-EXTRA-ROLE",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "extra_discovered_role=arwd/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-TBL-DYNAMIC",
+        "object_kind": "TABLE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "extra_discovered_role=r/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_r_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "superuser_derived",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "SELECT"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-SEQ-NULL",
+        "object_kind": "SEQUENCE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "acldefault_s_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT",
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-SEQ-SELECT",
+        "object_kind": "SEQUENCE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=r/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_s_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT",
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-SEQ-USAGE",
+        "object_kind": "SEQUENCE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=U/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_s_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT",
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-SEQ-UPDATE",
+        "object_kind": "SEQUENCE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=w/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_s_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT",
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-SEQ-PUBLIC",
+        "object_kind": "SEQUENCE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "=rU/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_s_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT",
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-SEQ-INHERITED",
+        "object_kind": "SEQUENCE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_governance=rU/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_s_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT",
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-SEQ-SETROLE",
+        "object_kind": "SEQUENCE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_governance=rU/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_s_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT",
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-SEQ-OWNER",
+        "object_kind": "SEQUENCE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "acldefault_s_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT",
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-SEQ-SCHEMA",
+        "object_kind": "SEQUENCE",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=rU/postgres",
+        "default_acl_semantics": {
+          "kind": "acldefault_s_owner"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "public",
+            "privileges": [
+              "SELECT",
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "SELECT",
+              "USAGE",
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-COL-NULL",
+        "object_kind": "COLUMN",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "null_attacl_no_column_specific_acl"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-COL-EMPTY",
+        "object_kind": "COLUMN",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "{}",
+        "default_acl_semantics": {
+          "kind": "null_attacl_no_column_specific_acl"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-COL-TABLE-UPDATE",
+        "object_kind": "COLUMN",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "null_attacl_no_column_specific_acl"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-COL-COL-UPDATE",
+        "object_kind": "COLUMN",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=w/postgres",
+        "default_acl_semantics": {
+          "kind": "null_attacl_no_column_specific_acl"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-COL-BOTH",
+        "object_kind": "COLUMN",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=w/postgres",
+        "default_acl_semantics": {
+          "kind": "null_attacl_no_column_specific_acl"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-COL-GRANT",
+        "object_kind": "COLUMN",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=r/postgres",
+        "default_acl_semantics": {
+          "kind": "null_attacl_no_column_specific_acl"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-COL-INHERITED",
+        "object_kind": "COLUMN",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_governance=w/postgres",
+        "default_acl_semantics": {
+          "kind": "null_attacl_no_column_specific_acl"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-COL-SETROLE",
+        "object_kind": "COLUMN",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_governance=w/postgres",
+        "default_acl_semantics": {
+          "kind": "null_attacl_no_column_specific_acl"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-COL-RETAIN",
+        "object_kind": "COLUMN",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "null_attacl_no_column_specific_acl"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-COL-INDEPENDENT",
+        "object_kind": "COLUMN",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": "research_app=w/postgres",
+        "default_acl_semantics": {
+          "kind": "null_attacl_no_column_specific_acl"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-COL-NO-ACLDEFAULT-C",
+        "object_kind": "COLUMN",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "null_attacl_no_column_specific_acl"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "direct",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "inherited",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "set_role_only",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "schema_gated",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "UPDATE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-DEF-OWNER-MATCH",
+        "object_kind": "SCHEMA",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "none"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-DEF-OWNER-MISMATCH",
+        "object_kind": "SCHEMA",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "none"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-DEF-AMBIGUOUS",
+        "object_kind": "SCHEMA",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "none"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-DEF-NA",
+        "object_kind": "SCHEMA",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "none"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      },
+      {
+        "fixture_id": "FIXTURE-PRIV-DEF-CREATOR-DIFFERS",
+        "object_kind": "SCHEMA",
+        "object_identity": {
+          "identity_fields": [
+            {
+              "scope": "catalog_object",
+              "path": [
+                "object_name"
+              ],
+              "data_type": "string",
+              "nullable": false
+            }
+          ],
+          "normalization": [
+            {
+              "kind": "identity"
+            }
+          ],
+          "serialization_order": [
+            "object_name"
+          ]
+        },
+        "owner": "postgres",
+        "roles": [
+          "research_app",
+          "research_governance",
+          "postgres",
+          "extra_discovered_role"
+        ],
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "research_governance",
+            "grant_option": false
+          }
+        ],
+        "raw_acl": null,
+        "default_acl_semantics": {
+          "kind": "none"
+        },
+        "schema_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE"
+            ]
+          }
+        ],
+        "expected_paths": [
+          {
+            "path": "owner_derived",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "postgres"
+          },
+          {
+            "path": "exercisable",
+            "privileges": [
+              "USAGE"
+            ],
+            "role": "research_app"
+          }
+        ],
+        "expected_exercisable_privileges": [
+          {
+            "role": "research_app",
+            "privileges": [
+              "USAGE"
+            ]
+          },
+          {
+            "role": "postgres",
+            "privileges": [
+              "USAGE",
+              "CREATE",
+              "EXECUTE",
+              "SELECT"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

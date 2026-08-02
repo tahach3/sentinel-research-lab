@@ -1,0 +1,1110 @@
+{
+  "artifact_type": "checkpoint_oracle_pack",
+  "schema_version": "1.0.0",
+  "provenance": {
+    "decision_refs": [
+      "ND-DIGEST-CHECKPOINT-V1",
+      "ND-CHECKPOINT-COMMON"
+    ],
+    "evidence_refs": [
+      "EV-CUTOVER-STATE"
+    ],
+    "evidence_class": "NORMATIVE_DECISION_ONLY",
+    "source_location": "specs/round5a/checkpoints.yaml"
+  },
+  "checkpoint_oracle_pack": {
+    "oracles": [
+      {
+        "oracle_id": "ORACLE-CP-01-POSITIVE",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "extname": "v-crypto_schema_complete-0",
+            "extschema": "v-crypto_schema_complete-1",
+            "proc_identity": "v-crypto_schema_complete-2",
+            "proc_schema": "v-crypto_schema_complete-3",
+            "proc_owner": "v-crypto_schema_complete-4"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "v-crypto_schema_complete-0",
+            "extschema": "v-crypto_schema_complete-1",
+            "proc_identity": "v-crypto_schema_complete-2",
+            "proc_schema": "v-crypto_schema_complete-3",
+            "proc_owner": "v-crypto_schema_complete-4"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-crypto_schema_complete-0\u001fv-crypto_schema_complete-1\u001fv-crypto_schema_complete-2\u001fv-crypto_schema_complete-3\u001fv-crypto_schema_complete-4",
+        "expected_digest": "db6d28aab9020c20532b316a27281781fd84e51ae8ad82126838a293724a82b1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-01-EMPTY",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-02-POSITIVE",
+        "checkpoint_ref": "role_and_default_privileges_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "rolname": "v-role_and_default_privileges_complete-0",
+            "rolcanlogin": "v-role_and_default_privileges_complete-1",
+            "rolinherit": "v-role_and_default_privileges_complete-2",
+            "member_tuple": "v-role_and_default_privileges_complete-3",
+            "schema_priv_tuple": "v-role_and_default_privileges_complete-4",
+            "default_acl_tuple": "v-role_and_default_privileges_complete-5"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "rolname": "v-role_and_default_privileges_complete-0",
+            "rolcanlogin": "v-role_and_default_privileges_complete-1",
+            "rolinherit": "v-role_and_default_privileges_complete-2",
+            "member_tuple": "v-role_and_default_privileges_complete-3",
+            "schema_priv_tuple": "v-role_and_default_privileges_complete-4",
+            "default_acl_tuple": "v-role_and_default_privileges_complete-5"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-role_and_default_privileges_complete-0\u001fv-role_and_default_privileges_complete-1\u001fv-role_and_default_privileges_complete-2\u001fv-role_and_default_privileges_complete-3\u001fv-role_and_default_privileges_complete-4\u001fv-role_and_default_privileges_complete-5",
+        "expected_digest": "1581bc39e6ba599c9f5eb6508bc15afc0e9c4c7d4e19c2f9ea6a3a374d2feca2",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-02-EMPTY",
+        "checkpoint_ref": "role_and_default_privileges_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-03-POSITIVE",
+        "checkpoint_ref": "governance_tables_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "rel_identity": "v-governance_tables_complete-0",
+            "owner": "v-governance_tables_complete-1",
+            "acl_expanded": "v-governance_tables_complete-2",
+            "index_identity": "v-governance_tables_complete-3",
+            "indexdef": "v-governance_tables_complete-4"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "rel_identity": "v-governance_tables_complete-0",
+            "owner": "v-governance_tables_complete-1",
+            "acl_expanded": "v-governance_tables_complete-2",
+            "index_identity": "v-governance_tables_complete-3",
+            "indexdef": "v-governance_tables_complete-4"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-governance_tables_complete-0\u001fv-governance_tables_complete-1\u001fv-governance_tables_complete-2\u001fv-governance_tables_complete-3\u001fv-governance_tables_complete-4",
+        "expected_digest": "8c7664e7dafc9c8a9375e034c37606a90bfe2d30c6a2d9587822cd8caf5b4301",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-03-EMPTY",
+        "checkpoint_ref": "governance_tables_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-04-POSITIVE",
+        "checkpoint_ref": "governance_chain_constraints_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "conname": "v-governance_chain_constraints_complete-0",
+            "contype": "v-governance_chain_constraints_complete-1",
+            "condef": "v-governance_chain_constraints_complete-2",
+            "index_identity": "v-governance_chain_constraints_complete-3",
+            "indexdef": "v-governance_chain_constraints_complete-4"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "conname": "v-governance_chain_constraints_complete-0",
+            "contype": "v-governance_chain_constraints_complete-1",
+            "condef": "v-governance_chain_constraints_complete-2",
+            "index_identity": "v-governance_chain_constraints_complete-3",
+            "indexdef": "v-governance_chain_constraints_complete-4"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-governance_chain_constraints_complete-0\u001fv-governance_chain_constraints_complete-1\u001fv-governance_chain_constraints_complete-2\u001fv-governance_chain_constraints_complete-3\u001fv-governance_chain_constraints_complete-4",
+        "expected_digest": "3cea4e3756001bb6ad8ace53db62e2763bfaaaef5c8b7acf33404aad084b4e8f",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-04-EMPTY",
+        "checkpoint_ref": "governance_chain_constraints_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-05-POSITIVE",
+        "checkpoint_ref": "credential_scope_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "proc_identity": "v-credential_scope_complete-0",
+            "owner": "v-credential_scope_complete-1",
+            "prosecdef": "v-credential_scope_complete-2",
+            "acl_expanded": "v-credential_scope_complete-3",
+            "prosrc_sha256": "v-credential_scope_complete-4"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "proc_identity": "v-credential_scope_complete-0",
+            "owner": "v-credential_scope_complete-1",
+            "prosecdef": "v-credential_scope_complete-2",
+            "acl_expanded": "v-credential_scope_complete-3",
+            "prosrc_sha256": "v-credential_scope_complete-4"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-credential_scope_complete-0\u001fv-credential_scope_complete-1\u001fv-credential_scope_complete-2\u001fv-credential_scope_complete-3\u001fv-credential_scope_complete-4",
+        "expected_digest": "7ecc0c744cdc21c11969c54db9c6c4d343871258977d2a45729f07b2964f1d94",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-05-EMPTY",
+        "checkpoint_ref": "credential_scope_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-06-POSITIVE",
+        "checkpoint_ref": "provider_model_enablement_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "proc_identity": "v-provider_model_enablement_complete-0",
+            "owner": "v-provider_model_enablement_complete-1",
+            "prosecdef": "v-provider_model_enablement_complete-2",
+            "acl_expanded": "v-provider_model_enablement_complete-3"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "proc_identity": "v-provider_model_enablement_complete-0",
+            "owner": "v-provider_model_enablement_complete-1",
+            "prosecdef": "v-provider_model_enablement_complete-2",
+            "acl_expanded": "v-provider_model_enablement_complete-3"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-provider_model_enablement_complete-0\u001fv-provider_model_enablement_complete-1\u001fv-provider_model_enablement_complete-2\u001fv-provider_model_enablement_complete-3",
+        "expected_digest": "d1b1c2393cca8a9b6d2b81583b5083a569d3816d5a25ad18256c976dd3d0a277",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-06-EMPTY",
+        "checkpoint_ref": "provider_model_enablement_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-07-POSITIVE",
+        "checkpoint_ref": "authorization_activation_invariants_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "proc_identity": "v-authorization_activation_invariants_complete-0",
+            "owner": "v-authorization_activation_invariants_complete-1",
+            "prosecdef": "v-authorization_activation_invariants_complete-2",
+            "acl_expanded": "v-authorization_activation_invariants_complete-3",
+            "prosrc_sha256": "v-authorization_activation_invariants_complete-4",
+            "guc_path_absent": "v-authorization_activation_invariants_complete-5"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "proc_identity": "v-authorization_activation_invariants_complete-0",
+            "owner": "v-authorization_activation_invariants_complete-1",
+            "prosecdef": "v-authorization_activation_invariants_complete-2",
+            "acl_expanded": "v-authorization_activation_invariants_complete-3",
+            "prosrc_sha256": "v-authorization_activation_invariants_complete-4",
+            "guc_path_absent": "v-authorization_activation_invariants_complete-5"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-authorization_activation_invariants_complete-0\u001fv-authorization_activation_invariants_complete-1\u001fv-authorization_activation_invariants_complete-2\u001fv-authorization_activation_invariants_complete-3\u001fv-authorization_activation_invariants_complete-4\u001fv-authorization_activation_invariants_complete-5",
+        "expected_digest": "cb88f5b0472b7568c7e7b86340b5ae92ff23edc3d1eb9a8a097fd2f6a4ab66c1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-07-EMPTY",
+        "checkpoint_ref": "authorization_activation_invariants_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-08-POSITIVE",
+        "checkpoint_ref": "discrepancy_structures_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "rel_identity": "v-discrepancy_structures_complete-0",
+            "owner": "v-discrepancy_structures_complete-1",
+            "acl_expanded": "v-discrepancy_structures_complete-2",
+            "unique_index_identity": "v-discrepancy_structures_complete-3"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "rel_identity": "v-discrepancy_structures_complete-0",
+            "owner": "v-discrepancy_structures_complete-1",
+            "acl_expanded": "v-discrepancy_structures_complete-2",
+            "unique_index_identity": "v-discrepancy_structures_complete-3"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-discrepancy_structures_complete-0\u001fv-discrepancy_structures_complete-1\u001fv-discrepancy_structures_complete-2\u001fv-discrepancy_structures_complete-3",
+        "expected_digest": "827ec67c655d7b54c76b0db7119f5600a70609af6a6e4901bfe82beff0d70f71",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-08-EMPTY",
+        "checkpoint_ref": "discrepancy_structures_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-09-POSITIVE",
+        "checkpoint_ref": "discrepancy_functions_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "proc_identity": "v-discrepancy_functions_complete-0",
+            "owner": "v-discrepancy_functions_complete-1",
+            "prosecdef": "v-discrepancy_functions_complete-2",
+            "acl_expanded": "v-discrepancy_functions_complete-3"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "proc_identity": "v-discrepancy_functions_complete-0",
+            "owner": "v-discrepancy_functions_complete-1",
+            "prosecdef": "v-discrepancy_functions_complete-2",
+            "acl_expanded": "v-discrepancy_functions_complete-3"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-discrepancy_functions_complete-0\u001fv-discrepancy_functions_complete-1\u001fv-discrepancy_functions_complete-2\u001fv-discrepancy_functions_complete-3",
+        "expected_digest": "611271def3142a9250777a7ab0945fe9aa6cbce125a75a293d3f688d3523479f",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-09-EMPTY",
+        "checkpoint_ref": "discrepancy_functions_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-10-POSITIVE",
+        "checkpoint_ref": "capacity_event_structures_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "rel_identity": "v-capacity_event_structures_complete-0",
+            "owner": "v-capacity_event_structures_complete-1",
+            "acl_expanded": "v-capacity_event_structures_complete-2",
+            "unique_index_identity": "v-capacity_event_structures_complete-3"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "rel_identity": "v-capacity_event_structures_complete-0",
+            "owner": "v-capacity_event_structures_complete-1",
+            "acl_expanded": "v-capacity_event_structures_complete-2",
+            "unique_index_identity": "v-capacity_event_structures_complete-3"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-capacity_event_structures_complete-0\u001fv-capacity_event_structures_complete-1\u001fv-capacity_event_structures_complete-2\u001fv-capacity_event_structures_complete-3",
+        "expected_digest": "67f59dfa87691c6b36378f85bd7ba02f50102917da1b0f9fe01ba5241322fa28",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-10-EMPTY",
+        "checkpoint_ref": "capacity_event_structures_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-11-POSITIVE",
+        "checkpoint_ref": "pilot_builder_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "proc_identity": "v-pilot_builder_complete-0",
+            "owner": "v-pilot_builder_complete-1",
+            "prosecdef": "v-pilot_builder_complete-2",
+            "acl_expanded": "v-pilot_builder_complete-3",
+            "prosrc_sha256": "v-pilot_builder_complete-4",
+            "unqualified_crypto_count": "v-pilot_builder_complete-5"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "proc_identity": "v-pilot_builder_complete-0",
+            "owner": "v-pilot_builder_complete-1",
+            "prosecdef": "v-pilot_builder_complete-2",
+            "acl_expanded": "v-pilot_builder_complete-3",
+            "prosrc_sha256": "v-pilot_builder_complete-4",
+            "unqualified_crypto_count": "v-pilot_builder_complete-5"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-pilot_builder_complete-0\u001fv-pilot_builder_complete-1\u001fv-pilot_builder_complete-2\u001fv-pilot_builder_complete-3\u001fv-pilot_builder_complete-4\u001fv-pilot_builder_complete-5",
+        "expected_digest": "3ef9464ffb3c0e58db8a362245a5d1edbe94be6978b0e4c08f13c3a612e3088d",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-11-EMPTY",
+        "checkpoint_ref": "pilot_builder_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-12-POSITIVE",
+        "checkpoint_ref": "non_pilot_builder_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "proc_identity": "v-non_pilot_builder_complete-0",
+            "owner": "v-non_pilot_builder_complete-1",
+            "prosecdef": "v-non_pilot_builder_complete-2",
+            "acl_expanded": "v-non_pilot_builder_complete-3"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "proc_identity": "v-non_pilot_builder_complete-0",
+            "owner": "v-non_pilot_builder_complete-1",
+            "prosecdef": "v-non_pilot_builder_complete-2",
+            "acl_expanded": "v-non_pilot_builder_complete-3"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-non_pilot_builder_complete-0\u001fv-non_pilot_builder_complete-1\u001fv-non_pilot_builder_complete-2\u001fv-non_pilot_builder_complete-3",
+        "expected_digest": "00fa660d44e9caa0707fdeac259f36edca859e5c879c873a56cc1d027e3746b5",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-12-EMPTY",
+        "checkpoint_ref": "non_pilot_builder_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-13-POSITIVE",
+        "checkpoint_ref": "append_only_trigger_functions_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "proc_identity": "v-append_only_trigger_functions_complete-0",
+            "owner": "v-append_only_trigger_functions_complete-1"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "proc_identity": "v-append_only_trigger_functions_complete-0",
+            "owner": "v-append_only_trigger_functions_complete-1"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-append_only_trigger_functions_complete-0\u001fv-append_only_trigger_functions_complete-1",
+        "expected_digest": "677833cebbe46d7df71c999a9b39c6f18cdc71456158c6fadcf2488dbcd2031c",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-13-EMPTY",
+        "checkpoint_ref": "append_only_trigger_functions_complete",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-14-POSITIVE",
+        "checkpoint_ref": "append_only_triggers_attached",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "tg_identity": "v-append_only_triggers_attached-0",
+            "table_identity": "v-append_only_triggers_attached-1",
+            "function_identity": "v-append_only_triggers_attached-2",
+            "enabled": "v-append_only_triggers_attached-3"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "tg_identity": "v-append_only_triggers_attached-0",
+            "table_identity": "v-append_only_triggers_attached-1",
+            "function_identity": "v-append_only_triggers_attached-2",
+            "enabled": "v-append_only_triggers_attached-3"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-append_only_triggers_attached-0\u001fv-append_only_triggers_attached-1\u001fv-append_only_triggers_attached-2\u001fv-append_only_triggers_attached-3",
+        "expected_digest": "a97f0d1c95d5ee372814d775a679e1f9b4fa87c443fe368981680470f4f85de6",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-14-EMPTY",
+        "checkpoint_ref": "append_only_triggers_attached",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-15-POSITIVE",
+        "checkpoint_ref": "test_helpers_isolated",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "proc_identity": "v-test_helpers_isolated-0",
+            "schema": "v-test_helpers_isolated-1",
+            "acl_expanded": "v-test_helpers_isolated-2",
+            "app_exec": "v-test_helpers_isolated-3",
+            "n8n_exec": "v-test_helpers_isolated-4",
+            "gov_exec": "v-test_helpers_isolated-5"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "proc_identity": "v-test_helpers_isolated-0",
+            "schema": "v-test_helpers_isolated-1",
+            "acl_expanded": "v-test_helpers_isolated-2",
+            "app_exec": "v-test_helpers_isolated-3",
+            "n8n_exec": "v-test_helpers_isolated-4",
+            "gov_exec": "v-test_helpers_isolated-5"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-test_helpers_isolated-0\u001fv-test_helpers_isolated-1\u001fv-test_helpers_isolated-2\u001fv-test_helpers_isolated-3\u001fv-test_helpers_isolated-4\u001fv-test_helpers_isolated-5",
+        "expected_digest": "00c2b23061ef84e45e7b9cedbb6fd7ca764d96c68f9a1921682ecd663639588f",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-15-EMPTY",
+        "checkpoint_ref": "test_helpers_isolated",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-16-POSITIVE",
+        "checkpoint_ref": "unsafe_functions_replaced",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "proc_identity": "v-unsafe_functions_replaced-0",
+            "prosecdef": "v-unsafe_functions_replaced-1",
+            "search_path_setting": "v-unsafe_functions_replaced-2",
+            "unqualified_crypto_count": "v-unsafe_functions_replaced-3",
+            "prosrc_sha256": "v-unsafe_functions_replaced-4"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "proc_identity": "v-unsafe_functions_replaced-0",
+            "prosecdef": "v-unsafe_functions_replaced-1",
+            "search_path_setting": "v-unsafe_functions_replaced-2",
+            "unqualified_crypto_count": "v-unsafe_functions_replaced-3",
+            "prosrc_sha256": "v-unsafe_functions_replaced-4"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-unsafe_functions_replaced-0\u001fv-unsafe_functions_replaced-1\u001fv-unsafe_functions_replaced-2\u001fv-unsafe_functions_replaced-3\u001fv-unsafe_functions_replaced-4",
+        "expected_digest": "ed0b5e7535b7e2439d6ee772ce2161b4c499b84af8156a9a300bff4b73d0b4a2",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-16-EMPTY",
+        "checkpoint_ref": "unsafe_functions_replaced",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-17-POSITIVE",
+        "checkpoint_ref": "ownership_locked",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "object_class": "v-ownership_locked-0",
+            "object_identity": "v-ownership_locked-1",
+            "owner_name": "v-ownership_locked-2"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "object_class": "v-ownership_locked-0",
+            "object_identity": "v-ownership_locked-1",
+            "owner_name": "v-ownership_locked-2"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-ownership_locked-0\u001fv-ownership_locked-1\u001fv-ownership_locked-2",
+        "expected_digest": "8a2071bfd61fc0c40640ac156a8e934767f43f4ed91d20fa6dbf72de38e8efc7",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-17-EMPTY",
+        "checkpoint_ref": "ownership_locked",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-18-POSITIVE",
+        "checkpoint_ref": "default_privileges_locked",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "role_name": "v-default_privileges_locked-0",
+            "schema_name": "v-default_privileges_locked-1",
+            "objtype": "v-default_privileges_locked-2",
+            "acl_expanded": "v-default_privileges_locked-3"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "role_name": "v-default_privileges_locked-0",
+            "schema_name": "v-default_privileges_locked-1",
+            "objtype": "v-default_privileges_locked-2",
+            "acl_expanded": "v-default_privileges_locked-3"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fv-default_privileges_locked-0\u001fv-default_privileges_locked-1\u001fv-default_privileges_locked-2\u001fv-default_privileges_locked-3",
+        "expected_digest": "5aac906313e05cddde77b6980b18c0825ff82442fc4a0bf1315b881196f39808",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-CP-18-EMPTY",
+        "checkpoint_ref": "default_privileges_locked",
+        "case_kind": "empty_set",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f",
+        "expected_digest": "4585e0a506a259e066ff16341ea8a155257758491cb57af7bc54e50f149696f1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-ONE",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "extname": "a",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "a",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fa\u001fx\u001fx\u001fx\u001fx",
+        "expected_digest": "adebbb9e1bae5c08d6bd9483a4145f47c09f61db820dee2bf8f6dcf8e150d376",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-MULTI",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "reversed_insertion_order",
+        "fixture_rows": [
+          {
+            "extname": "r2-0",
+            "extschema": "r2-1",
+            "proc_identity": "r2-2",
+            "proc_schema": "r2-3",
+            "proc_owner": "r2-4"
+          },
+          {
+            "extname": "r1-0",
+            "extschema": "r1-1",
+            "proc_identity": "r1-2",
+            "proc_schema": "r1-3",
+            "proc_owner": "r1-4"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "r2-0",
+            "extschema": "r2-1",
+            "proc_identity": "r2-2",
+            "proc_schema": "r2-3",
+            "proc_owner": "r2-4"
+          },
+          {
+            "extname": "r1-0",
+            "extschema": "r1-1",
+            "proc_identity": "r1-2",
+            "proc_schema": "r1-3",
+            "proc_owner": "r1-4"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fr1-0\u001fr1-1\u001fr1-2\u001fr1-3\u001fr1-4\u001er2-0\u001fr2-1\u001fr2-2\u001fr2-3\u001fr2-4",
+        "expected_digest": "d6c743bd7af7f884026064341538ab9f71b1936631c0db2c9fdc514dada64349",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-NULL",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "null_value",
+        "fixture_rows": [
+          {
+            "extname": null,
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": null,
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f\\N\u001fx\u001fx\u001fx\u001fx",
+        "expected_digest": "7bcd3a673bcceb1eefe09cd2718c8c408afc824482f6187c3b93390f37b076ee",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-EMPTYSTR",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "empty_string",
+        "fixture_rows": [
+          {
+            "extname": "",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f\u001fx\u001fx\u001fx\u001fx",
+        "expected_digest": "34d48c44089ad443e36764589e3d9f054929aed8aaf4638f41f4f1b609583e7d",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-BOOLT",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "boolean_values",
+        "fixture_rows": [
+          {
+            "extname": true,
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": true,
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001ft\u001fx\u001fx\u001fx\u001fx",
+        "expected_digest": "619c2cf32fd09c5b5d71e30fb6ae0955c76dda573a9f176c36b40d42d859a81d",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-BOOLF",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "boolean_values",
+        "fixture_rows": [
+          {
+            "extname": false,
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": false,
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001ff\u001fx\u001fx\u001fx\u001fx",
+        "expected_digest": "c24e6136b64ba80f3e5d1836f8ed2d475e868bbfc8b5b9e14d25e2c964482a6c",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-UNI",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "unicode",
+        "fixture_rows": [
+          {
+            "extname": "Ω-café",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "Ω-café",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fΩ-café\u001fx\u001fx\u001fx\u001fx",
+        "expected_digest": "bb0e137ff9b1c7ddb6835f71556f8f61957b7134bd8ba4b4708104138d134161",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-BIN",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "binary_values",
+        "fixture_rows": [
+          {
+            "extname": "bin\u0000text",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "bin\u0000text",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fbin\u0000text\u001fx\u001fx\u001fx\u001fx",
+        "expected_digest": "f7160a6bc796e5cfb2eb729c364d14a03932cb3c7c363a51e34c7e574c478609",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-US",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "separator_characters",
+        "fixture_rows": [
+          {
+            "extname": "a\u001fb",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "a\u001fb",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fa\u001fb\u001fx\u001fx\u001fx\u001fx",
+        "expected_digest": "7ea3df1c916815be086b4f4e9fce2bfa55e0afbeb275d97df24ee23ac04a3cd2",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-RS",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "separator_characters",
+        "fixture_rows": [
+          {
+            "extname": "a\u001eb",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "a\u001eb",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fa\u001eb\u001fx\u001fx\u001fx\u001fx",
+        "expected_digest": "439b567d28e6d435d10b2c9d5ddaf73dd5ae990b2dce12424ca9780df4b5980d",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-DUP",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "duplicate_natural_identities",
+        "fixture_rows": [
+          {
+            "extname": "r1-0",
+            "extschema": "r1-1",
+            "proc_identity": "r1-2",
+            "proc_schema": "r1-3",
+            "proc_owner": "r1-4"
+          },
+          {
+            "extname": "r1-0",
+            "extschema": "r1-1",
+            "proc_identity": "r1-2",
+            "proc_schema": "r1-3",
+            "proc_owner": "r1-4"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "r1-0",
+            "extschema": "r1-1",
+            "proc_identity": "r1-2",
+            "proc_schema": "r1-3",
+            "proc_owner": "r1-4"
+          },
+          {
+            "extname": "r1-0",
+            "extschema": "r1-1",
+            "proc_identity": "r1-2",
+            "proc_schema": "r1-3",
+            "proc_owner": "r1-4"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fr1-0\u001fr1-1\u001fr1-2\u001fr1-3\u001fr1-4\u001er1-0\u001fr1-1\u001fr1-2\u001fr1-3\u001fr1-4",
+        "expected_digest": "a2a338bc5df6ceecb2e5e9d8d6258e440240ee4c73f3af670d3431877ec112a2",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-OID",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "oid_only_change",
+        "fixture_rows": [
+          {
+            "extname": "same",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "same",
+            "extschema": "x",
+            "proc_identity": "x",
+            "proc_schema": "x",
+            "proc_owner": "x"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fsame\u001fx\u001fx\u001fx\u001fx",
+        "expected_digest": "94fc7a5b2598db4dbbf8cbe7f9e07cd35e82e35ff0f6771c31238343b872f3b1",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "PASS"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-ALG",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "algorithm_version_mismatch",
+        "fixture_rows": [],
+        "normalized_rows": [],
+        "canonical_bytes": "bad",
+        "expected_digest": "2f05d4b689d270cafb02285f35f44866f7dc8a2d368a3f9d1124373eeab31fb1",
+        "algorithm_version": "schema9_checkpoint_digest_v0",
+        "expected_result": "failed_frozen"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-PARTIAL",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "oid_only_change",
+        "fixture_rows": [
+          {
+            "extname": "only"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "only"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fonly\u001f\\N\u001f\\N\u001f\\N\u001f\\N",
+        "expected_digest": "0143da66688c9ecc58d437c7ca539728d5baa4dc498ea3249f7b3448a4345316",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "failed_frozen"
+      },
+      {
+        "oracle_id": "ORACLE-EDGE-CONFLICT",
+        "checkpoint_ref": "crypto_schema_complete",
+        "case_kind": "duplicate_natural_identities",
+        "fixture_rows": [
+          {
+            "extname": "r1-0",
+            "extschema": "r1-1",
+            "proc_identity": "r1-2",
+            "proc_schema": "r1-3",
+            "proc_owner": "r1-4"
+          },
+          {
+            "extname": "r2-0",
+            "extschema": "r2-1",
+            "proc_identity": "r2-2",
+            "proc_schema": "r2-3",
+            "proc_owner": "r2-4"
+          }
+        ],
+        "normalized_rows": [
+          {
+            "extname": "r1-0",
+            "extschema": "r1-1",
+            "proc_identity": "r1-2",
+            "proc_schema": "r1-3",
+            "proc_owner": "r1-4"
+          },
+          {
+            "extname": "r2-0",
+            "extschema": "r2-1",
+            "proc_identity": "r2-2",
+            "proc_schema": "r2-3",
+            "proc_owner": "r2-4"
+          }
+        ],
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fr1-0\u001fr1-1\u001fr1-2\u001fr1-3\u001fr1-4\u001er2-0\u001fr2-1\u001fr2-2\u001fr2-3\u001fr2-4",
+        "expected_digest": "d6c743bd7af7f884026064341538ab9f71b1936631c0db2c9fdc514dada64349",
+        "algorithm_version": "schema9_checkpoint_digest_v1",
+        "expected_result": "failed_frozen"
+      }
+    ]
+  }
+}
