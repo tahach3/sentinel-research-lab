@@ -21,7 +21,7 @@
       {
         "artifact_type": "reconciliation_rule_registry",
         "path": "specs/round5a/reconciliation_rules.yaml",
-        "sha256": "5233bb4d033c0aaebe16a073579309f087b916d9fa85bd6e5cf7aa3cd6f4fc9b",
+        "sha256": "136329637e07fe605899428ac1203d5cf6d37a3dd3f96a57bc65e1848fb467de",
         "authority_class": "normative_source"
       },
       {
