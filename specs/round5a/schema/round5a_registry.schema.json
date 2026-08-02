@@ -1,0 +1,2097 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentinel-research-lab.local/specs/round5a/schema/round5a_registry.schema.json",
+  "$comment": "Round 5A Architecture Reset — specification schema version 1.0.0. Schemas only; registries and schema-9 implementation are out of scope for Phase A.",
+  "title": "Round 5A Architecture Reset Registry Schema",
+  "description": "Composite authoritative JSON Schema (Draft 2020-12) for Round 5A machine-readable registry artifacts. Validates JSON documents and YAML documents after YAML-to-JSON-compatible parsing. Ambiguity that previously blocked findings #2/#4/#5 is made structurally invalid.",
+  "x-round5a-architecture-reset-name": "Round 5A Architecture Reset",
+  "x-round5a-schema-version": "1.0.0",
+  "x-round5a-invariants": [
+    "Exactly 18 unique checkpoint_id values in every checkpoint_registry.",
+    "No duplicate checkpoint names in a checkpoint_registry.",
+    "All referenced QUERY-* / PRIMITIVE-* identifiers exist in the shared catalog/primitive model.",
+    "No OID, object_oid, relation_oid, function_oid, row_number, physical_location, or ctid (including case variants and nested uses) may appear in identity or digest input fields.",
+    "Every digest.input_contract field name exists in selected_fields with digest_included=true.",
+    "Every ordering.fields entry exists in selected_fields.",
+    "Bidirectional validation slots are complete for every checkpoint entry.",
+    "Exactly 22 unique rule_id values in every reconciliation_rule_registry.",
+    "Rule order values are exactly the contiguous set 1..22.",
+    "Exactly one fallback rule; it must be order 22 with is_fallback=true and failure_state=failed_frozen.",
+    "Non-fallback rules must set is_fallback=false.",
+    "Every decisive_fields entry appears in the rule predicate AST.",
+    "Every explicit_exclusions entry is a typed AST or typed field/identity reference — never prose.",
+    "Every referenced field exists in the shared reconciliation data model.",
+    "Every rule has fixture coverage in a reconciliation_fixture_pack.",
+    "All 231 earlier/later rule pairs (C(22,2)) are evaluated by the Phase D validator for shadowing/reachability.",
+    "Fallback is reachable; no rule is unreachable under the declared domain.",
+    "Every bounded fixture source maps to exactly one outcome slot.",
+    "Role discovery mode must be CATALOG_DISCOVERY; fixed named role lists are never the sole discovery mechanism.",
+    "Column ACL semantics must declare NULL attacl meaning, table-privilege independence, and acldefault('c') prohibition.",
+    "Permitted variance requires at least one ND-* decision_refs entry.",
+    "LIVE_CATALOG evidence_class requires an explicit runtime evidence reference.",
+    "Cross-file $ref / artifact reference validity is enforced by Phase D (JSON Schema alone cannot prove it).",
+    "Generated Markdown is never normative when it differs from a registry."
+  ],
+  "type": "object",
+  "required": ["artifact_type", "schema_version"],
+  "properties": {
+    "artifact_type": {
+      "type": "string",
+      "enum": [
+        "catalog_contract",
+        "checkpoint_registry",
+        "reconciliation_rule_registry",
+        "reconciliation_fixture_pack",
+        "checkpoint_oracle_pack",
+        "privilege_fixture_pack",
+        "registry_manifest"
+      ]
+    },
+    "schema_version": {
+      "$ref": "#/$defs/schema_version"
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/catalog_contract_artifact" },
+    { "$ref": "#/$defs/checkpoint_registry_artifact" },
+    { "$ref": "#/$defs/reconciliation_rule_registry_artifact" },
+    { "$ref": "#/$defs/reconciliation_fixture_pack_artifact" },
+    { "$ref": "#/$defs/checkpoint_oracle_pack_artifact" },
+    { "$ref": "#/$defs/privilege_fixture_pack_artifact" },
+    { "$ref": "#/$defs/registry_manifest_artifact" }
+  ],
+  "unevaluatedProperties": false,
+  "$defs": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Specification schema version. Breaking changes require a major version increment."
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ascii_upper_id_segment": {
+      "type": "string",
+      "pattern": "^[A-Z0-9]+(?:-[A-Z0-9]+)*$",
+      "description": "Uppercase ASCII letters, digits, and hyphens only. Stable across generated documentation. Never a database OID or row number."
+    },
+    "nd_id": {
+      "type": "string",
+      "pattern": "^ND-[A-Z0-9]+(?:-[A-Z0-9]+)*$",
+      "description": "Normative decision identifier."
+    },
+    "ev_id": {
+      "type": "string",
+      "pattern": "^EV-[A-Z0-9]+(?:-[A-Z0-9]+)*$",
+      "description": "Evidence pack identifier."
+    },
+    "marker_id": {
+      "type": "string",
+      "pattern": "^MARKER-[A-Z0-9]+(?:-[A-Z0-9]+)*$",
+      "description": "Evidence-marker identifier."
+    },
+    "ckp_id": {
+      "type": "string",
+      "pattern": "^CKP-[A-Z0-9]+(?:-[A-Z0-9]+)*$",
+      "description": "Checkpoint registry entry identifier (CKP-* form). Distinct from checkpoint_id slug used in runtime rows."
+    },
+    "rule_id": {
+      "type": "string",
+      "pattern": "^RULE-[A-Z0-9]+(?:-[A-Z0-9]+)*$",
+      "description": "Reconciliation rule identifier."
+    },
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^FIXTURE-[A-Z0-9]+(?:-[A-Z0-9]+)*$"
+    },
+    "oracle_id": {
+      "type": "string",
+      "pattern": "^ORACLE-[A-Z0-9]+(?:-[A-Z0-9]+)*$"
+    },
+    "query_id": {
+      "type": "string",
+      "pattern": "^QUERY-[A-Z0-9]+(?:-[A-Z0-9]+)*$",
+      "description": "Versioned typed query/selector primitive identifier. Not unrestricted SQL text."
+    },
+    "primitive_id": {
+      "type": "string",
+      "pattern": "^PRIMITIVE-[A-Z0-9]+(?:-[A-Z0-9]+)*$",
+      "description": "Versioned typed catalog/computation primitive identifier."
+    },
+    "git_commit_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Literal SHA-256 digest as lowercase hex. Not an instruction to call production digest code."
+    },
+    "iso8601_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Metadata timestamp only; must be excluded from normative digests."
+    },
+    "evidence_class": {
+      "type": "string",
+      "enum": [
+        "RECONSTRUCTED_REFERENCE_SCHEMA8",
+        "EXECUTION_TIME_LIVE_PREFLIGHT",
+        "PILOT_TIME_RUNTIME_REVALIDATION",
+        "LIVE_CATALOG",
+        "NORMATIVE_DECISION_ONLY"
+      ]
+    },
+    "marker_state": {
+      "type": "string",
+      "enum": [
+        "RECONSTRUCTED_REFERENCE_ACCEPTED",
+        "UNKNOWN_UNTIL_LIVE_PREFLIGHT",
+        "UNKNOWN_UNTIL_RUNTIME_REVALIDATION",
+        "LIVE_VERIFIED"
+      ]
+    },
+    "comparison_outcome": {
+      "type": "string",
+      "enum": [
+        "MATCHES_RECONSTRUCTED_REFERENCE",
+        "SAFE_DECLARED_VARIANCE",
+        "UNSAFE_UNDECLARED_VARIANCE",
+        "MISSING_REQUIRED_OBJECT",
+        "UNKNOWN_EXTRA_OBJECT",
+        "PRIVILEGE_EXPANSION",
+        "PRIVILEGE_REDUCTION",
+        "OWNER_MISMATCH",
+        "RUNTIME_STATE_MISMATCH"
+      ]
+    },
+    "failure_outcome": {
+      "type": "string",
+      "enum": [
+        "BLOCKED_LIVE_PREFLIGHT_REQUIRED",
+        "BLOCKED_RUNTIME_REVALIDATION_REQUIRED",
+        "blocked_preflight",
+        "failed_frozen",
+        "pilot_blocked"
+      ]
+    },
+    "field_data_type": {
+      "type": "string",
+      "enum": [
+        "string",
+        "integer",
+        "decimal",
+        "boolean",
+        "timestamp",
+        "date",
+        "uuid",
+        "bytes",
+        "string_set",
+        "identity_set",
+        "json_scalar"
+      ]
+    },
+    "privilege_dimension": {
+      "type": "string",
+      "enum": [
+        "USAGE",
+        "CREATE",
+        "CONNECT",
+        "EXECUTE",
+        "SELECT",
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "TRUNCATE",
+        "REFERENCES",
+        "TRIGGER",
+        "SET_ROLE"
+      ]
+    },
+    "privilege_path": {
+      "type": "string",
+      "enum": [
+        "direct",
+        "public",
+        "inherited",
+        "set_role_only",
+        "owner_derived",
+        "superuser_derived",
+        "schema_gated",
+        "exercisable"
+      ]
+    },
+    "unstable_identity_field_name": {
+      "type": "string",
+      "enum": [
+        "oid",
+        "object_oid",
+        "relation_oid",
+        "function_oid",
+        "row_number",
+        "physical_location",
+        "ctid"
+      ],
+      "description": "Prohibited identity/digest field names. Phase D also rejects case variants and nested uses."
+    },
+    "stable_field_name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "not": {
+        "$ref": "#/$defs/unstable_identity_field_name"
+      },
+      "description": "Stable field name. OIDs and physical locators are prohibited."
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "decision_refs",
+        "evidence_refs",
+        "evidence_class",
+        "source_location"
+      ],
+      "properties": {
+        "decision_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nd_id" },
+          "uniqueItems": true
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ev_id" },
+          "uniqueItems": true
+        },
+        "evidence_class": { "$ref": "#/$defs/evidence_class" },
+        "source_location": { "$ref": "#/$defs/non_empty_string" },
+        "runtime_evidence_ref": {
+          "$ref": "#/$defs/ev_id",
+          "description": "Required when evidence_class is LIVE_CATALOG (Phase D enforces)."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "evidence_class": { "const": "LIVE_CATALOG" } },
+            "required": ["evidence_class"]
+          },
+          "then": {
+            "required": ["runtime_evidence_ref"]
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "typed_field_ref": {
+      "type": "object",
+      "required": ["scope", "path", "data_type", "nullable"],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "catalog_object",
+            "checkpoint_row",
+            "source_record",
+            "ledger_orphan",
+            "envelope_orphan",
+            "outcome_slot",
+            "fixture_input",
+            "shared_data_model"
+          ]
+        },
+        "path": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/stable_field_name" }
+        },
+        "data_type": { "$ref": "#/$defs/field_data_type" },
+        "nullable": { "type": "boolean" }
+      },
+      "unevaluatedProperties": false
+    },
+    "normalization_rule": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "identity",
+            "trim",
+            "casefold_ascii",
+            "nfc",
+            "lowercase_hex",
+            "decimal_canonical",
+            "uuid_canonical",
+            "sorted_set",
+            "json_scalar_canonical"
+          ]
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean", "null"]
+          }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "natural_identity": {
+      "type": "object",
+      "required": ["identity_fields", "normalization", "serialization_order"],
+      "properties": {
+        "identity_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/typed_field_ref" },
+          "uniqueItems": true
+        },
+        "normalization": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/normalization_rule" }
+        },
+        "serialization_order": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/stable_field_name" }
+        }
+      },
+      "unevaluatedProperties": false,
+      "description": "OID-free natural identity. Validator rejects unstable fields including case variants and nested uses."
+    },
+    "null_semantics": {
+      "type": "string",
+      "enum": [
+        "null_is_value",
+        "null_is_unknown",
+        "null_fails_predicate"
+      ],
+      "description": "Explicit null semantics. Implicit SQL three-valued logic is prohibited."
+    },
+    "literal_value": {
+      "type": "object",
+      "required": ["data_type", "value"],
+      "properties": {
+        "data_type": { "$ref": "#/$defs/field_data_type" },
+        "value": {
+          "type": ["string", "number", "boolean", "null", "array", "object"]
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "operand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["operand_kind", "field_ref"],
+          "properties": {
+            "operand_kind": { "const": "field_ref" },
+            "field_ref": { "$ref": "#/$defs/typed_field_ref" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["operand_kind", "literal"],
+          "properties": {
+            "operand_kind": { "const": "literal" },
+            "literal": { "$ref": "#/$defs/literal_value" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["operand_kind", "normalized_identity_ref"],
+          "properties": {
+            "operand_kind": { "const": "normalized_identity_ref" },
+            "normalized_identity_ref": {
+              "type": "object",
+              "required": ["identity"],
+              "properties": {
+                "identity": { "$ref": "#/$defs/natural_identity" },
+                "binding": { "$ref": "#/$defs/non_empty_string" }
+              },
+              "unevaluatedProperties": false
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["operand_kind", "computed_primitive_ref"],
+          "properties": {
+            "operand_kind": { "const": "computed_primitive_ref" },
+            "computed_primitive_ref": {
+              "type": "object",
+              "required": ["primitive_ref"],
+              "properties": {
+                "primitive_ref": { "$ref": "#/$defs/primitive_id" },
+                "parameters": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": ["string", "number", "boolean", "null"]
+                  }
+                }
+              },
+              "unevaluatedProperties": false
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "Closed operand set. Arbitrary SQL, Python, shell, templates, and eval are prohibited."
+    },
+    "compare_op": {
+      "type": "string",
+      "enum": ["eq", "ne", "lt", "lte", "gt", "gte"]
+    },
+    "predicate_node": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["node", "predicates"],
+          "properties": {
+            "node": { "const": "all" },
+            "predicates": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/predicate_node" }
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node", "predicates"],
+          "properties": {
+            "node": { "const": "any" },
+            "predicates": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/predicate_node" }
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node", "predicate"],
+          "properties": {
+            "node": { "const": "not" },
+            "predicate": { "$ref": "#/$defs/predicate_node" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node", "op", "left", "right", "null_semantics"],
+          "properties": {
+            "node": { "const": "compare" },
+            "op": { "$ref": "#/$defs/compare_op" },
+            "left": { "$ref": "#/$defs/operand" },
+            "right": { "$ref": "#/$defs/operand" },
+            "null_semantics": { "$ref": "#/$defs/null_semantics" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node", "operand"],
+          "properties": {
+            "node": { "const": "is_null" },
+            "operand": { "$ref": "#/$defs/operand" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node", "operand"],
+          "properties": {
+            "node": { "const": "is_not_null" },
+            "operand": { "$ref": "#/$defs/operand" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node", "operand", "values", "null_semantics"],
+          "properties": {
+            "node": { "const": "in" },
+            "operand": { "$ref": "#/$defs/operand" },
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/operand" }
+            },
+            "null_semantics": { "$ref": "#/$defs/null_semantics" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node", "operand", "values", "null_semantics"],
+          "properties": {
+            "node": { "const": "not_in" },
+            "operand": { "$ref": "#/$defs/operand" },
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/operand" }
+            },
+            "null_semantics": { "$ref": "#/$defs/null_semantics" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node", "left", "right", "null_semantics"],
+          "properties": {
+            "node": { "const": "set_equals" },
+            "left": { "$ref": "#/$defs/operand" },
+            "right": { "$ref": "#/$defs/operand" },
+            "null_semantics": { "$ref": "#/$defs/null_semantics" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node", "set_operand", "member", "null_semantics"],
+          "properties": {
+            "node": { "const": "set_contains" },
+            "set_operand": { "$ref": "#/$defs/operand" },
+            "member": { "$ref": "#/$defs/operand" },
+            "null_semantics": { "$ref": "#/$defs/null_semantics" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node", "target"],
+          "properties": {
+            "node": { "const": "exists" },
+            "target": { "$ref": "#/$defs/operand" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node", "target"],
+          "properties": {
+            "node": { "const": "missing" },
+            "target": { "$ref": "#/$defs/operand" }
+          },
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "Restricted reconciliation predicate AST. No arbitrary SQL, Python, shell, template expressions, or eval."
+    },
+    "blocking_behavior": {
+      "type": "object",
+      "required": ["failure_outcome", "comparison_outcomes"],
+      "properties": {
+        "failure_outcome": { "$ref": "#/$defs/failure_outcome" },
+        "comparison_outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/comparison_outcome" },
+          "uniqueItems": true
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "expected_state": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "const": "deterministic_value" },
+            "value": {
+              "type": ["string", "number", "boolean", "null", "array", "object"]
+            },
+            "data_type": { "$ref": "#/$defs/field_data_type" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "values", "decision_refs"],
+          "properties": {
+            "kind": { "const": "permitted_value_set" },
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": ["string", "number", "boolean", "null"]
+              }
+            },
+            "decision_refs": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/nd_id" },
+              "uniqueItems": true,
+              "description": "Permitted variance requires at least one ND-* reference."
+            },
+            "data_type": { "$ref": "#/$defs/field_data_type" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "query_or_predicate_ref",
+            "blocking_behavior"
+          ],
+          "properties": {
+            "kind": { "const": "unknown_until_live_preflight" },
+            "query_or_predicate_ref": {
+              "oneOf": [
+                { "$ref": "#/$defs/query_id" },
+                { "$ref": "#/$defs/primitive_id" },
+                { "$ref": "#/$defs/predicate_node" }
+              ]
+            },
+            "blocking_behavior": { "$ref": "#/$defs/blocking_behavior" }
+          },
+          "unevaluatedProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "query_or_predicate_ref",
+            "blocking_behavior"
+          ],
+          "properties": {
+            "kind": { "const": "unknown_until_runtime_revalidation" },
+            "query_or_predicate_ref": {
+              "oneOf": [
+                { "$ref": "#/$defs/query_id" },
+                { "$ref": "#/$defs/primitive_id" },
+                { "$ref": "#/$defs/predicate_node" }
+              ]
+            },
+            "blocking_behavior": { "$ref": "#/$defs/blocking_behavior" }
+          },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "role_discovery": {
+      "type": "object",
+      "required": ["mode", "discovery_primitive_ref", "evaluate_every_discovered_role"],
+      "properties": {
+        "mode": {
+          "const": "CATALOG_DISCOVERY",
+          "description": "Dynamic role discovery is mandatory. A fixed role list is never the sole discovery mechanism."
+        },
+        "discovery_primitive_ref": { "$ref": "#/$defs/primitive_id" },
+        "evaluate_every_discovered_role": {
+          "type": "boolean",
+          "const": true
+        },
+        "required_roles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/non_empty_string" },
+          "uniqueItems": true,
+          "description": "Supplementary named roles. Never replaces CATALOG_DISCOVERY."
+        },
+        "prohibited_roles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/non_empty_string" },
+          "uniqueItems": true
+        },
+        "special_semantic_roles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["role_name", "semantic"],
+            "properties": {
+              "role_name": { "$ref": "#/$defs/non_empty_string" },
+              "semantic": { "$ref": "#/$defs/non_empty_string" },
+              "decision_refs": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/nd_id" },
+                "uniqueItems": true
+              }
+            },
+            "unevaluatedProperties": false
+          }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "column_acl_semantics": {
+      "type": "object",
+      "required": [
+        "null_attacl_means",
+        "table_privileges_independently_authoritative",
+        "acldefault_column_prohibited",
+        "effective_column_rules"
+      ],
+      "properties": {
+        "null_attacl_means": {
+          "const": "no_column_specific_acl",
+          "description": "NULL attacl = no column-specific ACL."
+        },
+        "table_privileges_independently_authoritative": {
+          "type": "boolean",
+          "const": true,
+          "description": "Table privileges remain independently authoritative when attacl is NULL."
+        },
+        "acldefault_column_prohibited": {
+          "type": "boolean",
+          "const": true,
+          "description": "acldefault('c', ...) is prohibited for column ACL interpretation."
+        },
+        "effective_column_rules": {
+          "type": "object",
+          "required": ["mode"],
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "explicit_column_matrix",
+                "empty_column_acl_set_with_effective_from_table"
+              ]
+            },
+            "decision_refs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/nd_id" },
+              "uniqueItems": true
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "function_acl_semantics": {
+      "type": "object",
+      "required": [
+        "acl_resolution",
+        "public_execute_supported",
+        "overload_specific_identity",
+        "schema_usage_gating"
+      ],
+      "properties": {
+        "acl_resolution": {
+          "const": "coalesce_proacl_acldefault_f_proowner",
+          "description": "COALESCE(proacl, acldefault('f', proowner))."
+        },
+        "public_execute_supported": { "type": "boolean", "const": true },
+        "overload_specific_identity": { "type": "boolean", "const": true },
+        "schema_usage_gating": { "type": "boolean", "const": true }
+      },
+      "unevaluatedProperties": false
+    },
+    "table_acl_semantics": {
+      "type": "object",
+      "required": [
+        "acl_resolution",
+        "owner_default_privilege_provenance"
+      ],
+      "properties": {
+        "acl_resolution": {
+          "const": "acldefault_r_owner",
+          "description": "acldefault('r', owner) when ACL is absent."
+        },
+        "owner_default_privilege_provenance": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "sequence_acl_semantics": {
+      "type": "object",
+      "required": [
+        "acl_resolution",
+        "owner_default_privilege_provenance"
+      ],
+      "properties": {
+        "acl_resolution": {
+          "const": "acldefault_s_owner",
+          "description": "acldefault('s', owner) when ACL is absent."
+        },
+        "owner_default_privilege_provenance": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "privilege_expectation_cell": {
+      "type": "object",
+      "required": [
+        "object_identity",
+        "role_binding",
+        "privilege",
+        "paths",
+        "expected_state",
+        "evidence_class",
+        "decision_refs"
+      ],
+      "properties": {
+        "object_identity": { "$ref": "#/$defs/natural_identity" },
+        "role_binding": {
+          "type": "object",
+          "required": ["binding_kind"],
+          "properties": {
+            "binding_kind": {
+              "type": "string",
+              "enum": [
+                "discovered_role",
+                "required_role",
+                "special_semantic_role",
+                "public"
+              ]
+            },
+            "role_name": { "$ref": "#/$defs/non_empty_string" }
+          },
+          "unevaluatedProperties": false
+        },
+        "privilege": { "$ref": "#/$defs/privilege_dimension" },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/privilege_path" },
+          "uniqueItems": true
+        },
+        "expected_state": { "$ref": "#/$defs/expected_state" },
+        "evidence_class": { "$ref": "#/$defs/evidence_class" },
+        "decision_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nd_id" },
+          "uniqueItems": true
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ev_id" },
+          "uniqueItems": true
+        },
+        "comparison_outcomes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/comparison_outcome" },
+          "uniqueItems": true
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "catalog_object_kind": {
+      "type": "string",
+      "enum": [
+        "schema",
+        "function",
+        "base_table",
+        "column",
+        "sequence",
+        "view",
+        "trigger",
+        "row_security_policy",
+        "constraint",
+        "index",
+        "default_privilege",
+        "effective_privilege"
+      ]
+    },
+    "catalog_object_entry": {
+      "type": "object",
+      "required": [
+        "object_kind",
+        "identity",
+        "expected_state",
+        "provenance"
+      ],
+      "properties": {
+        "object_kind": { "$ref": "#/$defs/catalog_object_kind" },
+        "identity": { "$ref": "#/$defs/natural_identity" },
+        "expected_state": { "$ref": "#/$defs/expected_state" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean", "null"]
+          }
+        },
+        "privilege_cells": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/privilege_expectation_cell" }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "catalog_contract": {
+      "type": "object",
+      "required": [
+        "role_discovery",
+        "privilege_dimensions",
+        "privilege_paths",
+        "column_acl_semantics",
+        "function_acl_semantics",
+        "table_acl_semantics",
+        "sequence_acl_semantics",
+        "objects",
+        "default_privileges",
+        "effective_privileges",
+        "deny_by_default"
+      ],
+      "properties": {
+        "role_discovery": { "$ref": "#/$defs/role_discovery" },
+        "privilege_dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/privilege_dimension" },
+          "uniqueItems": true
+        },
+        "privilege_paths": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/privilege_path" },
+          "uniqueItems": true,
+          "description": "Must include all eight privilege-path dimensions."
+        },
+        "column_acl_semantics": { "$ref": "#/$defs/column_acl_semantics" },
+        "function_acl_semantics": { "$ref": "#/$defs/function_acl_semantics" },
+        "table_acl_semantics": { "$ref": "#/$defs/table_acl_semantics" },
+        "sequence_acl_semantics": { "$ref": "#/$defs/sequence_acl_semantics" },
+        "objects": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/catalog_object_entry" }
+        },
+        "default_privileges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/catalog_object_entry" }
+        },
+        "effective_privileges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/privilege_expectation_cell" }
+        },
+        "deny_by_default": {
+          "type": "boolean",
+          "const": true
+        },
+        "live_unknown_representation": {
+          "type": "object",
+          "required": ["unknown_kinds"],
+          "properties": {
+            "unknown_kinds": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "unknown_until_live_preflight",
+                  "unknown_until_runtime_revalidation"
+                ]
+              },
+              "uniqueItems": true
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "object_selector": {
+      "type": "object",
+      "required": ["primitive_ref", "parameters", "object_kind", "scope"],
+      "properties": {
+        "primitive_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/primitive_id" },
+            { "$ref": "#/$defs/query_id" }
+          ],
+          "description": "Versioned typed primitive/query reference. Unrestricted SQL text is prohibited."
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean", "null"]
+          }
+        },
+        "object_kind": { "$ref": "#/$defs/catalog_object_kind" },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "database",
+            "schema",
+            "relation",
+            "function_overload",
+            "column",
+            "sequence",
+            "policy",
+            "constraint",
+            "index",
+            "trigger"
+          ]
+        }
+      },
+      "unevaluatedProperties": false,
+      "not": {
+        "anyOf": [
+          { "required": ["sql"] },
+          { "required": ["raw_sql"] },
+          { "required": ["query_text"] },
+          { "required": ["python"] },
+          { "required": ["expression"] }
+        ]
+      }
+    },
+    "selected_field": {
+      "type": "object",
+      "required": [
+        "name",
+        "source",
+        "data_type",
+        "nullable",
+        "normalization",
+        "digest_included"
+      ],
+      "properties": {
+        "name": { "$ref": "#/$defs/stable_field_name" },
+        "source": { "$ref": "#/$defs/typed_field_ref" },
+        "data_type": { "$ref": "#/$defs/field_data_type" },
+        "nullable": { "type": "boolean" },
+        "normalization": { "$ref": "#/$defs/normalization_rule" },
+        "digest_included": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "name": { "$ref": "#/$defs/unstable_identity_field_name" }
+            }
+          },
+          "then": {
+            "properties": {
+              "digest_included": { "const": false }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false,
+      "description": "Unstable fields may appear only when digest_included=false; identity prohibition still applies via Phase D."
+    },
+    "ordering_contract": {
+      "type": "object",
+      "required": ["fields", "direction", "nulls", "collation"],
+      "properties": {
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/stable_field_name" }
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["asc", "desc"]
+        },
+        "nulls": {
+          "type": "string",
+          "enum": ["first", "last"]
+        },
+        "collation": {
+          "type": "string",
+          "enum": ["C", "BINARY"],
+          "description": "Deterministic collation only."
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "serialization_contract": {
+      "type": "object",
+      "required": [
+        "encoding",
+        "value_separator",
+        "record_separator",
+        "null_encoding",
+        "boolean_true",
+        "boolean_false",
+        "final_record_separator",
+        "field_order"
+      ],
+      "properties": {
+        "encoding": {
+          "type": "string",
+          "enum": ["UTF-8"]
+        },
+        "value_separator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2
+        },
+        "record_separator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2
+        },
+        "null_encoding": {
+          "type": "string",
+          "const": "\\N"
+        },
+        "boolean_true": {
+          "type": "string",
+          "const": "t"
+        },
+        "boolean_false": {
+          "type": "string",
+          "const": "f"
+        },
+        "final_record_separator": {
+          "type": "boolean"
+        },
+        "field_order": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/stable_field_name" }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "digest_contract": {
+      "type": "object",
+      "required": [
+        "algorithm",
+        "algorithm_version",
+        "input_contract",
+        "output_encoding",
+        "empty_set_digest"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "SHA-256"
+        },
+        "algorithm_version": { "$ref": "#/$defs/non_empty_string" },
+        "input_contract": {
+          "type": "object",
+          "required": ["selected_field_names", "oid_free"],
+          "properties": {
+            "selected_field_names": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/stable_field_name" }
+            },
+            "oid_free": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        "output_encoding": {
+          "type": "string",
+          "enum": ["hex_lowercase"]
+        },
+        "empty_set_digest": { "$ref": "#/$defs/sha256_hex" }
+      },
+      "unevaluatedProperties": false
+    },
+    "bidirectional_validation": {
+      "type": "object",
+      "required": [
+        "checkpoint_without_catalog_match",
+        "catalog_match_without_checkpoint",
+        "duplicate_checkpoint",
+        "algorithm_version_mismatch",
+        "digest_mismatch",
+        "partial_object_set",
+        "conflicting_object_definition"
+      ],
+      "properties": {
+        "checkpoint_without_catalog_match": { "$ref": "#/$defs/failure_outcome" },
+        "catalog_match_without_checkpoint": { "$ref": "#/$defs/failure_outcome" },
+        "duplicate_checkpoint": { "$ref": "#/$defs/failure_outcome" },
+        "algorithm_version_mismatch": { "$ref": "#/$defs/failure_outcome" },
+        "digest_mismatch": { "$ref": "#/$defs/failure_outcome" },
+        "partial_object_set": { "$ref": "#/$defs/failure_outcome" },
+        "conflicting_object_definition": { "$ref": "#/$defs/failure_outcome" }
+      },
+      "unevaluatedProperties": false
+    },
+    "evidence_marker_binding": {
+      "type": "object",
+      "required": ["marker_id", "state"],
+      "properties": {
+        "marker_id": { "$ref": "#/$defs/marker_id" },
+        "state": { "$ref": "#/$defs/marker_state" },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ev_id" },
+          "uniqueItems": true
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "checkpoint_entry": {
+      "type": "object",
+      "required": [
+        "checkpoint_id",
+        "name",
+        "decision_refs",
+        "evidence_marker",
+        "evidence_class",
+        "object_selector",
+        "identity_fields",
+        "selected_fields",
+        "ordering",
+        "serialization",
+        "digest",
+        "completion_predicate",
+        "noop_predicate",
+        "conflict_predicate",
+        "bidirectional_validation",
+        "failure_state"
+      ],
+      "properties": {
+        "checkpoint_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Stable checkpoint slug (e.g. crypto_schema_complete). Registry may also carry CKP-* via optional ckp_ref."
+        },
+        "ckp_ref": { "$ref": "#/$defs/ckp_id" },
+        "name": { "$ref": "#/$defs/non_empty_string" },
+        "decision_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nd_id" },
+          "uniqueItems": true
+        },
+        "evidence_marker": { "$ref": "#/$defs/evidence_marker_binding" },
+        "evidence_class": { "$ref": "#/$defs/evidence_class" },
+        "object_selector": { "$ref": "#/$defs/object_selector" },
+        "identity_fields": { "$ref": "#/$defs/natural_identity" },
+        "selected_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/selected_field" }
+        },
+        "ordering": { "$ref": "#/$defs/ordering_contract" },
+        "serialization": { "$ref": "#/$defs/serialization_contract" },
+        "digest": { "$ref": "#/$defs/digest_contract" },
+        "completion_predicate": { "$ref": "#/$defs/predicate_node" },
+        "noop_predicate": { "$ref": "#/$defs/predicate_node" },
+        "conflict_predicate": { "$ref": "#/$defs/predicate_node" },
+        "bidirectional_validation": {
+          "$ref": "#/$defs/bidirectional_validation"
+        },
+        "failure_state": { "$ref": "#/$defs/failure_outcome" },
+        "baseline_predicate": {
+          "$ref": "#/$defs/predicate_node",
+          "description": "Optional baseline (pre-state) predicate; required by Phase D for CP-01 split."
+        },
+        "post_state_predicate": {
+          "$ref": "#/$defs/predicate_node",
+          "description": "Optional post-state predicate; required by Phase D for CP-01 split."
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "checkpoint_registry": {
+      "type": "object",
+      "required": ["checkpoints"],
+      "properties": {
+        "checkpoints": {
+          "type": "array",
+          "minItems": 18,
+          "maxItems": 18,
+          "items": { "$ref": "#/$defs/checkpoint_entry" }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "typed_action": {
+      "type": "object",
+      "required": ["operation", "parameters"],
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "NO_OP",
+            "CREATE_OUTCOME_SLOT",
+            "ATTACH_SOURCE_TO_EVENT",
+            "EMIT_CAPACITY_EVENT",
+            "SUPPRESS_CAPACITY_EVENT",
+            "ARCHIVE_SOURCE",
+            "ARCHIVE_LEDGER_ORPHAN",
+            "ARCHIVE_ENVELOPE_ORPHAN",
+            "RAISE_DISCREPANCY",
+            "HOLD_DISCREPANCY",
+            "SET_PILOT_STATE",
+            "BLOCK_AUTOMATIC_RECOVERY",
+            "REQUIRE_OWNER_ACTION",
+            "EMIT_AUDIT_ARTIFACT",
+            "FAIL_CLOSED"
+          ],
+          "description": "Typed operation identifier. Prose-only actions are prohibited."
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean", "null", "array"]
+          }
+        },
+        "decision_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nd_id" },
+          "uniqueItems": true
+        }
+      },
+      "unevaluatedProperties": false,
+      "not": {
+        "properties": {
+          "operation": {
+            "enum": [
+              "handle conflict",
+              "archive appropriately",
+              "repair if needed"
+            ]
+          }
+        }
+      }
+    },
+    "outcome_slot": {
+      "type": "object",
+      "required": [
+        "slot_type",
+        "slot_identity",
+        "source_identity_ref",
+        "cardinality"
+      ],
+      "properties": {
+        "slot_type": {
+          "type": "string",
+          "enum": [
+            "source_owned",
+            "ledger_orphan",
+            "envelope_orphan",
+            "shared_event",
+            "fallback"
+          ]
+        },
+        "slot_identity": { "$ref": "#/$defs/natural_identity" },
+        "source_identity_ref": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/natural_identity" },
+          "description": "Multiple source identities may reference one event; exactly one outcome slot per source identity (Phase D)."
+        },
+        "cardinality": {
+          "type": "string",
+          "enum": ["one", "one_per_source", "bounded_set"]
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "subject_domain": {
+      "type": "string",
+      "enum": ["source", "ledger_orphan", "envelope_orphan"]
+    },
+    "reconciliation_rule": {
+      "type": "object",
+      "required": [
+        "rule_id",
+        "order",
+        "name",
+        "decision_refs",
+        "evidence_class",
+        "predicate",
+        "explicit_exclusions",
+        "decisive_fields",
+        "source_identity",
+        "subject_domain",
+        "outcome_slot",
+        "capacity_effect",
+        "event_action",
+        "archive_action",
+        "discrepancy_action",
+        "pilot_state",
+        "automatic_recovery",
+        "owner_action",
+        "audit_artifacts",
+        "is_fallback"
+      ],
+      "properties": {
+        "rule_id": { "$ref": "#/$defs/rule_id" },
+        "order": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 22
+        },
+        "name": { "$ref": "#/$defs/non_empty_string" },
+        "decision_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nd_id" },
+          "uniqueItems": true
+        },
+        "evidence_class": { "$ref": "#/$defs/evidence_class" },
+        "predicate": { "$ref": "#/$defs/predicate_node" },
+        "explicit_exclusions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/predicate_node" }
+        },
+        "decisive_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/typed_field_ref" }
+        },
+        "source_identity": { "$ref": "#/$defs/natural_identity" },
+        "subject_domain": { "$ref": "#/$defs/subject_domain" },
+        "outcome_slot": { "$ref": "#/$defs/outcome_slot" },
+        "capacity_effect": { "$ref": "#/$defs/typed_action" },
+        "event_action": { "$ref": "#/$defs/typed_action" },
+        "archive_action": { "$ref": "#/$defs/typed_action" },
+        "discrepancy_action": { "$ref": "#/$defs/typed_action" },
+        "pilot_state": { "$ref": "#/$defs/typed_action" },
+        "automatic_recovery": { "$ref": "#/$defs/typed_action" },
+        "owner_action": { "$ref": "#/$defs/typed_action" },
+        "audit_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/typed_action" }
+        },
+        "is_fallback": { "type": "boolean" },
+        "failure_state": { "$ref": "#/$defs/failure_outcome" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "is_fallback": { "const": true } },
+            "required": ["is_fallback"]
+          },
+          "then": {
+            "required": ["failure_state"],
+            "properties": {
+              "order": { "const": 22 },
+              "failure_state": { "const": "failed_frozen" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "is_fallback": { "const": false } },
+            "required": ["is_fallback"]
+          },
+          "then": {
+            "properties": {
+              "order": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 21
+              }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "reconciliation_rule_registry": {
+      "type": "object",
+      "required": ["rules"],
+      "properties": {
+        "rules": {
+          "type": "array",
+          "minItems": 22,
+          "maxItems": 22,
+          "items": { "$ref": "#/$defs/reconciliation_rule" }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "fixture_kind": {
+      "type": "string",
+      "enum": [
+        "POSITIVE_WITNESS",
+        "BOUNDARY_WITNESS",
+        "MUTATION_WITNESS",
+        "FALLBACK_WITNESS",
+        "MAPPING_CASE",
+        "STATE_A_CASE",
+        "STATE_B_CASE"
+      ]
+    },
+    "mutation_entry": {
+      "type": "object",
+      "required": ["field", "before", "after", "reason"],
+      "properties": {
+        "field": { "$ref": "#/$defs/typed_field_ref" },
+        "before": { "$ref": "#/$defs/literal_value" },
+        "after": { "$ref": "#/$defs/literal_value" },
+        "reason": { "$ref": "#/$defs/non_empty_string" }
+      },
+      "unevaluatedProperties": false
+    },
+    "reconciliation_fixture": {
+      "type": "object",
+      "required": [
+        "fixture_id",
+        "fixture_kind",
+        "rule_ref",
+        "input_records",
+        "related_records",
+        "normalized_source_identity",
+        "expected_predicate_results",
+        "expected_rule",
+        "expected_outcome_slot",
+        "expected_actions",
+        "expected_state",
+        "expected_audit_artifacts"
+      ],
+      "properties": {
+        "fixture_id": { "$ref": "#/$defs/fixture_id" },
+        "fixture_kind": { "$ref": "#/$defs/fixture_kind" },
+        "rule_ref": { "$ref": "#/$defs/rule_id" },
+        "input_records": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "related_records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "normalized_source_identity": { "$ref": "#/$defs/natural_identity" },
+        "expected_predicate_results": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["rule_ref", "result"],
+            "properties": {
+              "rule_ref": { "$ref": "#/$defs/rule_id" },
+              "result": { "type": "boolean" }
+            },
+            "unevaluatedProperties": false
+          }
+        },
+        "expected_rule": { "$ref": "#/$defs/rule_id" },
+        "expected_outcome_slot": { "$ref": "#/$defs/outcome_slot" },
+        "expected_actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/typed_action" }
+        },
+        "expected_state": { "$ref": "#/$defs/expected_state" },
+        "expected_audit_artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/typed_action" }
+        },
+        "earlier_rules_expected_false": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/rule_id" },
+          "uniqueItems": true
+        },
+        "target_rule_expected_true": { "$ref": "#/$defs/rule_id" },
+        "source_fixture_ref": { "$ref": "#/$defs/fixture_id" },
+        "mutations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/mutation_entry" }
+        },
+        "original_rule": { "$ref": "#/$defs/rule_id" },
+        "expected_new_rule": { "$ref": "#/$defs/rule_id" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "fixture_kind": { "const": "POSITIVE_WITNESS" }
+            },
+            "required": ["fixture_kind"]
+          },
+          "then": {
+            "required": [
+              "earlier_rules_expected_false",
+              "target_rule_expected_true"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "fixture_kind": { "const": "BOUNDARY_WITNESS" }
+            },
+            "required": ["fixture_kind"]
+          },
+          "then": {
+            "required": [
+              "source_fixture_ref",
+              "mutations",
+              "original_rule",
+              "expected_new_rule"
+            ]
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "reconciliation_fixture_pack": {
+      "type": "object",
+      "required": ["fixtures"],
+      "properties": {
+        "fixtures": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/reconciliation_fixture" }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "oracle_case_kind": {
+      "type": "string",
+      "enum": [
+        "empty_set",
+        "null_value",
+        "empty_string",
+        "boolean_values",
+        "unicode",
+        "binary_values",
+        "separator_characters",
+        "reversed_insertion_order",
+        "duplicate_natural_identities",
+        "oid_only_change",
+        "algorithm_version_mismatch"
+      ]
+    },
+    "checkpoint_oracle": {
+      "type": "object",
+      "required": [
+        "oracle_id",
+        "checkpoint_ref",
+        "case_kind",
+        "fixture_rows",
+        "normalized_rows",
+        "canonical_bytes",
+        "expected_digest",
+        "algorithm_version",
+        "expected_result"
+      ],
+      "properties": {
+        "oracle_id": { "$ref": "#/$defs/oracle_id" },
+        "checkpoint_ref": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "case_kind": { "$ref": "#/$defs/oracle_case_kind" },
+        "fixture_rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "normalized_rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "canonical_bytes": {
+          "type": "string",
+          "description": "Literal canonical byte sequence encoding (e.g. UTF-8 text or hex-prefixed bytes). Not a production-code call."
+        },
+        "expected_digest": {
+          "$ref": "#/$defs/sha256_hex",
+          "description": "Literal expected digest. Production digest functions must never self-oracle."
+        },
+        "algorithm_version": { "$ref": "#/$defs/non_empty_string" },
+        "expected_result": {
+          "type": "string",
+          "enum": ["PASS", "failed_frozen", "BLOCKED_LIVE_PREFLIGHT_REQUIRED"]
+        }
+      },
+      "unevaluatedProperties": false,
+      "not": {
+        "anyOf": [
+          { "required": ["production_digest_call"] },
+          { "required": ["compute_via_production"] }
+        ]
+      }
+    },
+    "checkpoint_oracle_pack": {
+      "type": "object",
+      "required": ["oracles"],
+      "properties": {
+        "oracles": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/checkpoint_oracle" }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "privilege_object_kind": {
+      "type": "string",
+      "enum": ["SCHEMA", "FUNCTION", "TABLE", "COLUMN", "SEQUENCE"]
+    },
+    "privilege_fixture": {
+      "type": "object",
+      "required": [
+        "fixture_id",
+        "object_kind",
+        "object_identity",
+        "owner",
+        "roles",
+        "memberships",
+        "raw_acl",
+        "default_acl_semantics",
+        "schema_privileges",
+        "expected_paths",
+        "expected_exercisable_privileges"
+      ],
+      "properties": {
+        "fixture_id": { "$ref": "#/$defs/fixture_id" },
+        "object_kind": { "$ref": "#/$defs/privilege_object_kind" },
+        "object_identity": { "$ref": "#/$defs/natural_identity" },
+        "owner": { "$ref": "#/$defs/non_empty_string" },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/non_empty_string" },
+          "uniqueItems": true
+        },
+        "memberships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["member", "granted_role"],
+            "properties": {
+              "member": { "$ref": "#/$defs/non_empty_string" },
+              "granted_role": { "$ref": "#/$defs/non_empty_string" },
+              "grant_option": { "type": "boolean" }
+            },
+            "unevaluatedProperties": false
+          }
+        },
+        "raw_acl": {
+          "type": ["string", "null"],
+          "description": "Literal ACL text or null. NULL semantics differ by object kind per catalog contract."
+        },
+        "default_acl_semantics": {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "acldefault_f_owner",
+                "acldefault_r_owner",
+                "acldefault_s_owner",
+                "null_attacl_no_column_specific_acl",
+                "none"
+              ]
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        "schema_privileges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["role", "privileges"],
+            "properties": {
+              "role": { "$ref": "#/$defs/non_empty_string" },
+              "privileges": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/privilege_dimension" },
+                "uniqueItems": true
+              }
+            },
+            "unevaluatedProperties": false
+          }
+        },
+        "expected_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["path", "privileges"],
+            "properties": {
+              "path": { "$ref": "#/$defs/privilege_path" },
+              "privileges": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/privilege_dimension" },
+                "uniqueItems": true
+              },
+              "role": { "$ref": "#/$defs/non_empty_string" }
+            },
+            "unevaluatedProperties": false
+          },
+          "description": "Must be able to represent direct/public/inherited/set_role_only/owner_derived/superuser_derived/schema_gated/exercisable."
+        },
+        "expected_exercisable_privileges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["role", "privileges"],
+            "properties": {
+              "role": { "$ref": "#/$defs/non_empty_string" },
+              "privileges": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/privilege_dimension" },
+                "uniqueItems": true
+              }
+            },
+            "unevaluatedProperties": false
+          }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "privilege_fixture_pack": {
+      "type": "object",
+      "required": ["fixtures"],
+      "properties": {
+        "fixtures": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/privilege_fixture" }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "artifact_hash_entry": {
+      "type": "object",
+      "required": [
+        "artifact_type",
+        "path",
+        "sha256",
+        "authority_class"
+      ],
+      "properties": {
+        "artifact_type": {
+          "type": "string",
+          "enum": [
+            "catalog_contract",
+            "checkpoint_registry",
+            "reconciliation_rule_registry",
+            "reconciliation_fixture_pack",
+            "checkpoint_oracle_pack",
+            "privilege_fixture_pack",
+            "registry_manifest",
+            "generated_document",
+            "runtime_evidence",
+            "decision_record",
+            "evidence_policy"
+          ]
+        },
+        "path": { "$ref": "#/$defs/non_empty_string" },
+        "sha256": { "$ref": "#/$defs/sha256_hex" },
+        "authority_class": {
+          "type": "string",
+          "enum": [
+            "normative_source",
+            "generated_document",
+            "runtime_evidence"
+          ]
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "registry_manifest": {
+      "type": "object",
+      "required": [
+        "architecture_reset_name",
+        "schema_version",
+        "registry_version",
+        "artifact_hashes",
+        "decision_record_commit",
+        "evidence_policy_commit",
+        "reconstructed_evidence_manifest",
+        "evidence_crosswalk",
+        "generated_at",
+        "generator_version"
+      ],
+      "properties": {
+        "architecture_reset_name": {
+          "const": "Round 5A Architecture Reset"
+        },
+        "schema_version": { "$ref": "#/$defs/schema_version" },
+        "registry_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "artifact_hashes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/artifact_hash_entry" }
+        },
+        "decision_record_commit": { "$ref": "#/$defs/git_commit_sha" },
+        "evidence_policy_commit": { "$ref": "#/$defs/git_commit_sha" },
+        "reconstructed_evidence_manifest": {
+          "type": "object",
+          "required": ["path", "sha256", "authority_class"],
+          "properties": {
+            "path": { "$ref": "#/$defs/non_empty_string" },
+            "sha256": { "$ref": "#/$defs/sha256_hex" },
+            "authority_class": {
+              "const": "runtime_evidence"
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        "evidence_crosswalk": {
+          "type": "object",
+          "required": ["path", "sha256", "authority_class"],
+          "properties": {
+            "path": { "$ref": "#/$defs/non_empty_string" },
+            "sha256": { "$ref": "#/$defs/sha256_hex" },
+            "authority_class": {
+              "type": "string",
+              "enum": ["normative_source", "runtime_evidence"]
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        "generated_at": {
+          "$ref": "#/$defs/iso8601_timestamp",
+          "description": "Metadata only; excluded from normative digests."
+        },
+        "generator_version": { "$ref": "#/$defs/non_empty_string" }
+      },
+      "unevaluatedProperties": false
+    },
+    "catalog_contract_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_type",
+        "schema_version",
+        "provenance",
+        "catalog_contract"
+      ],
+      "properties": {
+        "artifact_type": { "const": "catalog_contract" },
+        "schema_version": { "$ref": "#/$defs/schema_version" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "catalog_contract": { "$ref": "#/$defs/catalog_contract" }
+      },
+      "unevaluatedProperties": false
+    },
+    "checkpoint_registry_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_type",
+        "schema_version",
+        "provenance",
+        "checkpoint_registry"
+      ],
+      "properties": {
+        "artifact_type": { "const": "checkpoint_registry" },
+        "schema_version": { "$ref": "#/$defs/schema_version" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "checkpoint_registry": { "$ref": "#/$defs/checkpoint_registry" },
+        "x-round5a-invariants": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "reconciliation_rule_registry_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_type",
+        "schema_version",
+        "provenance",
+        "reconciliation_rule_registry"
+      ],
+      "properties": {
+        "artifact_type": { "const": "reconciliation_rule_registry" },
+        "schema_version": { "$ref": "#/$defs/schema_version" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "reconciliation_rule_registry": {
+          "$ref": "#/$defs/reconciliation_rule_registry"
+        },
+        "x-round5a-invariants": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "reconciliation_fixture_pack_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_type",
+        "schema_version",
+        "provenance",
+        "reconciliation_fixture_pack"
+      ],
+      "properties": {
+        "artifact_type": { "const": "reconciliation_fixture_pack" },
+        "schema_version": { "$ref": "#/$defs/schema_version" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "reconciliation_fixture_pack": {
+          "$ref": "#/$defs/reconciliation_fixture_pack"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "checkpoint_oracle_pack_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_type",
+        "schema_version",
+        "provenance",
+        "checkpoint_oracle_pack"
+      ],
+      "properties": {
+        "artifact_type": { "const": "checkpoint_oracle_pack" },
+        "schema_version": { "$ref": "#/$defs/schema_version" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "checkpoint_oracle_pack": {
+          "$ref": "#/$defs/checkpoint_oracle_pack"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "privilege_fixture_pack_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_type",
+        "schema_version",
+        "provenance",
+        "privilege_fixture_pack"
+      ],
+      "properties": {
+        "artifact_type": { "const": "privilege_fixture_pack" },
+        "schema_version": { "$ref": "#/$defs/schema_version" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "privilege_fixture_pack": {
+          "$ref": "#/$defs/privilege_fixture_pack"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "registry_manifest_artifact": {
+      "type": "object",
+      "required": [
+        "artifact_type",
+        "schema_version",
+        "registry_manifest"
+      ],
+      "properties": {
+        "artifact_type": { "const": "registry_manifest" },
+        "schema_version": { "$ref": "#/$defs/schema_version" },
+        "registry_manifest": { "$ref": "#/$defs/registry_manifest" }
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}
