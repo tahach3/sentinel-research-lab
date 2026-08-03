@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentinel-research-lab.local/round5a_kernel/kernel_contract.schema.json",
+  "title": "Round 5A Executable Kernel Contract",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "required": ["artifact_type", "schema_version", "authority_namespace"],
+  "properties": {
+    "artifact_type": {
+      "type": "string",
+      "enum": ["privilege_contract", "reconciliation_contract", "kernel_manifest"]
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "authority_namespace": {
+      "type": "string",
+      "const": "round5a_kernel"
+    },
+    "decisions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "object_kinds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["SCHEMA", "FUNCTION", "TABLE", "COLUMN", "SEQUENCE"]
+      }
+    },
+    "principals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["ROLE", "PUBLIC", "OWNER", "SUPERUSER"]
+      }
+    },
+    "privilege_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "DIRECT",
+          "PUBLIC_DERIVED",
+          "INHERITED",
+          "SET_ROLE_ONLY",
+          "OWNER_DERIVED",
+          "SUPERUSER_DERIVED",
+          "SCHEMA_GATED",
+          "EXERCISABLE"
+        ]
+      }
+    },
+    "acl_defaults": { "type": "object" },
+    "column_acl_policy": { "type": "object" },
+    "input_facts": { "type": "object" },
+    "derivation_rules": { "type": "object" },
+    "distinctions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "allowed_statuses": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "null_modes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["NULL_IS_VALUE", "NULL_IS_UNKNOWN", "NULL_FAILS_PREDICATE"]
+      }
+    },
+    "predicate_nodes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "all",
+          "any",
+          "not",
+          "compare",
+          "is_null",
+          "is_not_null",
+          "in",
+          "not_in",
+          "set_equals",
+          "set_contains",
+          "exists",
+          "missing"
+        ]
+      }
+    },
+    "operand_kinds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "field_ref",
+          "typed_literal",
+          "normalized_identity_ref",
+          "computed_value_ref"
+        ]
+      }
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 22,
+      "maxItems": 22,
+      "items": {
+        "type": "object",
+        "unevaluatedProperties": false,
+        "required": [
+          "rule_id",
+          "order",
+          "required_fields",
+          "nullable_fields",
+          "predicate",
+          "null_semantics",
+          "explicit_exclusions",
+          "decisive_fields",
+          "source_identity",
+          "outcome_constructor",
+          "actions",
+          "failure_state"
+        ],
+        "properties": {
+          "rule_id": { "type": "string", "pattern": "^RULE-[0-9]{2}$" },
+          "order": { "type": "integer", "minimum": 1, "maximum": 22 },
+          "name": { "type": "string" },
+          "fallback": { "type": "boolean" },
+          "reachable_condition": { "type": "string" },
+          "required_fields": { "type": "array" },
+          "nullable_fields": { "type": "array" },
+          "predicate": { "type": "object" },
+          "null_semantics": { "type": "string" },
+          "explicit_exclusions": { "type": "array" },
+          "decisive_fields": { "type": "array" },
+          "source_identity": { "type": "object" },
+          "outcome_constructor": { "type": "object" },
+          "actions": { "type": "array" },
+          "failure_state": {
+            "type": ["string", "null"],
+            "enum": ["failed_frozen", null]
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "unevaluatedProperties": false,
+        "required": ["path", "sha256", "role"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^(docs|specs|tools)/[A-Za-z0-9_./-]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "role": { "type": "string" }
+        }
+      }
+    },
+    "prohibited": {
+      "type": "object",
+      "unevaluatedProperties": false,
+      "properties": {
+        "arbitrary_sql": { "type": "boolean", "const": true },
+        "arbitrary_python": { "type": "boolean", "const": true },
+        "executable_strings": { "type": "boolean", "const": true },
+        "shell_commands": { "type": "boolean", "const": true },
+        "templates": { "type": "boolean", "const": true },
+        "eval_content": { "type": "boolean", "const": true },
+        "oid_identities": { "type": "boolean", "const": true }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "artifact_type": { "const": "privilege_contract" } }
+      },
+      "then": {
+        "required": [
+          "object_kinds",
+          "principals",
+          "privilege_paths",
+          "acl_defaults",
+          "column_acl_policy",
+          "input_facts",
+          "derivation_rules",
+          "distinctions",
+          "reason_codes",
+          "prohibited"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": { "artifact_type": { "const": "reconciliation_contract" } }
+      },
+      "then": {
+        "required": [
+          "allowed_statuses",
+          "null_modes",
+          "predicate_nodes",
+          "operand_kinds",
+          "rules",
+          "prohibited"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": { "artifact_type": { "const": "kernel_manifest" } }
+      },
+      "then": {
+        "required": ["artifacts", "prohibited"]
+      }
+    }
+  ]
+}
