@@ -1,0 +1,396 @@
+{
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "name": "SRL Self-Improvement Loop V2",
+  "tags": [],
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "srlRound": "self_improvement_v2",
+    "srlInactiveByDesign": true,
+    "implementerAgentId": "srl-implementer-agent",
+    "reviewerAgentId": "srl-independent-reviewer-agent",
+    "schemas": [
+      "improvement_candidate.schema.json",
+      "implementation_proposal.schema.json",
+      "execution_bundle.schema.json",
+      "review_result.schema.json",
+      "finalization_result.schema.json",
+      "learning_record.schema.json"
+    ]
+  },
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Candidate Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate Intake": {
+      "main": [
+        [
+          {
+            "node": "Proposal Freeze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Proposal Freeze": {
+      "main": [
+        [
+          {
+            "node": "Risk Classification Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Classification Switch": {
+      "main": [
+        [
+          {
+            "node": "LOW Auto-Authorize",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MEDIUM Decision Required",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HIGH Human Approval Required",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PROHIBITED Policy Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LOW Auto-Authorize": {
+      "main": [
+        [
+          {
+            "node": "Detached Worker Execute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MEDIUM Decision Required": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HIGH Human Approval Required": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROHIBITED Policy Rejected": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detached Worker Execute": {
+      "main": [
+        [
+          {
+            "node": "Independent Review Bind",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Independent Review Bind": {
+      "main": [
+        [
+          {
+            "node": "Finalization Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalization Dispatch": {
+      "main": [
+        [
+          {
+            "node": "Learning Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Learning Record": {
+      "main": [
+        [
+          {
+            "node": "Human Promotion Boundary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// schema: improvement_candidate.schema.json\nreturn [{json:{state:'CANDIDATE_RECEIVED', repository_id:'sentinel-research-lab'}}];"
+      },
+      "id": "candidate-intake",
+      "name": "Candidate Intake",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// freeze proposal_sha256; states PROPOSAL_VALIDATED -> PROPOSAL_FROZEN\nreturn items;"
+      },
+      "id": "proposal-freeze",
+      "name": "Proposal Freeze",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{$json.risk_level}}",
+        "rules": {
+          "rules": [
+            {
+              "outputKey": "LOW",
+              "value": "LOW"
+            },
+            {
+              "outputKey": "MEDIUM",
+              "value": "MEDIUM"
+            },
+            {
+              "outputKey": "HIGH",
+              "value": "HIGH"
+            },
+            {
+              "outputKey": "PROHIBITED",
+              "value": "PROHIBITED"
+            }
+          ]
+        }
+      },
+      "id": "risk-classification-switch",
+      "name": "Risk Classification Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'AUTO_AUTHORIZED', route:'LOW'}}];"
+      },
+      "id": "low-auto-authorize",
+      "name": "LOW Auto-Authorize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        900,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'DECISION_REQUIRED', route:'MEDIUM'}}];"
+      },
+      "id": "medium-decision-required",
+      "name": "MEDIUM Decision Required",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        900,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'DECISION_REQUIRED', route:'HIGH', human_approval_required:true}}];"
+      },
+      "id": "high-human-approval-required",
+      "name": "HIGH Human Approval Required",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        900,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'POLICY_REJECTED', route:'PROHIBITED', error:'POLICY_REJECTED'}}];"
+      },
+      "id": "prohibited-policy-rejected",
+      "name": "PROHIBITED Policy Rejected",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        900,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// interface-only worker contract: proposal, operation, correlation_id, execution_result\n// offline endpoint placeholder http://127.0.0.1/self-improvement-v2 (not activated)\nreturn [{json:{state:'REVIEW_PENDING', worker:'tools.self_improvement_v2'}}];"
+      },
+      "id": "detached-worker-execute",
+      "name": "Detached Worker Execute",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// implementerAgentId=srl-implementer-agent reviewerAgentId=srl-independent-reviewer-agent\n// bind proposal_sha256 execution_id execution_result_sha256 actual_diff_sha256 worktree_tree_sha validation_results_sha256\nreturn items;"
+      },
+      "id": "independent-review-bind",
+      "name": "Independent Review Bind",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// finalize accepts only execution_id review_id state_db repository_root\nreturn [{json:{state:'FINALIZATION_REVALIDATED'}}];"
+      },
+      "id": "finalization-dispatch",
+      "name": "Finalization Dispatch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1580,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'LEARNING_RECORDED'}}];"
+      },
+      "id": "learning-record",
+      "name": "Learning Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1800,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'READY_FOR_HUMAN_PROMOTION', push:false, merge:false}}];"
+      },
+      "id": "human-promotion-boundary",
+      "name": "Human Promotion Boundary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2020,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// failure routes: POLICY_REJECTED VALIDATION_FAILED REVIEW_FAILED CONTENT_BINDING_MISMATCH REPAIR_LIMIT_REACHED FAILED_FROZEN PATCH_REJECTED BASELINE_MISMATCH IMMUTABILITY_VIOLATION\nreturn items;"
+      },
+      "id": "failure-router",
+      "name": "Failure Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## SRL Self-Improvement Loop V2\nInactive design workflow.\nRisk branches: LOW\u2192AUTO_AUTHORIZED, MEDIUM\u2192DECISION_REQUIRED, HIGH\u2192HUMAN_APPROVAL_REQUIRED, PROHIBITED\u2192POLICY_REJECTED.\nNo credentials. No push/merge. Schemas under specs/self_improvement/v2/.",
+        "height": 320,
+        "width": 420
+      },
+      "id": "sticky-v2",
+      "name": "V2 Design Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    }
+  ]
+}
