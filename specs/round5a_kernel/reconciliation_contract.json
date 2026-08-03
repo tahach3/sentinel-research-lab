@@ -1,12 +1,32 @@
 {
   "artifact_type": "reconciliation_contract",
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "authority_namespace": "round5a_kernel",
   "decisions": [
     "KR-ND-002",
     "KR-ND-004",
-    "KR-ND-005"
+    "KR-ND-005",
+    "KR-ND-008",
+    "KR-ND-009"
   ],
+  "null_semantics_formalization": {
+    "missing_operand": "INVALID_except_exists_or_missing_nodes",
+    "NULL_IS_UNKNOWN": "present_null_operand_yields_UNKNOWN",
+    "NULL_FAILS_PREDICATE": "present_null_operand_yields_FALSE",
+    "NULL_IS_VALUE": {
+      "eq": {"null_null": "TRUE", "null_non_null": "FALSE"},
+      "ne": {"null_null": "FALSE", "null_non_null": "TRUE"},
+      "ordered": "INVALID_on_any_null_operand"
+    },
+    "incompatible_types": "INVALID",
+    "compound_propagation": {
+      "not": {"TRUE": "FALSE", "FALSE": "TRUE", "UNKNOWN": "UNKNOWN", "INVALID": "INVALID"},
+      "all": "INVALID_then_FALSE_then_UNKNOWN_else_TRUE",
+      "any": "INVALID_then_TRUE_then_UNKNOWN_else_FALSE"
+    },
+    "no_python_truthiness": true,
+    "no_sql_three_valued_implicit": true
+  },
   "allowed_statuses": [
     "reserved",
     "finalized",

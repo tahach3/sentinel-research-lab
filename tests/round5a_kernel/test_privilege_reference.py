@@ -221,7 +221,11 @@ def test_column_null_attacl_independence() -> None:
     assert r.details["column"]["null_attacl"] is True
     assert r.details["column"]["acldefault_c_applied"] is False
     assert r.details["column"]["table_privilege"] is True
+    assert r.granted is True
+    assert r.exercisable is True
+    assert r.path == "TABLE_COMPOSED_TO_COLUMN"
     assert "KR-PRIV-COLUMN-INDEPENDENT" in r.reason_codes
+    assert "KR-PRIV-TABLE-COMPOSED" in r.reason_codes
 
     # column UPDATE without table UPDATE
     col_only = evaluate_privilege(
@@ -236,6 +240,7 @@ def test_column_null_attacl_independence() -> None:
     )[0]
     assert col_only.details["column"]["column_specific_privilege"] is True
     assert col_only.granted is True
+    assert col_only.exercisable is True
 
     empty = evaluate_privilege(
         object_kind="COLUMN",
@@ -245,9 +250,11 @@ def test_column_null_attacl_independence() -> None:
         owner="postgres",
         raw_acl=[],
         schema_usage=_schemas(),
-        table_privilege_granted=False,
+        table_privilege_granted=True,
     )[0]
     assert empty.details["column"]["empty_attacl"] is True
+    assert empty.granted is True
+    assert empty.exercisable is True
     assert empty.object_identity  # retained identity even when ACL empty
 
 

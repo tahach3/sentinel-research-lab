@@ -1,10 +1,24 @@
 {
   "artifact_type": "privilege_contract",
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "authority_namespace": "round5a_kernel",
-  "decisions": ["KR-ND-001"],
-  "object_kinds": ["SCHEMA", "FUNCTION", "TABLE", "COLUMN", "SEQUENCE"],
-  "principals": ["ROLE", "PUBLIC", "OWNER", "SUPERUSER"],
+  "decisions": [
+    "KR-ND-001",
+    "KR-ND-007"
+  ],
+  "object_kinds": [
+    "SCHEMA",
+    "FUNCTION",
+    "TABLE",
+    "COLUMN",
+    "SEQUENCE"
+  ],
+  "principals": [
+    "ROLE",
+    "PUBLIC",
+    "OWNER",
+    "SUPERUSER"
+  ],
   "privilege_paths": [
     "DIRECT",
     "PUBLIC_DERIVED",
@@ -13,14 +27,49 @@
     "OWNER_DERIVED",
     "SUPERUSER_DERIVED",
     "SCHEMA_GATED",
-    "EXERCISABLE"
+    "EXERCISABLE",
+    "TABLE_COMPOSED_TO_COLUMN"
   ],
+  "column_supported_privileges": [
+    "SELECT",
+    "INSERT",
+    "UPDATE",
+    "REFERENCES"
+  ],
+  "table_only_privileges": [
+    "DELETE",
+    "TRUNCATE",
+    "TRIGGER"
+  ],
+  "column_composition": {
+    "table_privilege_contribution": "table_level_grant_for_same_operation",
+    "column_specific_contribution": "column_attacl_grant_for_same_operation",
+    "schema_usage_contribution": "schema_usage_after_composition",
+    "composed_column_granted": "table_privilege_contribution OR column_specific_contribution",
+    "composed_column_exercisable": "schema_usage_contribution AND composed_column_granted",
+    "contributing_paths": "retained_separately_then_unioned",
+    "null_attacl_suppresses_table": false,
+    "empty_attacl_suppresses_table": false,
+    "acldefault_c_prohibited": true
+  },
   "acl_defaults": {
     "FUNCTION": {
       "effective_acl": "COALESCE(proacl, acldefault('f', proowner))",
       "acldefault_entries": [
-        {"grantee": "PUBLIC", "privileges": ["EXECUTE"], "grant_option": false},
-        {"grantee": "OWNER", "privileges": ["EXECUTE"], "grant_option": true}
+        {
+          "grantee": "PUBLIC",
+          "privileges": [
+            "EXECUTE"
+          ],
+          "grant_option": false
+        },
+        {
+          "grantee": "OWNER",
+          "privileges": [
+            "EXECUTE"
+          ],
+          "grant_option": true
+        }
       ]
     },
     "TABLE": {
@@ -28,7 +77,15 @@
       "acldefault_entries": [
         {
           "grantee": "OWNER",
-          "privileges": ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"],
+          "privileges": [
+            "SELECT",
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "TRUNCATE",
+            "REFERENCES",
+            "TRIGGER"
+          ],
           "grant_option": true
         }
       ]
@@ -38,7 +95,11 @@
       "acldefault_entries": [
         {
           "grantee": "OWNER",
-          "privileges": ["SELECT", "UPDATE", "USAGE"],
+          "privileges": [
+            "SELECT",
+            "UPDATE",
+            "USAGE"
+          ],
           "grant_option": true
         }
       ]
@@ -53,7 +114,10 @@
       "acldefault_entries": [
         {
           "grantee": "OWNER",
-          "privileges": ["USAGE", "CREATE"],
+          "privileges": [
+            "USAGE",
+            "CREATE"
+          ],
           "grant_option": true
         }
       ]
@@ -65,7 +129,13 @@
     "never_apply_acldefault_c": true,
     "table_privilege_independent": true,
     "column_privilege_independent": true,
-    "resulting_column_exercisability": "independent_composition"
+    "resulting_column_exercisability": "table_OR_column_then_schema_gate",
+    "table_privilege_contribution": true,
+    "column_specific_contribution": true,
+    "schema_usage_contribution": true,
+    "composed_column_granted": true,
+    "composed_column_exercisable": true,
+    "contributing_paths": true
   },
   "input_facts": {
     "object_identity": "natural_identity_fields_no_oid",
@@ -89,7 +159,8 @@
     "superuser_derived": "principal_superuser_flag_true",
     "schema_gated": "object_privilege_and_schema_usage",
     "exercisable": "granted_and_schema_gate_satisfied",
-    "column_composition": "table_level_and_column_specific_evaluated_separately"
+    "column_composition": "evaluate_table_and_column_paths_separately_OR_compose_then_schema_gate",
+    "table_composed_to_column": "TABLE_COMPOSED_TO_COLUMN"
   },
   "distinctions": [
     "null_acl",
@@ -119,7 +190,9 @@
     "KR-PRIV-SCHEMA-DENIED",
     "KR-PRIV-NO-GRANT",
     "KR-PRIV-COLUMN-INDEPENDENT",
-    "KR-PRIV-DEFAULT-OWNER-MISMATCH"
+    "KR-PRIV-TABLE-COMPOSED",
+    "KR-PRIV-DEFAULT-OWNER-MISMATCH",
+    "KR-PRIV-COLUMN-UNSUPPORTED"
   ],
   "prohibited": {
     "arbitrary_sql": true,
