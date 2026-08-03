@@ -1,0 +1,744 @@
+{
+  "artifact_type": "reconciliation_oracle",
+  "schema_version": "1.1.0",
+  "authority_namespace": "round5a_kernel",
+  "prohibited": {
+    "arbitrary_sql": true,
+    "arbitrary_python": true,
+    "executable_strings": true,
+    "shell_commands": true,
+    "templates": true,
+    "eval_content": true,
+    "oid_identities": true
+  },
+  "cases": [
+    {
+      "case_id": "positive_rule-01",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa01",
+        "pilot_proposal_id": "pp-1",
+        "authorization_id": "auth-1",
+        "benchmark_case_id": "case-1",
+        "idempotency_key": "idem-1",
+        "envelope_id": "env-1",
+        "status": "bogus"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-01",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa01",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa01",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-01"
+      }
+    },
+    {
+      "case_id": "positive_rule-02",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa02",
+        "pilot_proposal_id": null,
+        "authorization_id": "auth-2",
+        "benchmark_case_id": "case-2",
+        "idempotency_key": "idem-2",
+        "envelope_id": "env-2",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-02",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa02",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa02",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-02"
+      }
+    },
+    {
+      "case_id": "positive_rule-03",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa03",
+        "pilot_proposal_id": "pp-3",
+        "authorization_id": null,
+        "benchmark_case_id": "case-3",
+        "idempotency_key": "idem-3",
+        "envelope_id": "env-3",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-03",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa03",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa03",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-03"
+      }
+    },
+    {
+      "case_id": "positive_rule-04",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa04",
+        "pilot_proposal_id": "pp-4",
+        "authorization_id": "auth-4",
+        "benchmark_case_id": null,
+        "idempotency_key": "idem-4",
+        "envelope_id": "env-4",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-04",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa04",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa04",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-04"
+      }
+    },
+    {
+      "case_id": "positive_rule-05",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa05",
+        "pilot_proposal_id": "pp-5",
+        "authorization_id": "auth-5",
+        "benchmark_case_id": "case-5",
+        "idempotency_key": "idem-5",
+        "envelope_id": "env-5",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "duplicate_idempotency": true
+      },
+      "expected": {
+        "rule_id": "RULE-05",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa05",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa05",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-05"
+      }
+    },
+    {
+      "case_id": "positive_rule-06",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa06",
+        "pilot_proposal_id": "pp-6",
+        "authorization_id": "auth-6",
+        "benchmark_case_id": "case-6",
+        "idempotency_key": "idem-6",
+        "envelope_id": "env-6",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "duplicate_case_attempt": true
+      },
+      "expected": {
+        "rule_id": "RULE-06",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa06",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa06",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-06"
+      }
+    },
+    {
+      "case_id": "positive_rule-07",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa07",
+        "pilot_proposal_id": "pp-7",
+        "authorization_id": "auth-7",
+        "benchmark_case_id": "case-7",
+        "idempotency_key": "idem-7",
+        "envelope_id": "env-7",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "duplicate_envelope_link": true
+      },
+      "expected": {
+        "rule_id": "RULE-07",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa07",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa07",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-07"
+      }
+    },
+    {
+      "case_id": "positive_rule-08",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa08",
+        "pilot_proposal_id": "pp-8",
+        "authorization_id": "auth-8",
+        "benchmark_case_id": "case-8",
+        "idempotency_key": "idem-8",
+        "envelope_id": "env-8",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "event_natural_key_missing": true
+      },
+      "expected": {
+        "rule_id": "RULE-08",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa08",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa08",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-08"
+      }
+    },
+    {
+      "case_id": "positive_rule-09",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa09",
+        "pilot_proposal_id": "pp-9",
+        "authorization_id": "auth-9",
+        "benchmark_case_id": "case-9",
+        "idempotency_key": "idem-9",
+        "envelope_id": "env-9",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "ledger_used_as_enforcement": true
+      },
+      "expected": {
+        "rule_id": "RULE-09",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa09",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa09",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-09"
+      }
+    },
+    {
+      "case_id": "positive_rule-10",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa10",
+        "pilot_proposal_id": "pp-10",
+        "authorization_id": "auth-10",
+        "benchmark_case_id": "case-10",
+        "idempotency_key": "idem-10",
+        "envelope_id": "env-10",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "ledger_success_mismatch": true
+      },
+      "expected": {
+        "rule_id": "RULE-10",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa10",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa10",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-10"
+      }
+    },
+    {
+      "case_id": "positive_rule-11",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa11",
+        "pilot_proposal_id": "pp-11",
+        "authorization_id": "auth-11",
+        "benchmark_case_id": "case-11",
+        "idempotency_key": "idem-11",
+        "envelope_id": "env-11",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "token_over_policy": true
+      },
+      "expected": {
+        "rule_id": "RULE-11",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa11",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa11",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-11"
+      }
+    },
+    {
+      "case_id": "positive_rule-12",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa12",
+        "pilot_proposal_id": "pp-12",
+        "authorization_id": "auth-12",
+        "benchmark_case_id": "case-12",
+        "idempotency_key": "idem-12",
+        "envelope_id": "env-12",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "cost_conflict": true
+      },
+      "expected": {
+        "rule_id": "RULE-12",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa12",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa12",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-12"
+      }
+    },
+    {
+      "case_id": "positive_rule-13",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa13",
+        "pilot_proposal_id": "pp-13",
+        "authorization_id": "auth-13",
+        "benchmark_case_id": "case-13",
+        "idempotency_key": "idem-13",
+        "envelope_id": "env-13",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "negative_or_malformed_counter": true
+      },
+      "expected": {
+        "rule_id": "RULE-13",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa13",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa13",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-13"
+      }
+    },
+    {
+      "case_id": "positive_rule-14",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa14",
+        "pilot_proposal_id": "pp-14",
+        "authorization_id": "auth-14",
+        "benchmark_case_id": "case-14",
+        "idempotency_key": "idem-14",
+        "envelope_id": "env-14",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "unacknowledged_discrepancy": true
+      },
+      "expected": {
+        "rule_id": "RULE-14",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa14",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa14",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-14"
+      }
+    },
+    {
+      "case_id": "positive_rule-15",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa15",
+        "pilot_proposal_id": "pp-15",
+        "authorization_id": "auth-15",
+        "benchmark_case_id": "case-15",
+        "idempotency_key": "idem-15",
+        "envelope_id": "env-15",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "orphaned_ledger": true
+      },
+      "expected": {
+        "rule_id": "RULE-15",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa15",
+        "outcome_slot": "slot_type=ledger_orphan|slot_name=ledger_orphan|ledger_id=00000000-0000-4000-8000-aaaaaaaaaa15",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-15"
+      }
+    },
+    {
+      "case_id": "positive_rule-16",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa16",
+        "pilot_proposal_id": "pp-16",
+        "authorization_id": "auth-16",
+        "benchmark_case_id": "case-16",
+        "idempotency_key": "idem-16",
+        "envelope_id": "env-16",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "orphaned_envelope": true
+      },
+      "expected": {
+        "rule_id": "RULE-16",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa16",
+        "outcome_slot": "slot_type=envelope_orphan|slot_name=envelope_orphan|envelope_id=env-16",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-16"
+      }
+    },
+    {
+      "case_id": "positive_rule-17",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa17",
+        "pilot_proposal_id": "pp-17",
+        "authorization_id": "auth-17",
+        "benchmark_case_id": "case-17",
+        "idempotency_key": "idem-17",
+        "envelope_id": "env-17",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-17",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa17",
+        "outcome_slot": "slot_type=shared_event|slot_name=shared_event|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa17",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-17"
+      }
+    },
+    {
+      "case_id": "positive_rule-18",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa18",
+        "pilot_proposal_id": "pp-18",
+        "authorization_id": "auth-18",
+        "benchmark_case_id": "case-18",
+        "idempotency_key": "idem-18",
+        "envelope_id": null,
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-18",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa18",
+        "outcome_slot": "slot_type=shared_event|slot_name=shared_event|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa18",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-18"
+      }
+    },
+    {
+      "case_id": "positive_rule-19",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa19",
+        "pilot_proposal_id": "pp-19",
+        "authorization_id": "auth-19",
+        "benchmark_case_id": "case-19",
+        "idempotency_key": "idem-19",
+        "envelope_id": "env-19",
+        "status": "finalized"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-19",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa19",
+        "outcome_slot": "slot_type=shared_event|slot_name=shared_event|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa19",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-19"
+      }
+    },
+    {
+      "case_id": "positive_rule-20",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa20",
+        "pilot_proposal_id": "pp-20",
+        "authorization_id": "auth-20",
+        "benchmark_case_id": "case-20",
+        "idempotency_key": "idem-20",
+        "envelope_id": null,
+        "status": "finalized"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-20",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa20",
+        "outcome_slot": "slot_type=shared_event|slot_name=shared_event|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa20",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-20"
+      }
+    },
+    {
+      "case_id": "positive_rule-21",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa21",
+        "pilot_proposal_id": "pp-21",
+        "authorization_id": "auth-21",
+        "benchmark_case_id": "case-21",
+        "idempotency_key": "idem-21",
+        "envelope_id": null,
+        "status": "released"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-21",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa21",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa21",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-RULE-21"
+      }
+    },
+    {
+      "case_id": "positive_rule-22",
+      "kind": "positive",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa22",
+        "pilot_proposal_id": "pp-22",
+        "authorization_id": "auth-22",
+        "benchmark_case_id": "case-22",
+        "idempotency_key": "idem-22",
+        "envelope_id": "env-22"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-22",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa22",
+        "outcome_slot": "slot_type=fallback|slot_name=fallback|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa22",
+        "failure_state": "failed_frozen",
+        "fallback": true,
+        "reason_code": "KR-ORACLE-FALLBACK"
+      }
+    },
+    {
+      "case_id": "adv_missing_status",
+      "kind": "adversarial",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa30",
+        "pilot_proposal_id": "pp-30",
+        "authorization_id": "auth-30",
+        "benchmark_case_id": "case-30",
+        "idempotency_key": "idem-30",
+        "envelope_id": "env-30"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-22",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa30",
+        "outcome_slot": "slot_type=fallback|slot_name=fallback|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa30",
+        "failure_state": "failed_frozen",
+        "fallback": true,
+        "reason_code": "KR-ORACLE-ADV"
+      }
+    },
+    {
+      "case_id": "adv_present_null_status",
+      "kind": "adversarial",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa31",
+        "pilot_proposal_id": "pp-31",
+        "authorization_id": "auth-31",
+        "benchmark_case_id": "case-31",
+        "idempotency_key": "idem-31",
+        "envelope_id": "env-31",
+        "status": null
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-01",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa31",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa31",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-ADV"
+      }
+    },
+    {
+      "case_id": "adv_unknown_status",
+      "kind": "adversarial",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa32",
+        "pilot_proposal_id": "pp-32",
+        "authorization_id": "auth-32",
+        "benchmark_case_id": "case-32",
+        "idempotency_key": "idem-32",
+        "envelope_id": "env-32",
+        "status": "nope"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-01",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa32",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa32",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-ADV"
+      }
+    },
+    {
+      "case_id": "adv_invalid_typed_status",
+      "kind": "adversarial",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa33",
+        "pilot_proposal_id": "pp-33",
+        "authorization_id": "auth-33",
+        "benchmark_case_id": "case-33",
+        "idempotency_key": "idem-33",
+        "envelope_id": "env-33",
+        "status": 123
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-01",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa33",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa33",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-ADV"
+      }
+    },
+    {
+      "case_id": "adv_contradictory_flags",
+      "kind": "adversarial",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa34",
+        "pilot_proposal_id": "pp-34",
+        "authorization_id": "auth-34",
+        "benchmark_case_id": "case-34",
+        "idempotency_key": "idem-34",
+        "envelope_id": "env-34",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "duplicate_idempotency": true,
+        "cost_conflict": true
+      },
+      "expected": {
+        "rule_id": "RULE-05",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa34",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa34",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-ADV"
+      }
+    },
+    {
+      "case_id": "adv_missing_related_row",
+      "kind": "adversarial",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa35",
+        "pilot_proposal_id": null,
+        "authorization_id": "auth-35",
+        "benchmark_case_id": "case-35",
+        "idempotency_key": "idem-35",
+        "envelope_id": "env-35",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-02",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa35",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa35",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-ADV"
+      }
+    },
+    {
+      "case_id": "adv_duplicate_related",
+      "kind": "adversarial",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa36",
+        "pilot_proposal_id": "pp-36",
+        "authorization_id": "auth-36",
+        "benchmark_case_id": "case-36",
+        "idempotency_key": "idem-36",
+        "envelope_id": "env-36",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "duplicate_case_attempt": true
+      },
+      "expected": {
+        "rule_id": "RULE-06",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa36",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa36",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-ADV"
+      }
+    },
+    {
+      "case_id": "adv_two_later_conditions",
+      "kind": "adversarial",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa37",
+        "pilot_proposal_id": "pp-37",
+        "authorization_id": "auth-37",
+        "benchmark_case_id": "case-37",
+        "idempotency_key": "idem-37",
+        "envelope_id": "e",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "token_over_policy": true,
+        "cost_conflict": true
+      },
+      "expected": {
+        "rule_id": "RULE-11",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa37",
+        "outcome_slot": "slot_type=source_owned|slot_name=source_owned|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa37",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-ADV"
+      }
+    },
+    {
+      "case_id": "adv_normalization_collision",
+      "kind": "adversarial",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa38",
+        "pilot_proposal_id": "pp-38",
+        "authorization_id": "auth-38",
+        "benchmark_case_id": "case-38",
+        "idempotency_key": "idem-38",
+        "envelope_id": "env-38",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "rule_id": "RULE-17",
+        "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa38",
+        "outcome_slot": "slot_type=shared_event|slot_name=shared_event|legacy_reservation_id=00000000-0000-4000-8000-aaaaaaaaaa38",
+        "failure_state": null,
+        "fallback": false,
+        "reason_code": "KR-ORACLE-ADV"
+      }
+    },
+    {
+      "case_id": "adv_malformed_identity",
+      "kind": "adversarial",
+      "source": {
+        "pilot_proposal_id": "pp",
+        "status": "reserved",
+        "envelope_id": "e",
+        "authorization_id": "a",
+        "benchmark_case_id": "c",
+        "idempotency_key": "i"
+      },
+      "oracle_facts": {},
+      "expected": {
+        "error_code": "KR-ORACLE-IDENTITY"
+      }
+    }
+  ]
+}

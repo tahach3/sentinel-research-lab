@@ -7,6 +7,8 @@ __all__ = [
     "privilege_reference",
     "predicate_engine",
     "classification_reference",
+    "oracle_reference",
+    "bounded_domain",
     "state_a_reference",
     "state_b_reference",
 ]

@@ -25,9 +25,22 @@ def compute_state_a(
     fallback_refs = dict(fallback_refs or {})
     shared_event_members = dict(shared_event_members or {})
 
+    failures: list[str] = []
+
+    # Duplicate detection before set conversion.
+    source_counts = Counter(source_identities)
+    for sid, count in source_counts.items():
+        if count > 1:
+            failures.append("duplicate_source_identity")
+
+    class_counts = Counter(c.source_identity for c in classifications)
+    for sid, count in class_counts.items():
+        if count > 1:
+            failures.append("multiple_outcome_slots")
+
     source_identity_set = tuple(sorted(set(source_identities)))
     classified_identity_set = tuple(sorted({c.source_identity for c in classifications}))
-    outcome_slot_set = tuple(sorted({c.outcome_slot for c in classifications}))
+    outcome_slot_set = tuple(sorted({c.outcome_slot for c in classifications if c.outcome_slot}))
 
     event_source_reference_set = tuple(sorted({s for refs in event_refs.values() for s in refs}))
     archive_source_reference_set = tuple(sorted({s for refs in archive_refs.values() for s in refs}))
@@ -38,21 +51,11 @@ def compute_state_a(
         sorted({s for refs in fallback_refs.values() for s in refs})
     )
 
-    failures: list[str] = []
-
-    source_counts = Counter(source_identities)
-    for sid, count in source_counts.items():
-        if count > 1:
-            failures.append("duplicate_source_identity")
-
-    class_counts = Counter(c.source_identity for c in classifications)
     for sid in source_identity_set:
         if sid not in class_counts:
             failures.append("missing_classification")
         elif class_counts[sid] == 0:
             failures.append("zero_outcome_slots")
-        elif class_counts[sid] > 1:
-            failures.append("multiple_outcome_slots")
 
     for c in classifications:
         if not c.outcome_slot:
