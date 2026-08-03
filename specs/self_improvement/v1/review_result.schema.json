@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentinel-research-lab.local/self_improvement/v1/review_result.schema.json",
+  "title": "Self-Improvement Review Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposal_id",
+    "reviewer_id",
+    "independent_from_implementer",
+    "contract_alignment",
+    "allowed_path_compliance",
+    "acceptance_results",
+    "security_findings",
+    "architecture_findings",
+    "verdict",
+    "repair_instructions"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "proposal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reviewer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "implementer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "independent_from_implementer": {
+      "type": "boolean"
+    },
+    "contract_alignment": {
+      "type": "string",
+      "enum": ["PASS", "FAIL"]
+    },
+    "allowed_path_compliance": {
+      "type": "string",
+      "enum": ["PASS", "FAIL"]
+    },
+    "acceptance_results": {
+      "type": "string",
+      "enum": ["PASS", "FAIL"]
+    },
+    "security_findings": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "architecture_findings": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "FINITE_REPAIR", "RESEARCH_REQUIRED", "ESCALATE"]
+    },
+    "repair_instructions": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    }
+  }
+}
