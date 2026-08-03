@@ -2,7 +2,63 @@
   "artifact_type": "kernel_manifest",
   "schema_version": "1.0.0",
   "authority_namespace": "round5a_kernel",
-  "artifacts": [],
+  "artifacts": [
+    {
+      "path": "docs/ROUND_5A_EXECUTABLE_KERNEL_RESET.md",
+      "sha256": "742153c54d6e7b6dde04958d0ad301bd80c5e8294c95fd558d3c335483745b80",
+      "role": "decision_document"
+    },
+    {
+      "path": "specs/round5a_kernel/schema/kernel_contract.schema.json",
+      "sha256": "8a324255e9746c1eddef70ff8638c12e9b6344e9c5198471d0fd5796e35d2895",
+      "role": "kernel_schema"
+    },
+    {
+      "path": "specs/round5a_kernel/privilege_contract.json",
+      "sha256": "f7757c6f2c032af0f0fba1583987d2e228852af194a79520056fa641b513f0e3",
+      "role": "privilege_contract"
+    },
+    {
+      "path": "specs/round5a_kernel/reconciliation_contract.json",
+      "sha256": "f6fa5d4e1a243065ad942d0bd98683a27d2709bebc461ac73301e08b7b329c98",
+      "role": "reconciliation_contract"
+    },
+    {
+      "path": "tools/round5a_kernel/models.py",
+      "sha256": "09f251eb8a3f7e9c44e21959fefef1022299d84bf7b23c17ccfa03089ed6eb02",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/privilege_reference.py",
+      "sha256": "bf23f9dd9bef9c1505fde89149ce62d4d9eaf19cbffa2f73273d8e768091ef4b",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/predicate_engine.py",
+      "sha256": "6f35d6a893eb8a5bc62f8c4c9b7cf4733d2c9c4e3aeadcd70eb360824473c7c4",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/classification_reference.py",
+      "sha256": "93aa39e7620321504a8dec6222be900727ef10c230720ee9c4829b2209cfafc5",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/state_a_reference.py",
+      "sha256": "c047959a9ab39def2089b946b6f0883492d0afd8ffd52033b7c30fbbda7ae336",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/state_b_reference.py",
+      "sha256": "4a4f6768c1618a2c335ccd9213fb546dc12fe3da780f63e440f40dc5bace7237",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/validate_kernel.py",
+      "sha256": "bb291941a9c310b4366dc0edc882c4c15ca600144c2b8cf02b3b9175c59c455c",
+      "role": "executable_reference_module"
+    }
+  ],
   "prohibited": {
     "arbitrary_sql": true,
     "arbitrary_python": true,
