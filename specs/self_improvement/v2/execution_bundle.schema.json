@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentinel-research-lab.local/self_improvement/v2/execution_bundle.schema.json",
+  "title": "Self-Improvement V2 Execution Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "execution_id",
+    "proposal_id",
+    "proposal_sha256",
+    "policy_sha256",
+    "baseline_sha",
+    "worktree_tree_sha",
+    "actual_diff_sha256",
+    "changed_paths",
+    "changed_paths_sha256",
+    "validation_profile",
+    "validation_results",
+    "validation_results_sha256",
+    "execution_result_sha256",
+    "final_state",
+    "error_codes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0.0"
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "proposal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "proposal_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "baseline_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "worktree_tree_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "actual_diff_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "changed_paths": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 260
+      }
+    },
+    "changed_paths_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "validation_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "validation_profile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "validation_results": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object"
+      }
+    },
+    "validation_results_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "execution_result_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "worktree_path_redacted": {
+      "type": "string"
+    },
+    "candidate_id": {
+      "type": "string"
+    },
+    "repair_attempt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "final_state": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "error_codes": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  }
+}
