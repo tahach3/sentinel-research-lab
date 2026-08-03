@@ -1,0 +1,665 @@
+{
+  "artifact_type": "bounded_domain",
+  "schema_version": "1.1.0",
+  "authority_namespace": "round5a_kernel",
+  "axes": {
+    "status": [
+      "reserved",
+      "finalized",
+      "released",
+      "unknown",
+      null,
+      "MISSING"
+    ],
+    "envelope_id": [
+      "env",
+      null,
+      "MISSING"
+    ],
+    "pilot_proposal_id": [
+      "pp",
+      null
+    ],
+    "authorization_id": [
+      "auth",
+      null
+    ],
+    "benchmark_case_id": [
+      "case",
+      null
+    ],
+    "boolean_flags": {
+      "duplicate_idempotency": [
+        false,
+        true
+      ],
+      "duplicate_case_attempt": [
+        false,
+        true
+      ],
+      "duplicate_envelope_link": [
+        false,
+        true
+      ],
+      "event_natural_key_missing": [
+        false,
+        true
+      ],
+      "ledger_used_as_enforcement": [
+        false,
+        true
+      ],
+      "ledger_success_mismatch": [
+        false,
+        true
+      ],
+      "token_over_policy": [
+        false,
+        true
+      ],
+      "cost_conflict": [
+        false,
+        true
+      ],
+      "negative_or_malformed_counter": [
+        false,
+        true
+      ],
+      "unacknowledged_discrepancy": [
+        false,
+        true
+      ],
+      "orphaned_ledger": [
+        false,
+        true
+      ],
+      "orphaned_envelope": [
+        false,
+        true
+      ]
+    },
+    "related_row_cardinality": [
+      "zero",
+      "one",
+      "duplicate"
+    ],
+    "identity_validity": [
+      "valid",
+      "missing_component",
+      "normalization_collision_candidate"
+    ]
+  },
+  "limitations": [
+    "Finite cartesian product over declared axes only; not universal proof.",
+    "Conflict-rule axes are activated one-at-a-time in seeded witness cases to keep the domain bounded.",
+    "Does not inspect classifier predicates or oracle internals at generation time."
+  ],
+  "seeded_cases": [
+    {
+      "case_id": "seed_rule-01",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa01",
+        "pilot_proposal_id": "pp-1",
+        "authorization_id": "auth-1",
+        "benchmark_case_id": "case-1",
+        "idempotency_key": "idem-1",
+        "envelope_id": "env-1",
+        "status": "bogus"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "seed_rule-02",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa02",
+        "pilot_proposal_id": null,
+        "authorization_id": "auth-2",
+        "benchmark_case_id": "case-2",
+        "idempotency_key": "idem-2",
+        "envelope_id": "env-2",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "seed_rule-03",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa03",
+        "pilot_proposal_id": "pp-3",
+        "authorization_id": null,
+        "benchmark_case_id": "case-3",
+        "idempotency_key": "idem-3",
+        "envelope_id": "env-3",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "seed_rule-04",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa04",
+        "pilot_proposal_id": "pp-4",
+        "authorization_id": "auth-4",
+        "benchmark_case_id": null,
+        "idempotency_key": "idem-4",
+        "envelope_id": "env-4",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "seed_rule-05",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa05",
+        "pilot_proposal_id": "pp-5",
+        "authorization_id": "auth-5",
+        "benchmark_case_id": "case-5",
+        "idempotency_key": "idem-5",
+        "envelope_id": "env-5",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "duplicate_idempotency": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "duplicate_idempotency"
+      ]
+    },
+    {
+      "case_id": "seed_rule-06",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa06",
+        "pilot_proposal_id": "pp-6",
+        "authorization_id": "auth-6",
+        "benchmark_case_id": "case-6",
+        "idempotency_key": "idem-6",
+        "envelope_id": "env-6",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "duplicate_case_attempt": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "duplicate_case_attempt"
+      ]
+    },
+    {
+      "case_id": "seed_rule-07",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa07",
+        "pilot_proposal_id": "pp-7",
+        "authorization_id": "auth-7",
+        "benchmark_case_id": "case-7",
+        "idempotency_key": "idem-7",
+        "envelope_id": "env-7",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "duplicate_envelope_link": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "duplicate_envelope_link"
+      ]
+    },
+    {
+      "case_id": "seed_rule-08",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa08",
+        "pilot_proposal_id": "pp-8",
+        "authorization_id": "auth-8",
+        "benchmark_case_id": "case-8",
+        "idempotency_key": "idem-8",
+        "envelope_id": "env-8",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "event_natural_key_missing": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "event_natural_key_missing"
+      ]
+    },
+    {
+      "case_id": "seed_rule-09",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa09",
+        "pilot_proposal_id": "pp-9",
+        "authorization_id": "auth-9",
+        "benchmark_case_id": "case-9",
+        "idempotency_key": "idem-9",
+        "envelope_id": "env-9",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "ledger_used_as_enforcement": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "ledger_used_as_enforcement"
+      ]
+    },
+    {
+      "case_id": "seed_rule-10",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa10",
+        "pilot_proposal_id": "pp-10",
+        "authorization_id": "auth-10",
+        "benchmark_case_id": "case-10",
+        "idempotency_key": "idem-10",
+        "envelope_id": "env-10",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "ledger_success_mismatch": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "ledger_success_mismatch"
+      ]
+    },
+    {
+      "case_id": "seed_rule-11",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa11",
+        "pilot_proposal_id": "pp-11",
+        "authorization_id": "auth-11",
+        "benchmark_case_id": "case-11",
+        "idempotency_key": "idem-11",
+        "envelope_id": "env-11",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "token_over_policy": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "token_over_policy"
+      ]
+    },
+    {
+      "case_id": "seed_rule-12",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa12",
+        "pilot_proposal_id": "pp-12",
+        "authorization_id": "auth-12",
+        "benchmark_case_id": "case-12",
+        "idempotency_key": "idem-12",
+        "envelope_id": "env-12",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "cost_conflict": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "cost_conflict"
+      ]
+    },
+    {
+      "case_id": "seed_rule-13",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa13",
+        "pilot_proposal_id": "pp-13",
+        "authorization_id": "auth-13",
+        "benchmark_case_id": "case-13",
+        "idempotency_key": "idem-13",
+        "envelope_id": "env-13",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "negative_or_malformed_counter": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "negative_or_malformed_counter"
+      ]
+    },
+    {
+      "case_id": "seed_rule-14",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa14",
+        "pilot_proposal_id": "pp-14",
+        "authorization_id": "auth-14",
+        "benchmark_case_id": "case-14",
+        "idempotency_key": "idem-14",
+        "envelope_id": "env-14",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "unacknowledged_discrepancy": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "unacknowledged_discrepancy"
+      ]
+    },
+    {
+      "case_id": "seed_rule-15",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa15",
+        "pilot_proposal_id": "pp-15",
+        "authorization_id": "auth-15",
+        "benchmark_case_id": "case-15",
+        "idempotency_key": "idem-15",
+        "envelope_id": "env-15",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "orphaned_ledger": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "orphaned_ledger"
+      ]
+    },
+    {
+      "case_id": "seed_rule-16",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa16",
+        "pilot_proposal_id": "pp-16",
+        "authorization_id": "auth-16",
+        "benchmark_case_id": "case-16",
+        "idempotency_key": "idem-16",
+        "envelope_id": "env-16",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "orphaned_envelope": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "orphaned_envelope"
+      ]
+    },
+    {
+      "case_id": "seed_rule-17",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa17",
+        "pilot_proposal_id": "pp-17",
+        "authorization_id": "auth-17",
+        "benchmark_case_id": "case-17",
+        "idempotency_key": "idem-17",
+        "envelope_id": "env-17",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "seed_rule-18",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa18",
+        "pilot_proposal_id": "pp-18",
+        "authorization_id": "auth-18",
+        "benchmark_case_id": "case-18",
+        "idempotency_key": "idem-18",
+        "envelope_id": null,
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "seed_rule-19",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa19",
+        "pilot_proposal_id": "pp-19",
+        "authorization_id": "auth-19",
+        "benchmark_case_id": "case-19",
+        "idempotency_key": "idem-19",
+        "envelope_id": "env-19",
+        "status": "finalized"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "seed_rule-20",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa20",
+        "pilot_proposal_id": "pp-20",
+        "authorization_id": "auth-20",
+        "benchmark_case_id": "case-20",
+        "idempotency_key": "idem-20",
+        "envelope_id": null,
+        "status": "finalized"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "seed_rule-21",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa21",
+        "pilot_proposal_id": "pp-21",
+        "authorization_id": "auth-21",
+        "benchmark_case_id": "case-21",
+        "idempotency_key": "idem-21",
+        "envelope_id": null,
+        "status": "released"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "seed_rule-22",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-aaaaaaaaaa22",
+        "pilot_proposal_id": "pp-22",
+        "authorization_id": "auth-22",
+        "benchmark_case_id": "case-22",
+        "idempotency_key": "idem-22",
+        "envelope_id": "env-22"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    }
+  ],
+  "sweep_cases": [
+    {
+      "case_id": "sweep_status_env_01",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb01",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "status": "reserved",
+        "envelope_id": "env"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "sweep_status_env_02",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb02",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "status": "reserved",
+        "envelope_id": null
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "sweep_status_env_03",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb03",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "status": "finalized",
+        "envelope_id": "env"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "sweep_status_env_04",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb04",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "status": "finalized",
+        "envelope_id": null
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "sweep_status_env_05",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb05",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "status": "released",
+        "envelope_id": "env"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "sweep_status_env_06",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb06",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "status": "released",
+        "envelope_id": null
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "sweep_status_env_07",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb07",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "status": "unknown",
+        "envelope_id": "env"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "sweep_status_env_08",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb08",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "status": "unknown",
+        "envelope_id": null
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "sweep_status_env_09",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb09",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "status": null,
+        "envelope_id": "env"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "sweep_status_env_10",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb10",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "status": null,
+        "envelope_id": null
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "sweep_status_env_11",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb11",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "envelope_id": "env"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    },
+    {
+      "case_id": "sweep_status_env_12",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-bbbbbbbbbb12",
+        "pilot_proposal_id": "pp",
+        "authorization_id": "auth",
+        "benchmark_case_id": "case",
+        "idempotency_key": "idem",
+        "envelope_id": null
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": []
+    }
+  ],
+  "prohibited": {
+    "arbitrary_sql": true,
+    "arbitrary_python": true,
+    "executable_strings": true,
+    "shell_commands": true,
+    "templates": true,
+    "eval_content": true,
+    "oid_identities": true
+  }
+}
