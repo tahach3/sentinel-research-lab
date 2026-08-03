@@ -30,6 +30,11 @@ tmp/
 temp/
 .cache/
 
+# Self-improvement runtime experience DBs (never commit)
+*.sqlite
+*.sqlite3
+runtime*.db
+
 # Local Docker / IDE state
 .docker/
 .idea/
