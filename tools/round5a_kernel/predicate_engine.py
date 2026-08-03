@@ -30,6 +30,9 @@ ALLOWED_OPERANDS = {
 
 NULL_MODES = {"NULL_IS_VALUE", "NULL_IS_UNKNOWN", "NULL_FAILS_PREDICATE"}
 
+COMPARE_OPS = {"eq", "ne", "lt", "lte", "gt", "gte"}
+ORDERED_OPS = {"lt", "lte", "gt", "gte"}
+
 
 def resolve_field(contexts: Mapping[str, Any], scope: str, path: list[str]) -> Any:
     record = contexts.get(scope, MISSING)
@@ -41,6 +44,17 @@ def resolve_field(contexts: Mapping[str, Any], scope: str, path: list[str]) -> A
             return MISSING
         cur = cur[part]
     return cur
+
+
+def _types_compatible(left: Any, right: Any) -> bool:
+    if type(left) is type(right):
+        return True
+    # Allow int subclasses only when both are non-bool numbers of same abstract class.
+    if isinstance(left, bool) or isinstance(right, bool):
+        return isinstance(left, bool) and isinstance(right, bool)
+    if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+        return True
+    return False
 
 
 class PredicateEngine:
@@ -74,7 +88,6 @@ class PredicateEngine:
             key = name if not params else f"{name}:{canonical_scalar(params)}"
             if key in self.computed:
                 return self.computed[key]
-            # allow direct name lookup
             if name in self.computed:
                 return self.computed[name]
             return MISSING
@@ -86,17 +99,50 @@ class PredicateEngine:
             raise KernelError("KR-PRED-NULL", f"missing or invalid null_semantics on {node.get('node')}")
         return mode
 
-    def _apply_null_mode(self, mode: str, *values: Any) -> PredicateResult | None:
-        if any(v is MISSING for v in values):
+    def _compare(self, op: str, left: Any, right: Any, mode: str) -> PredicateResult:
+        if left is MISSING or right is MISSING:
             return PredicateResult.INVALID
-        if any(v is None for v in values):
-            if mode == "NULL_IS_VALUE":
-                return None
+
+        left_null = left is None
+        right_null = right is None
+
+        if left_null or right_null:
             if mode == "NULL_IS_UNKNOWN":
                 return PredicateResult.UNKNOWN
             if mode == "NULL_FAILS_PREDICATE":
                 return PredicateResult.FALSE
-        return None
+            # NULL_IS_VALUE
+            if op in ORDERED_OPS:
+                return PredicateResult.INVALID
+            if op == "eq":
+                return PredicateResult.TRUE if (left_null and right_null) else PredicateResult.FALSE
+            if op == "ne":
+                return PredicateResult.FALSE if (left_null and right_null) else PredicateResult.TRUE
+            raise KernelError("KR-PRED-OP", f"unknown compare op {op}")
+
+        if not _types_compatible(left, right):
+            return PredicateResult.INVALID
+
+        if op not in COMPARE_OPS:
+            raise KernelError("KR-PRED-OP", f"unknown compare op {op}")
+
+        # Evaluate only the selected operator — never build an eager dict.
+        try:
+            if op == "eq":
+                ok = left == right
+            elif op == "ne":
+                ok = left != right
+            elif op == "lt":
+                ok = left < right
+            elif op == "lte":
+                ok = left <= right
+            elif op == "gt":
+                ok = left > right
+            else:  # gte
+                ok = left >= right
+        except TypeError:
+            return PredicateResult.INVALID
+        return PredicateResult.TRUE if ok is True else PredicateResult.FALSE
 
     def _normalize_set(self, value: Any) -> set[str] | PredicateResult:
         if value is MISSING:
@@ -126,18 +172,13 @@ class PredicateEngine:
 
         if n == "any":
             results = [self.evaluate(p) for p in node.get("predicates", [])]
-            if any(r is PredicateResult.TRUE for r in results):
-                return PredicateResult.TRUE
-            if any(r is PredicateResult.INVALID for r in results) and not any(
-                r is PredicateResult.FALSE for r in results
-            ):
-                # all INVALID/UNKNOWN without FALSE/TRUE
-                if all(r is PredicateResult.INVALID for r in results):
-                    return PredicateResult.INVALID
-            if any(r is PredicateResult.UNKNOWN for r in results):
-                return PredicateResult.UNKNOWN
+            # KR-ND-008: INVALID first — invalid branch cannot be hidden.
             if any(r is PredicateResult.INVALID for r in results):
                 return PredicateResult.INVALID
+            if any(r is PredicateResult.TRUE for r in results):
+                return PredicateResult.TRUE
+            if any(r is PredicateResult.UNKNOWN for r in results):
+                return PredicateResult.UNKNOWN
             return PredicateResult.FALSE
 
         if n == "not":
@@ -165,9 +206,10 @@ class PredicateEngine:
         if n == "exists":
             self._require_null_mode(node)
             value = self.eval_operand(node["target"])
+            # Presence only — no Python truthiness. Missing → FALSE; null → FALSE; any present value → TRUE.
             if value is MISSING:
                 return PredicateResult.FALSE
-            if value is None or value is False:
+            if value is None:
                 return PredicateResult.FALSE
             return PredicateResult.TRUE
 
@@ -180,33 +222,27 @@ class PredicateEngine:
             mode = self._require_null_mode(node)
             left = self.eval_operand(node["left"])
             right = self.eval_operand(node["right"])
-            early = self._apply_null_mode(mode, left, right)
-            if early is not None:
-                return early
-            op = node["op"]
-            try:
-                ok = {
-                    "eq": left == right,
-                    "ne": left != right,
-                    "lt": left < right,
-                    "lte": left <= right,
-                    "gt": left > right,
-                    "gte": left >= right,
-                }[op]
-            except TypeError as exc:
-                raise KernelError("KR-PRED-TYPE", f"incompatible compare types: {exc}") from exc
-            return PredicateResult.TRUE if ok else PredicateResult.FALSE
+            op = node.get("op")
+            if op not in COMPARE_OPS:
+                raise KernelError("KR-PRED-OP", f"unknown compare op {op}")
+            return self._compare(op, left, right, mode)
 
         if n in ("in", "not_in"):
             mode = self._require_null_mode(node)
             value = self.eval_operand(node["operand"])
-            early = self._apply_null_mode(mode, value)
-            if early is not None:
-                return early
+            if value is MISSING:
+                return PredicateResult.INVALID
+            if value is None:
+                if mode == "NULL_IS_UNKNOWN":
+                    return PredicateResult.UNKNOWN
+                if mode == "NULL_FAILS_PREDICATE":
+                    return PredicateResult.FALSE
+                # NULL_IS_VALUE: null membership compares as a value
             values = [self.eval_operand(v) for v in node.get("values", [])]
             if any(v is MISSING for v in values):
                 return PredicateResult.INVALID
-            present = value in values
+            present = any(value is v or value == v for v in values)
+            # Avoid truthiness: explicit membership only.
             ok = present if n == "in" else not present
             return PredicateResult.TRUE if ok else PredicateResult.FALSE
 
@@ -214,9 +250,13 @@ class PredicateEngine:
             mode = self._require_null_mode(node)
             left = self.eval_operand(node["left"])
             right = self.eval_operand(node["right"])
-            early = self._apply_null_mode(mode, left, right)
-            if early is not None:
-                return early
+            if left is MISSING or right is MISSING:
+                return PredicateResult.INVALID
+            if left is None or right is None:
+                if mode == "NULL_IS_UNKNOWN":
+                    return PredicateResult.UNKNOWN
+                if mode == "NULL_FAILS_PREDICATE":
+                    return PredicateResult.FALSE
             left_set = self._normalize_set(left)
             right_set = self._normalize_set(right)
             if isinstance(left_set, PredicateResult):

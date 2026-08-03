@@ -8,7 +8,16 @@
   "properties": {
     "artifact_type": {
       "type": "string",
-      "enum": ["privilege_contract", "reconciliation_contract", "kernel_manifest"]
+      "enum": [
+        "privilege_contract",
+        "reconciliation_contract",
+        "kernel_manifest",
+        "privilege_composition_oracle",
+        "null_semantics_oracle",
+        "reconciliation_oracle",
+        "state_b_oracle",
+        "bounded_domain"
+      ]
     },
     "schema_version": {
       "type": "string",
@@ -48,7 +57,8 @@
           "OWNER_DERIVED",
           "SUPERUSER_DERIVED",
           "SCHEMA_GATED",
-          "EXERCISABLE"
+          "EXERCISABLE",
+          "TABLE_COMPOSED_TO_COLUMN"
         ]
       }
     },
@@ -150,6 +160,18 @@
         }
       }
     },
+    "cases": {"type": "array"},
+    "axes": {"type": "object"},
+    "seeded_cases": {"type": "array"},
+    "sweep_cases": {"type": "array"},
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "column_supported_privileges": {"type": "array"},
+    "table_only_privileges": {"type": "array"},
+    "column_composition": {"type": "object"},
+    "null_semantics_formalization": {"type": "object"},
     "artifacts": {
       "type": "array",
       "items": {
@@ -224,6 +246,49 @@
       },
       "then": {
         "required": ["artifacts", "prohibited"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "artifact_type": { "const": "privilege_composition_oracle" } }
+      },
+      "then": {
+        "required": ["cases", "prohibited"],
+        "properties": {
+          "schema_version": { "const": "1.1.0" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "artifact_type": { "const": "null_semantics_oracle" } }
+      },
+      "then": {
+        "required": ["cases", "prohibited"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "artifact_type": { "const": "reconciliation_oracle" } }
+      },
+      "then": {
+        "required": ["cases", "prohibited"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "artifact_type": { "const": "state_b_oracle" } }
+      },
+      "then": {
+        "required": ["cases", "prohibited"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "artifact_type": { "const": "bounded_domain" } }
+      },
+      "then": {
+        "required": ["axes", "limitations", "prohibited"]
       }
     }
   ]
