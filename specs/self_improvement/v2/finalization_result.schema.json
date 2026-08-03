@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentinel-research-lab.local/self_improvement/v2/finalization_result.schema.json",
+  "title": "Self-Improvement V2 Finalization Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "execution_id",
+    "review_id",
+    "binding_verified",
+    "candidate_commit",
+    "candidate_branch",
+    "committed_tree_sha",
+    "committed_diff_sha256",
+    "final_state",
+    "error_codes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0.0"
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "review_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "binding_verified": {
+      "type": "boolean"
+    },
+    "candidate_commit": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^([a-f0-9]{40}|)$"
+    },
+    "candidate_branch": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 260
+    },
+    "committed_tree_sha": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^([a-f0-9]{40}|)$"
+    },
+    "committed_diff_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^([a-f0-9]{64}|)$"
+    },
+    "final_state": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "error_codes": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "learning_record_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
