@@ -652,6 +652,117 @@ class KernelValidator:
         if not all_invalid:
             st.fail("KR-STATE-A", "not all invalid State A cases detected")
 
+    def _privilege_eval_kwargs(self, inp: dict[str, Any]) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {
+            "object_kind": "COLUMN",
+            "object_identity": {"table": "t", "column": "c"},
+            "privilege": inp["privilege"],
+            "principal": inp["principal"],
+            "owner": inp["owner"],
+            "raw_acl": inp.get("column_acl"),
+            "memberships": inp.get("memberships") or [],
+            "schema_usage": inp.get("schema_usage") or {},
+            "superusers": inp.get("superusers") or [],
+        }
+        if "table_privilege_granted" in inp:
+            kwargs["table_privilege_granted"] = inp.get("table_privilege_granted")
+        if "table_raw_acl" in inp:
+            kwargs["table_raw_acl"] = inp.get("table_raw_acl")
+        if "table_owner" in inp:
+            kwargs["table_owner"] = inp.get("table_owner")
+        return kwargs
+
+    def _compare_privilege_expectation(
+        self,
+        *,
+        top: Any,
+        exp: dict[str, Any],
+        cid: str,
+    ) -> list[tuple[str, str]]:
+        """Compare all structured privilege fields; return (code, message) failures."""
+        col = top.details.get("column") or {}
+
+        def _exp(key: str, *aliases: str) -> Any:
+            if key in exp:
+                return exp[key]
+            for alias in aliases:
+                if alias in exp:
+                    return exp[alias]
+            return None
+
+        failures: list[tuple[str, str]] = []
+        field_checks = [
+            (
+                col.get("table_privilege_contribution", col.get("table_privilege")),
+                _exp("table_privilege_contribution", "table_contribution"),
+                "KR-PRIV-COMPOSE-MISMATCH",
+                "table",
+            ),
+            (
+                col.get("column_specific_contribution", col.get("column_specific_privilege")),
+                _exp("column_specific_contribution", "column_contribution"),
+                "KR-PRIV-COMPOSE-MISMATCH",
+                "column",
+            ),
+            (
+                top.granted,
+                _exp("composed_column_granted", "composed_grant"),
+                "KR-PRIV-COMPOSE-MISMATCH",
+                "granted",
+            ),
+            (
+                col.get("schema_usage", top.details.get("schema_usage")),
+                _exp("schema_usage", "schema_state"),
+                "KR-PRIV-COMPOSE-MISMATCH",
+                "schema",
+            ),
+            (top.exercisable, exp.get("exercisable"), "KR-PRIV-COMPOSE-MISMATCH", "exercisable"),
+            (
+                list(col.get("table_paths") or top.details.get("table_paths") or []),
+                list(_exp("table_paths") or []),
+                "KR-PRIV-PATH-TABLE-MISMATCH",
+                "table_paths",
+            ),
+            (
+                list(col.get("column_paths") or top.details.get("column_paths") or []),
+                list(_exp("column_paths") or []),
+                "KR-PRIV-PATH-COLUMN-MISMATCH",
+                "column_paths",
+            ),
+            (
+                list(col.get("contributing_paths") or top.details.get("contributing_paths") or []),
+                list(_exp("contributing_paths") or []),
+                "KR-PRIV-PATH-CONTRIBUTING-MISMATCH",
+                "contributing_paths",
+            ),
+        ]
+        table_got = list(col.get("table_paths") or top.details.get("table_paths") or [])
+        column_got = list(col.get("column_paths") or top.details.get("column_paths") or [])
+        table_want = list(_exp("table_paths") or [])
+        column_want = list(_exp("column_paths") or [])
+        origins_merged = (
+            bool(table_got)
+            and table_got == column_got
+            and table_want != column_want
+        )
+        for got, want, code, label in field_checks:
+            if want is None and label in {"table", "column", "granted", "schema", "exercisable"}:
+                continue
+            if got != want:
+                if origins_merged and label in {"table_paths", "column_paths", "contributing_paths"}:
+                    failures.append(
+                        ("KR-PRIV-PATH-MERGED", f"{cid}: origins merged got_table={table_got} got_column={column_got}")
+                    )
+                else:
+                    failures.append((code, f"{cid}: {label} got={got} expected={want}"))
+        for code in exp.get("reason_codes") or []:
+            if code == "KR-PRIV-COLUMN-UNSUPPORTED":
+                continue
+            if code not in top.reason_codes:
+                failures.append(("KR-PRIV-PATH-REASON-MISMATCH", f"{cid}: missing reason {code}"))
+                break
+        return failures
+
     def _privilege_composition_oracles(self) -> None:
         st = self.add(StageResult("privilege_composition_oracles"))
         from tools.round5a_kernel.models import KernelError
@@ -663,48 +774,277 @@ class KernelValidator:
             cid = case["case_id"]
             inp = case["input"]
             exp = case["expected"]
+            for banned in (
+                "table_privilege_paths",
+                "column_privilege_paths",
+                "expected_paths",
+                "derived_paths",
+            ):
+                if banned in inp and inp.get(banned) is not None:
+                    failures += 1
+                    st.fail("KR-PRIV-PATH-FABRICATED", f"{cid}: input contains {banned}")
             try:
-                results = evaluate_privilege(
-                    object_kind="COLUMN",
-                    object_identity={"table": "t", "column": "c"},
-                    privilege=inp["privilege"],
-                    principal=inp["principal"],
-                    owner=inp["owner"],
-                    raw_acl=inp.get("column_acl"),
-                    memberships=inp.get("memberships") or [],
-                    schema_usage=inp.get("schema_usage") or {},
-                    superusers=inp.get("superusers") or [],
-                    table_privilege_granted=inp.get("table_privilege_granted"),
-                    table_privilege_paths=inp.get("table_privilege_paths"),
-                )
+                results = evaluate_privilege(**self._privilege_eval_kwargs(inp))
             except KernelError as exc:
                 if exp.get("error_code") and exc.code == exp["error_code"]:
                     continue
                 failures += 1
                 st.fail("KR-PRIV-COMPOSE-CASE", f"{cid}: unexpected error {exc}")
                 continue
-            top = results[0]
-            col = top.details.get("column") or {}
-            checks = [
-                (col.get("table_privilege_contribution", col.get("table_privilege")), exp["table_contribution"], "table"),
-                (col.get("column_specific_contribution", col.get("column_specific_privilege")), exp["column_contribution"], "column"),
-                (top.granted, exp["composed_grant"], "granted"),
-                (col.get("schema_usage", top.details.get("schema_usage")), exp["schema_state"], "schema"),
-                (top.exercisable, exp["exercisable"], "exercisable"),
-            ]
-            for got, want, label in checks:
-                if got != want:
-                    failures += 1
-                    st.fail("KR-PRIV-COMPOSE-MISMATCH", f"{cid}: {label} got={got} expected={want}")
-            for code in exp.get("reason_codes") or []:
-                if code == "KR-PRIV-COLUMN-UNSUPPORTED":
-                    continue
-                if code not in top.reason_codes:
-                    failures += 1
-                    st.fail("KR-PRIV-COMPOSE-REASON", f"{cid}: missing reason {code}")
-                    break
+            for code, message in self._compare_privilege_expectation(top=results[0], exp=exp, cid=cid):
+                failures += 1
+                st.fail(code, message)
+        self._privilege_path_negative_mutations(st)
         st.metrics["privilege_oracle_failures"] = failures
+        st.metrics["privilege_path_oracle_failures"] = failures
         st.metrics["privilege_oracle_cases"] = len(doc.get("cases") or [])
+
+    def _privilege_path_negative_mutations(self, st: StageResult) -> None:
+        """Corrupt derived paths / accept fabricated labels; require stable KR-PRIV-PATH-* codes."""
+        from copy import deepcopy
+
+        from tools.round5a_kernel.models import KernelError
+        from tools.round5a_kernel import privilege_reference as pref
+
+        base_inp = {
+            "privilege": "UPDATE",
+            "principal": "research_app",
+            "owner": "postgres",
+            "column_acl": None,
+            "table_raw_acl": [{"grantee": "research_app", "privileges": ["UPDATE"]}],
+            "schema_usage": {"research_app": True},
+            "memberships": [],
+            "superusers": [],
+        }
+        both_inp = {
+            "privilege": "UPDATE",
+            "principal": "research_app",
+            "owner": "postgres",
+            "column_acl": [{"grantee": "research_app", "privileges": ["UPDATE"]}],
+            "table_raw_acl": [{"grantee": "gov", "privileges": ["UPDATE"]}],
+            "schema_usage": {"research_app": True},
+            "memberships": [
+                {"member": "research_app", "granted_role": "gov", "set_role_only": False}
+            ],
+            "superusers": [],
+        }
+        inherited_inp = {
+            "privilege": "UPDATE",
+            "principal": "research_app",
+            "owner": "postgres",
+            "column_acl": None,
+            "table_raw_acl": [{"grantee": "gov", "privileges": ["UPDATE"]}],
+            "schema_usage": {"research_app": True},
+            "memberships": [
+                {"member": "research_app", "granted_role": "gov", "set_role_only": False}
+            ],
+            "superusers": [],
+        }
+        schema_inp = {**base_inp, "schema_usage": {"research_app": False}}
+
+        honest = pref.evaluate_privilege(**self._privilege_eval_kwargs(base_inp))[0]
+        honest_exp = {
+            "table_privilege_contribution": True,
+            "column_specific_contribution": False,
+            "composed_column_granted": True,
+            "schema_usage": True,
+            "exercisable": True,
+            "table_paths": list((honest.details.get("column") or {}).get("table_paths") or []),
+            "column_paths": list((honest.details.get("column") or {}).get("column_paths") or []),
+            "contributing_paths": list((honest.details.get("column") or {}).get("contributing_paths") or []),
+            "reason_codes": list(honest.reason_codes),
+        }
+        both = pref.evaluate_privilege(**self._privilege_eval_kwargs(both_inp))[0]
+        both_exp = {
+            "table_privilege_contribution": True,
+            "column_specific_contribution": True,
+            "composed_column_granted": True,
+            "schema_usage": True,
+            "exercisable": True,
+            "table_paths": list((both.details.get("column") or {}).get("table_paths") or []),
+            "column_paths": list((both.details.get("column") or {}).get("column_paths") or []),
+            "contributing_paths": list((both.details.get("column") or {}).get("contributing_paths") or []),
+            "reason_codes": list(both.reason_codes),
+        }
+        inherited = pref.evaluate_privilege(**self._privilege_eval_kwargs(inherited_inp))[0]
+        inherited_exp = {
+            "table_privilege_contribution": True,
+            "column_specific_contribution": False,
+            "composed_column_granted": True,
+            "schema_usage": True,
+            "exercisable": True,
+            "table_paths": list((inherited.details.get("column") or {}).get("table_paths") or []),
+            "column_paths": [],
+            "contributing_paths": list((inherited.details.get("column") or {}).get("contributing_paths") or []),
+            "reason_codes": list(inherited.reason_codes),
+        }
+        schema_denied = pref.evaluate_privilege(**self._privilege_eval_kwargs(schema_inp))[0]
+        schema_exp = {
+            "table_privilege_contribution": True,
+            "column_specific_contribution": False,
+            "composed_column_granted": True,
+            "schema_usage": False,
+            "exercisable": False,
+            "table_paths": list((schema_denied.details.get("column") or {}).get("table_paths") or []),
+            "column_paths": [],
+            "contributing_paths": list(
+                (schema_denied.details.get("column") or {}).get("contributing_paths") or []
+            ),
+            "reason_codes": list(schema_denied.reason_codes),
+        }
+
+        def require_code(codes: list[tuple[str, str]], expected: str, label: str) -> None:
+            if not any(c == expected for c, _ in codes):
+                got = ",".join(sorted({c for c, _ in codes})) or "none"
+                st.fail(expected, f"{label}: expected {expected} got {got}")
+
+        original = pref._evaluate_grant_paths
+        executed = 0
+
+        def relabel_direct(*args, **kwargs):
+            granted, path, reasons, paths = original(*args, **kwargs)
+            paths = ["INHERITED" if p == "DIRECT" else p for p in paths]
+            path = "INHERITED" if path == "DIRECT" else path
+            return granted, path, reasons, paths
+
+        pref._evaluate_grant_paths = relabel_direct  # type: ignore[assignment]
+        try:
+            mutated = pref.evaluate_privilege(**self._privilege_eval_kwargs(base_inp))[0]
+            codes = self._compare_privilege_expectation(
+                top=mutated, exp=honest_exp, cid="mut_relabel_direct"
+            )
+            executed += 1
+            require_code(codes, "KR-PRIV-PATH-TABLE-MISMATCH", "DIRECT→INHERITED")
+        finally:
+            pref._evaluate_grant_paths = original
+
+        def relabel_inherited(*args, **kwargs):
+            granted, path, reasons, paths = original(*args, **kwargs)
+            paths = ["SET_ROLE_ONLY" if p == "INHERITED" else p for p in paths]
+            path = "SET_ROLE_ONLY" if path == "INHERITED" else path
+            return granted, path, reasons, paths
+
+        pref._evaluate_grant_paths = relabel_inherited  # type: ignore[assignment]
+        try:
+            mutated = pref.evaluate_privilege(**self._privilege_eval_kwargs(inherited_inp))[0]
+            codes = self._compare_privilege_expectation(
+                top=mutated, exp=inherited_exp, cid="mut_relabel_inherited"
+            )
+            executed += 1
+            require_code(codes, "KR-PRIV-PATH-TABLE-MISMATCH", "INHERITED→SET_ROLE_ONLY")
+        finally:
+            pref._evaluate_grant_paths = original
+
+        merged_top = deepcopy(both)
+        mcol = dict(merged_top.details.get("column") or {})
+        merged_paths = list(
+            dict.fromkeys([*(mcol.get("table_paths") or []), *(mcol.get("column_paths") or [])])
+        )
+        mcol["table_paths"] = list(merged_paths)
+        mcol["column_paths"] = list(merged_paths)
+        mcol["contributing_paths"] = list(merged_paths)
+        details = dict(merged_top.details)
+        details["column"] = mcol
+        details["table_paths"] = list(merged_paths)
+        details["column_paths"] = list(merged_paths)
+        details["contributing_paths"] = list(merged_paths)
+        object.__setattr__(merged_top, "details", details)
+        codes = self._compare_privilege_expectation(top=merged_top, exp=both_exp, cid="mut_merge_paths")
+        executed += 1
+        if not any(
+            c
+            in {
+                "KR-PRIV-PATH-MERGED",
+                "KR-PRIV-PATH-TABLE-MISMATCH",
+                "KR-PRIV-PATH-COLUMN-MISMATCH",
+                "KR-PRIV-PATH-CONTRIBUTING-MISMATCH",
+            }
+            for c, _ in codes
+        ):
+            st.fail("KR-PRIV-PATH-MERGED", "merge paths undetected")
+
+        removed_table = deepcopy(honest)
+        rcol = dict(removed_table.details.get("column") or {})
+        rcol["table_paths"] = []
+        rcol["contributing_paths"] = []
+        details = dict(removed_table.details)
+        details["column"] = rcol
+        details["table_paths"] = []
+        details["contributing_paths"] = []
+        object.__setattr__(removed_table, "details", details)
+        codes = self._compare_privilege_expectation(
+            top=removed_table, exp=honest_exp, cid="mut_remove_table"
+        )
+        executed += 1
+        require_code(codes, "KR-PRIV-PATH-TABLE-MISMATCH", "remove table origin")
+
+        removed_col = deepcopy(both)
+        rcol = dict(removed_col.details.get("column") or {})
+        rcol["column_paths"] = []
+        rcol["contributing_paths"] = list(rcol.get("table_paths") or [])
+        details = dict(removed_col.details)
+        details["column"] = rcol
+        details["column_paths"] = []
+        details["contributing_paths"] = list(rcol.get("table_paths") or [])
+        object.__setattr__(removed_col, "details", details)
+        codes = self._compare_privilege_expectation(
+            top=removed_col, exp=both_exp, cid="mut_remove_column"
+        )
+        executed += 1
+        require_code(codes, "KR-PRIV-PATH-COLUMN-MISMATCH", "remove column origin")
+
+        fab = deepcopy(honest)
+        fcol = dict(fab.details.get("column") or {})
+        fcol["table_paths"] = list(fcol.get("table_paths") or []) + ["OWNER_DERIVED"]
+        fcol["contributing_paths"] = list(fcol.get("contributing_paths") or []) + ["OWNER_DERIVED"]
+        details = dict(fab.details)
+        details["column"] = fcol
+        details["table_paths"] = list(fcol["table_paths"])
+        details["contributing_paths"] = list(fcol["contributing_paths"])
+        object.__setattr__(fab, "details", details)
+        codes = self._compare_privilege_expectation(top=fab, exp=honest_exp, cid="mut_fabricate_owner")
+        executed += 1
+        if not any(
+            c in {"KR-PRIV-PATH-TABLE-MISMATCH", "KR-PRIV-PATH-CONTRIBUTING-MISMATCH"} for c, _ in codes
+        ):
+            st.fail("KR-PRIV-PATH-TABLE-MISMATCH", "fabricated OWNER_DERIVED undetected")
+
+        erased = deepcopy(schema_denied)
+        ecol = dict(erased.details.get("column") or {})
+        ecol["table_paths"] = []
+        ecol["contributing_paths"] = []
+        details = dict(erased.details)
+        details["column"] = ecol
+        details["table_paths"] = []
+        details["contributing_paths"] = []
+        object.__setattr__(erased, "details", details)
+        codes = self._compare_privilege_expectation(top=erased, exp=schema_exp, cid="mut_erase_schema")
+        executed += 1
+        require_code(codes, "KR-PRIV-PATH-TABLE-MISMATCH", "erase schema-denied provenance")
+
+        bad_reason = deepcopy(honest)
+        object.__setattr__(
+            bad_reason,
+            "reason_codes",
+            tuple(r for r in honest.reason_codes if r != "KR-PRIV-TABLE-COMPOSED"),
+        )
+        codes = self._compare_privilege_expectation(top=bad_reason, exp=honest_exp, cid="mut_reason")
+        executed += 1
+        require_code(codes, "KR-PRIV-PATH-REASON-MISMATCH", "wrong reason code")
+
+        for label_kwargs, label in (
+            ({"table_privilege_paths": ["OWNER_DERIVED"]}, "table_privilege_paths"),
+            ({"derived_paths": ["DIRECT"]}, "derived_paths"),
+        ):
+            executed += 1
+            try:
+                pref.evaluate_privilege(**self._privilege_eval_kwargs(base_inp), **label_kwargs)
+                st.fail("KR-PRIV-PATH-FABRICATED", f"{label} accepted as authority")
+            except KernelError as exc:
+                if exc.code != "KR-PRIV-PATH-FABRICATED":
+                    st.fail("KR-PRIV-PATH-FABRICATED", f"{label}: unexpected code {exc.code}")
+
+        st.metrics["privilege_path_mutations_executed"] = executed
 
     def _null_semantics_oracles(self) -> None:
         st = self.add(StageResult("null_semantics_oracles"))

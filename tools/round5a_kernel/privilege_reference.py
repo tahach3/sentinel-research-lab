@@ -12,6 +12,16 @@ PUBLIC = "PUBLIC"
 COLUMN_SUPPORTED_PRIVILEGES = frozenset({"SELECT", "INSERT", "UPDATE", "REFERENCES"})
 TABLE_ONLY_PRIVILEGES = frozenset({"DELETE", "TRUNCATE", "TRIGGER"})
 
+# Caller-supplied path labels are never authoritative input.
+REJECTED_PATH_INPUTS = frozenset(
+    {
+        "table_privilege_paths",
+        "column_privilege_paths",
+        "expected_paths",
+        "derived_paths",
+    }
+)
+
 ACLDEFAULT: dict[str, list[dict[str, Any]]] = {
     "f": [
         {"grantee": PUBLIC, "privileges": ["EXECUTE"], "grant_option": False},
@@ -54,6 +64,26 @@ KIND_DEFAULT_KEY = {
     "SEQUENCE": "s",
     "SCHEMA": "n",
 }
+
+GRANT_PATH_ORDER = (
+    "DIRECT",
+    "PUBLIC_DERIVED",
+    "INHERITED",
+    "SET_ROLE_ONLY",
+    "OWNER_DERIVED",
+    "SUPERUSER_DERIVED",
+)
+
+
+def _reject_fabricated_path_inputs(**candidates: Any) -> None:
+    for name, value in candidates.items():
+        if name not in REJECTED_PATH_INPUTS:
+            continue
+        if value is not None:
+            raise KernelError(
+                "KR-PRIV-PATH-FABRICATED",
+                f"reject authoritative path input {name}",
+            )
 
 
 def _frozen_acl(entries: Sequence[Mapping[str, Any]] | None) -> tuple[dict[str, Any], ...] | None:
@@ -150,6 +180,12 @@ def _acl_grants(
     return grants
 
 
+def _normalize_paths(paths: Sequence[str]) -> list[str]:
+    """Deterministic unique grant-path order without inventing labels."""
+    present = {p for p in paths if p in GRANT_PATH_ORDER}
+    return [p for p in GRANT_PATH_ORDER if p in present]
+
+
 def _evaluate_grant_paths(
     *,
     privilege: str,
@@ -218,7 +254,7 @@ def _evaluate_grant_paths(
     if not granted:
         reasons.append("KR-PRIV-NO-GRANT")
 
-    return granted, path, reasons, paths
+    return granted, path, reasons, _normalize_paths(paths)
 
 
 def evaluate_privilege(
@@ -235,12 +271,26 @@ def evaluate_privilege(
     default_privilege_owner: str | None = None,
     table_privilege_granted: bool | None = None,
     table_privilege_paths: Sequence[str] | None = None,
+    column_privilege_paths: Sequence[str] | None = None,
+    expected_paths: Sequence[str] | None = None,
+    derived_paths: Sequence[str] | None = None,
     table_raw_acl: Sequence[Mapping[str, Any]] | None = None,
     table_owner: str | None = None,
     security_definer: bool | None = None,
     security_invoker: bool | None = None,
 ) -> list[PrivilegeResult]:
-    """Evaluate privilege paths for one principal against one object."""
+    """Evaluate privilege paths for one principal against one object.
+
+    Path provenance is derived only from raw privilege facts. Caller-provided
+    path labels are rejected.
+    """
+    _reject_fabricated_path_inputs(
+        table_privilege_paths=table_privilege_paths,
+        column_privilege_paths=column_privilege_paths,
+        expected_paths=expected_paths,
+        derived_paths=derived_paths,
+    )
+
     memberships = list(memberships or ())
     schema_usage = dict(schema_usage or {})
     superuser_set = set(superusers or ())
@@ -280,11 +330,12 @@ def evaluate_privilege(
             reasons.append("KR-PRIV-DEFAULT-OWNER-MISMATCH")
 
         schema_ok = True
+        result_path = path if granted else "DIRECT"
         if kind != "SCHEMA":
             schema_ok = bool(schema_usage.get(principal, False)) or principal in superuser_set
             if granted and not schema_ok:
                 reasons.append("KR-PRIV-SCHEMA-DENIED")
-                path = "SCHEMA_GATED"
+                result_path = "SCHEMA_GATED"
 
         exercisable = bool(granted and schema_ok)
         if exercisable:
@@ -299,8 +350,10 @@ def evaluate_privilege(
                     reason_codes=tuple(dict.fromkeys(reasons)),
                     details={
                         "acl_provenance": acl_provenance,
-                        "effective_path": path,
+                        "effective_path": result_path,
                         "contributing_paths": list(contributing),
+                        "table_paths": list(contributing),
+                        "column_paths": [],
                         "security_definer": security_definer,
                         "security_invoker": security_invoker,
                         "column": None,
@@ -312,7 +365,7 @@ def evaluate_privilege(
             object_identity=oid,
             principal=principal,
             privilege=privilege,
-            path=path if granted else "DIRECT",
+            path=result_path,
             granted=granted,
             exercisable=exercisable,
             reason_codes=tuple(dict.fromkeys(reasons)),
@@ -324,6 +377,8 @@ def evaluate_privilege(
                 "column": None,
                 "schema_usage": schema_ok,
                 "contributing_paths": list(contributing),
+                "table_paths": list(contributing),
+                "column_paths": [],
             },
         )
         results.insert(0, path_result)
@@ -339,57 +394,39 @@ def evaluate_privilege(
         memberships=memberships,
         superuser_set=superuser_set,
     )
-    # Column-specific grant excludes owner/superuser folded solely via table ownership when
-    # those paths are recorded only because principal owns the column object; retain ACL paths
-    # plus owner/superuser as column-side contributions when they fired on the column ACL eval.
     column_specific_granted = col_granted
     column_paths = list(col_paths)
 
-    # Table contribution: evaluate separately; do not mutate column path records.
+    # Table contribution derived only from raw table ACL / ownership / memberships.
     table_paths: list[str] = []
-    if table_privilege_paths is not None:
-        table_paths = [str(p) for p in table_privilege_paths]
-        table_granted = len(table_paths) > 0 or bool(table_privilege_granted)
-    elif table_raw_acl is not None or table_privilege_granted is not None:
-        if table_raw_acl is not None or table_owner is not None:
-            t_owner = table_owner if table_owner is not None else owner
-            t_acl, _ = resolve_effective_acl("TABLE", table_raw_acl, t_owner)
-            t_granted, t_path, _t_reasons, t_paths = _evaluate_grant_paths(
-                privilege=privilege,
-                principal=principal,
-                owner=t_owner,
-                effective_acl=t_acl,
-                memberships=memberships,
-                superuser_set=superuser_set,
-            )
-            table_granted = t_granted
-            table_paths = list(t_paths) if t_granted else []
-            if t_granted and not table_paths:
-                table_paths = [t_path]
-        else:
-            table_granted = bool(table_privilege_granted)
-            if table_granted:
-                table_paths = ["DIRECT"]
-    else:
-        table_granted = False
+    table_granted = False
+    evaluate_table = table_raw_acl is not None or table_privilege_granted is True
+    if table_privilege_granted is False:
+        evaluate_table = False
+    if evaluate_table:
+        t_owner = table_owner if table_owner is not None else owner
+        t_acl, _ = resolve_effective_acl("TABLE", table_raw_acl, t_owner)
+        t_granted, _t_path, _t_reasons, t_paths = _evaluate_grant_paths(
+            privilege=privilege,
+            principal=principal,
+            owner=t_owner,
+            effective_acl=t_acl,
+            memberships=memberships,
+            superuser_set=superuser_set,
+        )
+        table_granted = t_granted
+        table_paths = list(t_paths) if t_granted else []
 
-    # Null/empty attacl contribute no column-specific grant (owner/superuser still may).
     null_attacl = raw_acl is None
     empty_attacl = raw_acl is not None and len(tuple(raw_acl)) == 0
-    if null_attacl or empty_attacl:
-        # ACL-derived column paths only; owner/superuser remain visible if present.
-        acl_only_paths = [p for p in column_paths if p in {"DIRECT", "PUBLIC_DERIVED", "INHERITED", "SET_ROLE_ONLY"}]
-        if not acl_only_paths:
-            # Keep owner/superuser as column-side only when they fired without ACL entries.
-            pass
 
     composed_granted = bool(table_granted or column_specific_granted)
     if not composed_granted:
         reasons.append("KR-PRIV-NO-GRANT")
     else:
-        # Drop NO-GRANT if composition produced a grant.
         col_reasons = [r for r in col_reasons if r != "KR-PRIV-NO-GRANT"]
 
+    # Keep origins separate; contributing_paths is ordered union (not a silent merge of labels).
     contributing_paths: list[str] = []
     for p in table_paths:
         if p not in contributing_paths:
@@ -397,6 +434,7 @@ def evaluate_privilege(
     for p in column_paths:
         if p not in contributing_paths:
             contributing_paths.append(p)
+    contributing_paths = _normalize_paths(contributing_paths)
 
     primary_path = col_path if column_specific_granted else "DIRECT"
     if table_granted and not column_specific_granted:
@@ -404,19 +442,18 @@ def evaluate_privilege(
         reasons.append("KR-PRIV-TABLE-COMPOSED")
     elif table_granted and column_specific_granted:
         reasons.append("KR-PRIV-TABLE-COMPOSED")
-        if "TABLE_COMPOSED_TO_COLUMN" not in contributing_paths:
-            contributing_paths.append("TABLE_COMPOSED_TO_COLUMN")
         primary_path = col_path
     reasons.extend(col_reasons)
 
     if default_privilege_owner is not None and default_privilege_owner != owner:
         reasons.append("KR-PRIV-DEFAULT-OWNER-MISMATCH")
 
-    # Schema gating applies after composition.
+    # Schema gating applies after grant provenance; does not erase underlying paths.
     schema_ok = bool(schema_usage.get(principal, False)) or principal in superuser_set
+    result_path = primary_path if composed_granted else "DIRECT"
     if composed_granted and not schema_ok:
         reasons.append("KR-PRIV-SCHEMA-DENIED")
-        primary_path = "SCHEMA_GATED"
+        result_path = "SCHEMA_GATED"
 
     exercisable = bool(composed_granted and schema_ok)
 
@@ -437,7 +474,6 @@ def evaluate_privilege(
         "null_attacl": null_attacl,
         "empty_attacl": empty_attacl,
         "acldefault_c_applied": False,
-        # legacy keys retained for existing tests
         "table_privilege": table_granted,
         "column_specific_privilege": column_specific_granted,
     }
@@ -454,7 +490,7 @@ def evaluate_privilege(
                 reason_codes=tuple(dict.fromkeys(reasons)),
                 details={
                     "acl_provenance": acl_provenance,
-                    "effective_path": primary_path,
+                    "effective_path": result_path,
                     "security_definer": security_definer,
                     "security_invoker": security_invoker,
                     "column": composition,
@@ -466,7 +502,7 @@ def evaluate_privilege(
         object_identity=oid,
         principal=principal,
         privilege=privilege,
-        path=primary_path if composed_granted else "DIRECT",
+        path=result_path,
         granted=composed_granted,
         exercisable=exercisable,
         reason_codes=tuple(dict.fromkeys(reasons)),
@@ -501,19 +537,15 @@ def evaluate_object_matrix(
     schema_usage: Mapping[str, bool] | None = None,
     superusers: Iterable[str] | None = None,
     default_privilege_owner: str | None = None,
-    table_privileges: Mapping[str, Mapping[str, bool]] | None = None,
     table_raw_acl: Sequence[Mapping[str, Any]] | None = None,
     table_owner: str | None = None,
     security_definer: bool | None = None,
     security_invoker: bool | None = None,
 ) -> list[PrivilegeResult]:
-    """Evaluate all principal/privilege pairs deterministically."""
+    """Evaluate all principal/privilege pairs deterministically from raw facts."""
     out: list[PrivilegeResult] = []
     for principal in sorted(principals):
         for privilege in privileges:
-            table_granted = None
-            if object_kind.upper() == "COLUMN" and table_privileges is not None:
-                table_granted = bool(table_privileges.get(principal, {}).get(privilege, False))
             out.extend(
                 evaluate_privilege(
                     object_kind=object_kind,
@@ -526,9 +558,11 @@ def evaluate_object_matrix(
                     schema_usage=schema_usage,
                     superusers=superusers,
                     default_privilege_owner=default_privilege_owner,
-                    table_privilege_granted=table_granted,
                     table_raw_acl=table_raw_acl,
                     table_owner=table_owner,
+                    table_privilege_granted=True if (
+                        object_kind.upper() == "COLUMN" and table_raw_acl is not None
+                    ) else None,
                     security_definer=security_definer,
                     security_invoker=security_invoker,
                 )

@@ -13,136 +13,60 @@
   },
   "cases": [
     {
-      "case_id": "table_select_composes",
+      "case_id": "direct_table_update",
+      "input": {
+        "privilege": "UPDATE",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": null,
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          }
+        ],
+        "schema_usage": {
+          "research_app": true
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
+        "exercisable": true,
+        "table_paths": [
+          "DIRECT"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "DIRECT"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-TABLE-COMPOSED"
+        ]
+      }
+    },
+    {
+      "case_id": "public_table_select",
       "input": {
         "privilege": "SELECT",
         "principal": "research_app",
         "owner": "postgres",
         "column_acl": null,
-        "table_privilege_granted": true,
-        "schema_usage": {
-          "research_app": true
-        },
-        "memberships": [],
-        "superusers": []
-      },
-      "expected": {
-        "table_contribution": true,
-        "column_contribution": false,
-        "composed_grant": true,
-        "schema_state": true,
-        "exercisable": true,
-        "paths": [
-          "TABLE_COMPOSED_TO_COLUMN"
-        ],
-        "reason_codes": [
-          "KR-PRIV-COLUMN-INDEPENDENT",
-          "KR-PRIV-TABLE-COMPOSED"
-        ]
-      }
-    },
-    {
-      "case_id": "table_insert_composes",
-      "input": {
-        "privilege": "INSERT",
-        "principal": "research_app",
-        "owner": "postgres",
-        "column_acl": null,
-        "table_privilege_granted": true,
-        "schema_usage": {
-          "research_app": true
-        },
-        "memberships": [],
-        "superusers": []
-      },
-      "expected": {
-        "table_contribution": true,
-        "column_contribution": false,
-        "composed_grant": true,
-        "schema_state": true,
-        "exercisable": true,
-        "paths": [
-          "TABLE_COMPOSED_TO_COLUMN"
-        ],
-        "reason_codes": [
-          "KR-PRIV-COLUMN-INDEPENDENT",
-          "KR-PRIV-TABLE-COMPOSED"
-        ]
-      }
-    },
-    {
-      "case_id": "table_update_composes",
-      "input": {
-        "privilege": "UPDATE",
-        "principal": "research_app",
-        "owner": "postgres",
-        "column_acl": null,
-        "table_privilege_granted": true,
-        "schema_usage": {
-          "research_app": true
-        },
-        "memberships": [],
-        "superusers": []
-      },
-      "expected": {
-        "table_contribution": true,
-        "column_contribution": false,
-        "composed_grant": true,
-        "schema_state": true,
-        "exercisable": true,
-        "paths": [
-          "TABLE_COMPOSED_TO_COLUMN"
-        ],
-        "reason_codes": [
-          "KR-PRIV-COLUMN-INDEPENDENT",
-          "KR-PRIV-TABLE-COMPOSED"
-        ]
-      }
-    },
-    {
-      "case_id": "table_references_composes",
-      "input": {
-        "privilege": "REFERENCES",
-        "principal": "research_app",
-        "owner": "postgres",
-        "column_acl": null,
-        "table_privilege_granted": true,
-        "schema_usage": {
-          "research_app": true
-        },
-        "memberships": [],
-        "superusers": []
-      },
-      "expected": {
-        "table_contribution": true,
-        "column_contribution": false,
-        "composed_grant": true,
-        "schema_state": true,
-        "exercisable": true,
-        "paths": [
-          "TABLE_COMPOSED_TO_COLUMN"
-        ],
-        "reason_codes": [
-          "KR-PRIV-COLUMN-INDEPENDENT",
-          "KR-PRIV-TABLE-COMPOSED"
-        ]
-      }
-    },
-    {
-      "case_id": "column_update_without_table",
-      "input": {
-        "privilege": "UPDATE",
-        "principal": "research_app",
-        "owner": "postgres",
-        "column_acl": [
+        "table_raw_acl": [
           {
-            "grantee": "research_app",
+            "grantee": "PUBLIC",
             "privileges": [
-              "UPDATE"
+              "SELECT"
             ]
           }
         ],
-        "table_privilege_granted": false,
         "schema_usage": {
           "research_app": true
         },
@@ -150,207 +74,21 @@
         "superusers": []
       },
       "expected": {
-        "table_contribution": false,
-        "column_contribution": true,
-        "composed_grant": true,
-        "schema_state": true,
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
         "exercisable": true,
-        "paths": [
-          "DIRECT"
+        "table_paths": [
+          "PUBLIC_DERIVED"
         ],
-        "reason_codes": [
-          "KR-PRIV-COLUMN-INDEPENDENT",
-          "KR-PRIV-DIRECT"
-        ]
-      }
-    },
-    {
-      "case_id": "table_and_column_update",
-      "input": {
-        "privilege": "UPDATE",
-        "principal": "research_app",
-        "owner": "postgres",
-        "column_acl": [
-          {
-            "grantee": "research_app",
-            "privileges": [
-              "UPDATE"
-            ]
-          }
-        ],
-        "table_privilege_granted": true,
-        "schema_usage": {
-          "research_app": true
-        },
-        "memberships": [],
-        "superusers": []
-      },
-      "expected": {
-        "table_contribution": true,
-        "column_contribution": true,
-        "composed_grant": true,
-        "schema_state": true,
-        "exercisable": true,
-        "paths": [
-          "DIRECT",
-          "TABLE_COMPOSED_TO_COLUMN"
-        ],
-        "reason_codes": [
-          "KR-PRIV-COLUMN-INDEPENDENT",
-          "KR-PRIV-TABLE-COMPOSED",
-          "KR-PRIV-DIRECT"
-        ]
-      }
-    },
-    {
-      "case_id": "null_attacl_plus_table_update",
-      "input": {
-        "privilege": "UPDATE",
-        "principal": "research_app",
-        "owner": "postgres",
-        "column_acl": null,
-        "table_privilege_granted": true,
-        "schema_usage": {
-          "research_app": true
-        },
-        "memberships": [],
-        "superusers": []
-      },
-      "expected": {
-        "table_contribution": true,
-        "column_contribution": false,
-        "composed_grant": true,
-        "schema_state": true,
-        "exercisable": true,
-        "paths": [
-          "TABLE_COMPOSED_TO_COLUMN"
+        "column_paths": [],
+        "contributing_paths": [
+          "PUBLIC_DERIVED"
         ],
         "reason_codes": [
           "KR-PRIV-COLUMN-INDEPENDENT",
           "KR-PRIV-TABLE-COMPOSED"
-        ]
-      }
-    },
-    {
-      "case_id": "empty_attacl_plus_table_update",
-      "input": {
-        "privilege": "UPDATE",
-        "principal": "research_app",
-        "owner": "postgres",
-        "column_acl": [],
-        "table_privilege_granted": true,
-        "schema_usage": {
-          "research_app": true
-        },
-        "memberships": [],
-        "superusers": []
-      },
-      "expected": {
-        "table_contribution": true,
-        "column_contribution": false,
-        "composed_grant": true,
-        "schema_state": true,
-        "exercisable": true,
-        "paths": [
-          "TABLE_COMPOSED_TO_COLUMN"
-        ],
-        "reason_codes": [
-          "KR-PRIV-COLUMN-INDEPENDENT",
-          "KR-PRIV-TABLE-COMPOSED"
-        ]
-      }
-    },
-    {
-      "case_id": "null_attacl_without_table",
-      "input": {
-        "privilege": "UPDATE",
-        "principal": "research_app",
-        "owner": "postgres",
-        "column_acl": null,
-        "table_privilege_granted": false,
-        "schema_usage": {
-          "research_app": true
-        },
-        "memberships": [],
-        "superusers": []
-      },
-      "expected": {
-        "table_contribution": false,
-        "column_contribution": false,
-        "composed_grant": false,
-        "schema_state": true,
-        "exercisable": false,
-        "paths": [],
-        "reason_codes": [
-          "KR-PRIV-COLUMN-INDEPENDENT",
-          "KR-PRIV-NO-GRANT"
-        ]
-      }
-    },
-    {
-      "case_id": "schema_denied_after_table",
-      "input": {
-        "privilege": "UPDATE",
-        "principal": "research_app",
-        "owner": "postgres",
-        "column_acl": null,
-        "table_privilege_granted": true,
-        "schema_usage": {
-          "research_app": false
-        },
-        "memberships": [],
-        "superusers": []
-      },
-      "expected": {
-        "table_contribution": true,
-        "column_contribution": false,
-        "composed_grant": true,
-        "schema_state": false,
-        "exercisable": false,
-        "paths": [
-          "SCHEMA_GATED"
-        ],
-        "reason_codes": [
-          "KR-PRIV-COLUMN-INDEPENDENT",
-          "KR-PRIV-TABLE-COMPOSED",
-          "KR-PRIV-SCHEMA-DENIED"
-        ]
-      }
-    },
-    {
-      "case_id": "schema_denied_after_column",
-      "input": {
-        "privilege": "UPDATE",
-        "principal": "research_app",
-        "owner": "postgres",
-        "column_acl": [
-          {
-            "grantee": "research_app",
-            "privileges": [
-              "UPDATE"
-            ]
-          }
-        ],
-        "table_privilege_granted": false,
-        "schema_usage": {
-          "research_app": false
-        },
-        "memberships": [],
-        "superusers": []
-      },
-      "expected": {
-        "table_contribution": false,
-        "column_contribution": true,
-        "composed_grant": true,
-        "schema_state": false,
-        "exercisable": false,
-        "paths": [
-          "SCHEMA_GATED"
-        ],
-        "reason_codes": [
-          "KR-PRIV-COLUMN-INDEPENDENT",
-          "KR-PRIV-DIRECT",
-          "KR-PRIV-SCHEMA-DENIED"
         ]
       }
     },
@@ -361,9 +99,13 @@
         "principal": "research_app",
         "owner": "postgres",
         "column_acl": null,
-        "table_privilege_granted": true,
-        "table_privilege_paths": [
-          "INHERITED"
+        "table_raw_acl": [
+          {
+            "grantee": "gov",
+            "privileges": [
+              "UPDATE"
+            ]
+          }
         ],
         "schema_usage": {
           "research_app": true
@@ -378,13 +120,17 @@
         "superusers": []
       },
       "expected": {
-        "table_contribution": true,
-        "column_contribution": false,
-        "composed_grant": true,
-        "schema_state": true,
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
         "exercisable": true,
-        "paths": [
-          "TABLE_COMPOSED_TO_COLUMN"
+        "table_paths": [
+          "INHERITED"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "INHERITED"
         ],
         "reason_codes": [
           "KR-PRIV-COLUMN-INDEPENDENT",
@@ -399,9 +145,13 @@
         "principal": "research_app",
         "owner": "postgres",
         "column_acl": null,
-        "table_privilege_granted": true,
-        "table_privilege_paths": [
-          "SET_ROLE_ONLY"
+        "table_raw_acl": [
+          {
+            "grantee": "elev",
+            "privileges": [
+              "UPDATE"
+            ]
+          }
         ],
         "schema_usage": {
           "research_app": true
@@ -416,13 +166,17 @@
         "superusers": []
       },
       "expected": {
-        "table_contribution": true,
-        "column_contribution": false,
-        "composed_grant": true,
-        "schema_state": true,
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
         "exercisable": true,
-        "paths": [
-          "TABLE_COMPOSED_TO_COLUMN"
+        "table_paths": [
+          "SET_ROLE_ONLY"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "SET_ROLE_ONLY"
         ],
         "reason_codes": [
           "KR-PRIV-COLUMN-INDEPENDENT",
@@ -437,10 +191,8 @@
         "principal": "postgres",
         "owner": "postgres",
         "column_acl": null,
+        "table_raw_acl": [],
         "table_privilege_granted": true,
-        "table_privilege_paths": [
-          "OWNER_DERIVED"
-        ],
         "schema_usage": {
           "postgres": true
         },
@@ -448,14 +200,19 @@
         "superusers": []
       },
       "expected": {
-        "table_contribution": true,
-        "column_contribution": true,
-        "composed_grant": true,
-        "schema_state": true,
+        "table_privilege_contribution": true,
+        "column_specific_contribution": true,
+        "composed_column_granted": true,
+        "schema_usage": true,
         "exercisable": true,
-        "paths": [
-          "OWNER_DERIVED",
-          "TABLE_COMPOSED_TO_COLUMN"
+        "table_paths": [
+          "OWNER_DERIVED"
+        ],
+        "column_paths": [
+          "OWNER_DERIVED"
+        ],
+        "contributing_paths": [
+          "OWNER_DERIVED"
         ],
         "reason_codes": [
           "KR-PRIV-COLUMN-INDEPENDENT",
@@ -471,10 +228,8 @@
         "principal": "research_app",
         "owner": "other",
         "column_acl": null,
+        "table_raw_acl": [],
         "table_privilege_granted": true,
-        "table_privilege_paths": [
-          "SUPERUSER_DERIVED"
-        ],
         "schema_usage": {
           "research_app": false
         },
@@ -484,51 +239,24 @@
         ]
       },
       "expected": {
-        "table_contribution": true,
-        "column_contribution": true,
-        "composed_grant": true,
-        "schema_state": true,
+        "table_privilege_contribution": true,
+        "column_specific_contribution": true,
+        "composed_column_granted": true,
+        "schema_usage": true,
         "exercisable": true,
-        "paths": [
-          "SUPERUSER_DERIVED",
-          "TABLE_COMPOSED_TO_COLUMN"
+        "table_paths": [
+          "SUPERUSER_DERIVED"
+        ],
+        "column_paths": [
+          "SUPERUSER_DERIVED"
+        ],
+        "contributing_paths": [
+          "SUPERUSER_DERIVED"
         ],
         "reason_codes": [
           "KR-PRIV-COLUMN-INDEPENDENT",
           "KR-PRIV-TABLE-COMPOSED",
           "KR-PRIV-SUPERUSER"
-        ]
-      }
-    },
-    {
-      "case_id": "public_table_select",
-      "input": {
-        "privilege": "SELECT",
-        "principal": "research_app",
-        "owner": "postgres",
-        "column_acl": null,
-        "table_privilege_granted": true,
-        "table_privilege_paths": [
-          "PUBLIC_DERIVED"
-        ],
-        "schema_usage": {
-          "research_app": true
-        },
-        "memberships": [],
-        "superusers": []
-      },
-      "expected": {
-        "table_contribution": true,
-        "column_contribution": false,
-        "composed_grant": true,
-        "schema_state": true,
-        "exercisable": true,
-        "paths": [
-          "TABLE_COMPOSED_TO_COLUMN"
-        ],
-        "reason_codes": [
-          "KR-PRIV-COLUMN-INDEPENDENT",
-          "KR-PRIV-TABLE-COMPOSED"
         ]
       }
     },
@@ -554,12 +282,16 @@
         "superusers": []
       },
       "expected": {
-        "table_contribution": false,
-        "column_contribution": true,
-        "composed_grant": true,
-        "schema_state": true,
+        "table_privilege_contribution": false,
+        "column_specific_contribution": true,
+        "composed_column_granted": true,
+        "schema_usage": true,
         "exercisable": true,
-        "paths": [
+        "table_paths": [],
+        "column_paths": [
+          "DIRECT"
+        ],
+        "contributing_paths": [
           "DIRECT"
         ],
         "reason_codes": [
@@ -596,12 +328,16 @@
         "superusers": []
       },
       "expected": {
-        "table_contribution": false,
-        "column_contribution": true,
-        "composed_grant": true,
-        "schema_state": true,
+        "table_privilege_contribution": false,
+        "column_specific_contribution": true,
+        "composed_column_granted": true,
+        "schema_usage": true,
         "exercisable": true,
-        "paths": [
+        "table_paths": [],
+        "column_paths": [
+          "INHERITED"
+        ],
+        "contributing_paths": [
           "INHERITED"
         ],
         "reason_codes": [
@@ -638,17 +374,525 @@
         "superusers": []
       },
       "expected": {
-        "table_contribution": false,
-        "column_contribution": true,
-        "composed_grant": true,
-        "schema_state": true,
+        "table_privilege_contribution": false,
+        "column_specific_contribution": true,
+        "composed_column_granted": true,
+        "schema_usage": true,
         "exercisable": true,
-        "paths": [
+        "table_paths": [],
+        "column_paths": [
+          "SET_ROLE_ONLY"
+        ],
+        "contributing_paths": [
           "SET_ROLE_ONLY"
         ],
         "reason_codes": [
           "KR-PRIV-COLUMN-INDEPENDENT",
           "KR-PRIV-SET-ROLE"
+        ]
+      }
+    },
+    {
+      "case_id": "table_and_column_update",
+      "input": {
+        "privilege": "UPDATE",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          }
+        ],
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          }
+        ],
+        "schema_usage": {
+          "research_app": true
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": true,
+        "column_specific_contribution": true,
+        "composed_column_granted": true,
+        "schema_usage": true,
+        "exercisable": true,
+        "table_paths": [
+          "DIRECT"
+        ],
+        "column_paths": [
+          "DIRECT"
+        ],
+        "contributing_paths": [
+          "DIRECT"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-TABLE-COMPOSED",
+          "KR-PRIV-DIRECT"
+        ]
+      }
+    },
+    {
+      "case_id": "schema_denied_preserves_paths",
+      "input": {
+        "privilege": "UPDATE",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": null,
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          }
+        ],
+        "schema_usage": {
+          "research_app": false
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": false,
+        "exercisable": false,
+        "table_paths": [
+          "DIRECT"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "DIRECT"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-TABLE-COMPOSED",
+          "KR-PRIV-SCHEMA-DENIED"
+        ]
+      }
+    },
+    {
+      "case_id": "null_attacl_plus_table_update",
+      "input": {
+        "privilege": "UPDATE",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": null,
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          }
+        ],
+        "schema_usage": {
+          "research_app": true
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
+        "exercisable": true,
+        "table_paths": [
+          "DIRECT"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "DIRECT"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-TABLE-COMPOSED"
+        ]
+      }
+    },
+    {
+      "case_id": "empty_attacl_plus_table_update",
+      "input": {
+        "privilege": "UPDATE",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": [],
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          }
+        ],
+        "schema_usage": {
+          "research_app": true
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
+        "exercisable": true,
+        "table_paths": [
+          "DIRECT"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "DIRECT"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-TABLE-COMPOSED"
+        ]
+      }
+    },
+    {
+      "case_id": "no_contributing_path",
+      "input": {
+        "privilege": "UPDATE",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": null,
+        "table_privilege_granted": false,
+        "schema_usage": {
+          "research_app": true
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": false,
+        "column_specific_contribution": false,
+        "composed_column_granted": false,
+        "schema_usage": true,
+        "exercisable": false,
+        "table_paths": [],
+        "column_paths": [],
+        "contributing_paths": [],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-NO-GRANT"
+        ]
+      }
+    },
+    {
+      "case_id": "duplicate_raw_acl_entries",
+      "input": {
+        "privilege": "UPDATE",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": null,
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          },
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "UPDATE"
+            ],
+            "grant_option": true
+          }
+        ],
+        "schema_usage": {
+          "research_app": true
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
+        "exercisable": true,
+        "table_paths": [
+          "DIRECT"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "DIRECT"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-TABLE-COMPOSED"
+        ]
+      }
+    },
+    {
+      "case_id": "cyclic_membership_graph",
+      "input": {
+        "privilege": "UPDATE",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": null,
+        "table_raw_acl": [
+          {
+            "grantee": "role_b",
+            "privileges": [
+              "UPDATE"
+            ]
+          }
+        ],
+        "schema_usage": {
+          "research_app": true
+        },
+        "memberships": [
+          {
+            "member": "research_app",
+            "granted_role": "role_a",
+            "set_role_only": false
+          },
+          {
+            "member": "role_a",
+            "granted_role": "role_b",
+            "set_role_only": false
+          },
+          {
+            "member": "role_b",
+            "granted_role": "role_a",
+            "set_role_only": false
+          }
+        ],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
+        "exercisable": true,
+        "table_paths": [
+          "INHERITED"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "INHERITED"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-TABLE-COMPOSED"
+        ]
+      }
+    },
+    {
+      "case_id": "unexpected_discovered_role",
+      "input": {
+        "privilege": "UPDATE",
+        "principal": "extra_discovered_role",
+        "owner": "postgres",
+        "column_acl": null,
+        "table_raw_acl": [
+          {
+            "grantee": "extra_discovered_role",
+            "privileges": [
+              "UPDATE"
+            ]
+          }
+        ],
+        "schema_usage": {
+          "extra_discovered_role": true
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
+        "exercisable": true,
+        "table_paths": [
+          "DIRECT"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "DIRECT"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-TABLE-COMPOSED"
+        ]
+      }
+    },
+    {
+      "case_id": "table_select_composes",
+      "input": {
+        "privilege": "SELECT",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": null,
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "SELECT"
+            ]
+          }
+        ],
+        "schema_usage": {
+          "research_app": true
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
+        "exercisable": true,
+        "table_paths": [
+          "DIRECT"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "DIRECT"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-TABLE-COMPOSED"
+        ]
+      }
+    },
+    {
+      "case_id": "table_insert_composes",
+      "input": {
+        "privilege": "INSERT",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": null,
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "INSERT"
+            ]
+          }
+        ],
+        "schema_usage": {
+          "research_app": true
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
+        "exercisable": true,
+        "table_paths": [
+          "DIRECT"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "DIRECT"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-TABLE-COMPOSED"
+        ]
+      }
+    },
+    {
+      "case_id": "table_references_composes",
+      "input": {
+        "privilege": "REFERENCES",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": null,
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "REFERENCES"
+            ]
+          }
+        ],
+        "schema_usage": {
+          "research_app": true
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": true,
+        "column_specific_contribution": false,
+        "composed_column_granted": true,
+        "schema_usage": true,
+        "exercisable": true,
+        "table_paths": [
+          "DIRECT"
+        ],
+        "column_paths": [],
+        "contributing_paths": [
+          "DIRECT"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-TABLE-COMPOSED"
+        ]
+      }
+    },
+    {
+      "case_id": "schema_denied_after_column",
+      "input": {
+        "privilege": "UPDATE",
+        "principal": "research_app",
+        "owner": "postgres",
+        "column_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "UPDATE"
+            ]
+          }
+        ],
+        "table_privilege_granted": false,
+        "schema_usage": {
+          "research_app": false
+        },
+        "memberships": [],
+        "superusers": []
+      },
+      "expected": {
+        "table_privilege_contribution": false,
+        "column_specific_contribution": true,
+        "composed_column_granted": true,
+        "schema_usage": false,
+        "exercisable": false,
+        "table_paths": [],
+        "column_paths": [
+          "DIRECT"
+        ],
+        "contributing_paths": [
+          "DIRECT"
+        ],
+        "reason_codes": [
+          "KR-PRIV-COLUMN-INDEPENDENT",
+          "KR-PRIV-DIRECT",
+          "KR-PRIV-SCHEMA-DENIED"
         ]
       }
     },
@@ -659,7 +903,14 @@
         "principal": "research_app",
         "owner": "postgres",
         "column_acl": null,
-        "table_privilege_granted": true,
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "DELETE"
+            ]
+          }
+        ],
         "schema_usage": {
           "research_app": true
         },
@@ -668,12 +919,14 @@
       },
       "expected": {
         "error_code": "KR-PRIV-COLUMN-UNSUPPORTED",
-        "table_contribution": null,
-        "column_contribution": null,
-        "composed_grant": false,
-        "schema_state": null,
+        "table_privilege_contribution": null,
+        "column_specific_contribution": null,
+        "composed_column_granted": false,
+        "schema_usage": null,
         "exercisable": false,
-        "paths": [],
+        "table_paths": [],
+        "column_paths": [],
+        "contributing_paths": [],
         "reason_codes": [
           "KR-PRIV-COLUMN-UNSUPPORTED"
         ]
@@ -686,7 +939,14 @@
         "principal": "research_app",
         "owner": "postgres",
         "column_acl": null,
-        "table_privilege_granted": true,
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "TRUNCATE"
+            ]
+          }
+        ],
         "schema_usage": {
           "research_app": true
         },
@@ -695,12 +955,14 @@
       },
       "expected": {
         "error_code": "KR-PRIV-COLUMN-UNSUPPORTED",
-        "table_contribution": null,
-        "column_contribution": null,
-        "composed_grant": false,
-        "schema_state": null,
+        "table_privilege_contribution": null,
+        "column_specific_contribution": null,
+        "composed_column_granted": false,
+        "schema_usage": null,
         "exercisable": false,
-        "paths": [],
+        "table_paths": [],
+        "column_paths": [],
+        "contributing_paths": [],
         "reason_codes": [
           "KR-PRIV-COLUMN-UNSUPPORTED"
         ]
@@ -713,7 +975,14 @@
         "principal": "research_app",
         "owner": "postgres",
         "column_acl": null,
-        "table_privilege_granted": true,
+        "table_raw_acl": [
+          {
+            "grantee": "research_app",
+            "privileges": [
+              "TRIGGER"
+            ]
+          }
+        ],
         "schema_usage": {
           "research_app": true
         },
@@ -722,12 +991,14 @@
       },
       "expected": {
         "error_code": "KR-PRIV-COLUMN-UNSUPPORTED",
-        "table_contribution": null,
-        "column_contribution": null,
-        "composed_grant": false,
-        "schema_state": null,
+        "table_privilege_contribution": null,
+        "column_specific_contribution": null,
+        "composed_column_granted": false,
+        "schema_usage": null,
         "exercisable": false,
-        "paths": [],
+        "table_paths": [],
+        "column_paths": [],
+        "contributing_paths": [],
         "reason_codes": [
           "KR-PRIV-COLUMN-UNSUPPORTED"
         ]

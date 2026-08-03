@@ -25,7 +25,7 @@
     },
     {
       "path": "specs/round5a_kernel/oracles/privilege_composition_cases.json",
-      "sha256": "733c6d98af3124e49a43d085ca4282c3b532c963170d4a78dc1c5f357c76e6ca",
+      "sha256": "f381dfa6a03325161f3b70b35d8c9656ffed58f535b9adf8b00986805a709c74",
       "role": "privilege_composition_oracle"
     },
     {
@@ -55,7 +55,7 @@
     },
     {
       "path": "tools/round5a_kernel/privilege_reference.py",
-      "sha256": "50da3849f97092a2a72875fc37858c417816d99594e6503e31ed0c1220399e92",
+      "sha256": "9b07a0df1e9efdf639472616c92e952eff5727891ab38a4a4c1726d7004c24db",
       "role": "executable_reference_module"
     },
     {
@@ -90,7 +90,7 @@
     },
     {
       "path": "tools/round5a_kernel/validate_kernel.py",
-      "sha256": "81a9f06e993f242c76e4ce07cc8c8ffbe502eb7ac5fca24a7ace82c0c7ad6761",
+      "sha256": "4d5256cacbc220535db668f622a41e435ace6dc5ccedd617d2112565cd8b8b35",
       "role": "executable_reference_module"
     }
   ],
