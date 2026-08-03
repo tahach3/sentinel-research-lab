@@ -45,7 +45,7 @@
     },
     {
       "path": "specs/round5a_kernel/oracles/bounded_domain.json",
-      "sha256": "2f10338bc393774fc97638a35a42c326904b789681b6fbec71239b2537fb8221",
+      "sha256": "075d3389620717e32be54b28c3dcb60a90acacdf8a01aeb44d676b0249133c32",
       "role": "bounded_domain"
     },
     {
@@ -75,7 +75,7 @@
     },
     {
       "path": "tools/round5a_kernel/bounded_domain.py",
-      "sha256": "54faa386441505e460d4c95dcf978936ea8aafeb3622b755b95e81491aceea25",
+      "sha256": "0e952b4ee06bb1c1335cf6f1065c9510e15bbf0758412246a94838d4b9223786",
       "role": "executable_reference_module"
     },
     {
@@ -90,7 +90,7 @@
     },
     {
       "path": "tools/round5a_kernel/validate_kernel.py",
-      "sha256": "4d5256cacbc220535db668f622a41e435ace6dc5ccedd617d2112565cd8b8b35",
+      "sha256": "4fe88e57a2b750267e79c3a92f9c37065b6eb6673b12503721ffd8460ad03ee3",
       "role": "executable_reference_module"
     }
   ],

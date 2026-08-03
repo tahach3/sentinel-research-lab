@@ -1222,12 +1222,17 @@ class KernelValidator:
     def _differential_bounded_domain(self) -> None:
         st = self.add(StageResult("differential_bounded_domain"))
         assert self.recon is not None
-        from tools.round5a_kernel.bounded_domain import domain_limitations, generate_domain_cases
+        from tools.round5a_kernel.bounded_domain import (
+            coverage_report,
+            domain_limitations,
+            generate_domain_cases,
+        )
         from tools.round5a_kernel.classification_reference import classify_source
         from tools.round5a_kernel.oracle_reference import classify_oracle
 
         rules = self.recon["rules"]
         cases = generate_domain_cases(self.root)
+        report = coverage_report(root=self.root, cases=cases)
         clf_rules: set[str] = set()
         orc_rules: set[str] = set()
         disagreements = 0
@@ -1246,6 +1251,18 @@ class KernelValidator:
                 orc_rules.add(ore.rule_id)
                 if rec.fallback or ore.fallback:
                     fallback += 1
+                if case.get("expected_classifier_rule") and rec.rule_id != case["expected_classifier_rule"]:
+                    disagreements += 1
+                    st.fail(
+                        "KR-DOMAIN-EXPECTED-CLF",
+                        f"{case['case_id']}: classifier={rec.rule_id} expected={case['expected_classifier_rule']}",
+                    )
+                if case.get("expected_oracle_rule") and ore.rule_id != case["expected_oracle_rule"]:
+                    disagreements += 1
+                    st.fail(
+                        "KR-DOMAIN-EXPECTED-ORC",
+                        f"{case['case_id']}: oracle={ore.rule_id} expected={case['expected_oracle_rule']}",
+                    )
                 if (
                     rec.rule_id != ore.rule_id
                     or rec.source_identity != ore.source_identity
@@ -1272,8 +1289,21 @@ class KernelValidator:
                 "disagreements": disagreements,
                 "bounded_domain_disagreements": disagreements,
                 "domain_limitations": domain_limitations(self.root),
+                "coverage_type": report["coverage_type"],
+                "declared_axes": len(report["declared_axes"]),
+                "covered_axes": len(report["covered_axes"]),
+                "missing_axes": len(report["missing_axes"]),
+                "missing_axis_values": len(report["missing_values"]),
+                "domain_coverage": report,
             }
         )
+        if report["missing_axes"] or report["missing_values"]:
+            st.fail(
+                "KR-DOMAIN-AXIS-COVERAGE",
+                f"missing_axes={report['missing_axes']} missing_values={report['missing_values']}",
+            )
+        if report["coverage_type"] not in {"FULL_CARTESIAN", "PAIRWISE", "WITNESS_PLUS_AXIS"}:
+            st.fail("KR-DOMAIN-COVERAGE-TYPE", f"invalid coverage type {report['coverage_type']}")
         if len(clf_rules) != 22:
             st.fail("KR-DOMAIN-CLF-COVERAGE", f"classifier rules {len(clf_rules)}")
         if len(orc_rules) != 22:
@@ -1293,7 +1323,6 @@ class KernelValidator:
         ]
         base = compute_state_b(legacy_sources=src, durable_outcomes=outcomes)
 
-        # Monkeypatch classifier/oracle/state_a modules if imported — State B must ignore.
         import tools.round5a_kernel.classification_reference as cr
         import tools.round5a_kernel.oracle_reference as ore
         import tools.round5a_kernel.state_a_reference as sa
@@ -1313,7 +1342,6 @@ class KernelValidator:
             ore.classify_oracle = original_o
             sa.compute_state_a = original_a
 
-        # Signature must not accept classifier/expected fields.
         try:
             compute_state_b(
                 legacy_sources=src,
@@ -1331,11 +1359,17 @@ class KernelValidator:
         assert self.recon is not None
         from copy import deepcopy
 
-        from tools.round5a_kernel.bounded_domain import generate_domain_cases
+        from tools.round5a_kernel.bounded_domain import (
+            coverage_report,
+            generate_domain_cases,
+            generate_domain_cases_from_doc,
+            load_bounded_domain,
+        )
         from tools.round5a_kernel.oracle_reference import classify_oracle
-        from tools.round5a_kernel.models import KernelError, PredicateResult
+        from tools.round5a_kernel.models import ClassificationRecord, KernelError, PredicateResult
         from tools.round5a_kernel import predicate_engine as pe
         from tools.round5a_kernel import classification_reference as cr
+        from tools.round5a_kernel import oracle_reference as ore_mod
 
         rules = deepcopy(self.recon["rules"])
         cases = {c["case_id"]: c for c in generate_domain_cases(self.root)}
@@ -1344,65 +1378,170 @@ class KernelValidator:
         seed22 = cases["seed_rule-22"]
         original_eval = pe.PredicateEngine.evaluate
         real_classify = cr.classify_source
-        detected = 0
+        real_oracle = ore_mod.classify_oracle
+        reports: list[dict[str, Any]] = []
+
+        def record(
+            mutation_id: str,
+            corruption_applied: str,
+            validation_stage_executed: str,
+            expected_error_code: str,
+            actual_error_code: str | None,
+            detected: bool,
+            *,
+            tautological: bool = False,
+        ) -> None:
+            reports.append(
+                {
+                    "mutation_id": mutation_id,
+                    "corruption_applied": corruption_applied,
+                    "validation_stage_executed": validation_stage_executed,
+                    "expected_error_code": expected_error_code,
+                    "actual_error_code": actual_error_code,
+                    "detected": detected,
+                    "tautological": tautological,
+                }
+            )
+            if not detected:
+                st.fail(expected_error_code, f"{mutation_id} undetected")
 
         def pair(source, rs, facts, computed=None, contexts=None):
             rec = real_classify(source, rs, contexts=contexts, computed=computed)
-            ore = classify_oracle(source, facts=facts)
+            ore = real_oracle(source, facts=facts)
             return rec, ore
 
+        # 1 order swap
         rmut = deepcopy(rules)
         for r in rmut:
             if r["rule_id"] == "RULE-05":
                 r["order"] = 21
-        rec, ore = pair(seed5["source"], rmut, seed5["oracle_facts"], seed5.get("classifier_computed"), seed5.get("classifier_contexts"))
-        if rec.rule_id != ore.rule_id:
-            detected += 1
-        else:
-            st.fail("KR-MUTATION-ORDER", "order swap undetected")
+        rec, ore = pair(
+            seed5["source"],
+            rmut,
+            seed5["oracle_facts"],
+            seed5.get("classifier_computed"),
+            seed5.get("classifier_contexts"),
+        )
+        detected = rec.rule_id != ore.rule_id
+        record(
+            "mutation_1_order_swap",
+            "swap RULE-05 order to 21",
+            "differential_pair",
+            "KR-MUTATION-ORDER",
+            "KR-MUTATION-ORDER" if detected else None,
+            detected,
+        )
 
+        # 2 predicate mutation
         rmut = deepcopy(rules)
         for r in rmut:
             if r["rule_id"] == "RULE-17":
                 r["predicate"] = {"node": "any", "predicates": []}
+        actual = None
+        detected = False
         try:
             rec, ore = pair(seed17["source"], rmut, seed17["oracle_facts"])
-            if rec.rule_id != ore.rule_id:
-                detected += 1
-            else:
-                st.fail("KR-MUTATION-PRED", "predicate mutation undetected")
+            detected = rec.rule_id != ore.rule_id
+            actual = "KR-MUTATION-PRED" if detected else None
         except KernelError:
-            detected += 1
+            detected = True
+            actual = "KR-MUTATION-PRED"
+        record(
+            "mutation_2_predicate",
+            "empty RULE-17 predicate",
+            "differential_pair",
+            "KR-MUTATION-PRED",
+            actual,
+            detected,
+        )
 
+        # 3 slot mutation
         rmut = deepcopy(rules)
         for r in rmut:
             if r["rule_id"] == "RULE-17":
                 r["outcome_constructor"]["slot_type"] = "mutated_slot"
         rec, ore = pair(seed17["source"], rmut, seed17["oracle_facts"])
-        if rec.outcome_slot != ore.outcome_slot:
-            detected += 1
-        else:
-            st.fail("KR-MUTATION-SLOT", "slot mutation undetected")
+        detected = rec.outcome_slot != ore.outcome_slot
+        record(
+            "mutation_3_slot",
+            "mutate RULE-17 outcome slot_type",
+            "differential_pair",
+            "KR-MUTATION-SLOT",
+            "KR-MUTATION-SLOT" if detected else None,
+            detected,
+        )
 
-        ore = classify_oracle({**seed17["source"], "status": "released"}, facts={})
+        # 4 oracle fact/source mutation
+        ore = real_oracle({**seed17["source"], "status": "released"}, facts={})
         rec = real_classify(seed17["source"], rules)
-        if rec.rule_id != ore.rule_id:
-            detected += 1
-        else:
-            st.fail("KR-MUTATION-ORACLE", "oracle mutation undetected")
+        detected = rec.rule_id != ore.rule_id
+        record(
+            "mutation_4_oracle_input",
+            "oracle source status forced to released",
+            "differential_pair",
+            "KR-MUTATION-ORACLE",
+            "KR-MUTATION-ORACLE" if detected else None,
+            detected,
+        )
 
-        if "seed_rule-22" in cases and len(cases) > 1:
-            detected += 1
-        else:
-            st.fail("KR-MUTATION-DOMAIN", "domain reduction undetected")
+        # 5 real domain-axis deletion
+        domain_doc = load_bounded_domain(self.root)
+        mutated_doc = deepcopy(domain_doc)
+        target_axis = "related_row_cardinality"
+        target_value = "duplicate"
+        mutated_doc["seeded_cases"] = [
+            c
+            for c in mutated_doc.get("seeded_cases") or []
+            if (c.get("axis_values") or {}).get(target_axis) != target_value
+            and not (
+                (c.get("oracle_facts") or {}).get("duplicate_case_attempt")
+                or (c.get("oracle_facts") or {}).get("duplicate_idempotency")
+                or (c.get("oracle_facts") or {}).get("duplicate_envelope_link")
+            )
+        ]
+        mutated_doc["sweep_cases"] = list(mutated_doc.get("sweep_cases") or [])
+        mutated_cases = generate_domain_cases_from_doc(mutated_doc)
+        cov = coverage_report(doc=domain_doc, cases=mutated_cases)
+        reach_clf: set[str] = set()
+        for case in mutated_cases:
+            try:
+                reach_clf.add(
+                    real_classify(
+                        case["source"],
+                        rules,
+                        contexts=case.get("classifier_contexts"),
+                        computed=case.get("classifier_computed"),
+                    ).rule_id
+                )
+            except Exception:
+                pass
+        coverage_failed = bool(cov["missing_values"]) or bool(cov["missing_axes"])
+        reachability_failed = len(reach_clf) < 22
+        detected = coverage_failed or reachability_failed
+        actual = "KR-MUTATION-DOMAIN-AXIS-REMOVAL-UNDETECTED" if detected else None
+        record(
+            "mutation_5_domain_axis_removal",
+            f"remove cases covering {target_axis}={target_value}",
+            "domain_coverage_and_rule_reachability",
+            "KR-MUTATION-DOMAIN-AXIS-REMOVAL-UNDETECTED",
+            actual,
+            detected,
+        )
 
+        # 6 nullify missing→null divergence
         rec = real_classify(seed22["source"], rules)
-        ore = classify_oracle({**seed22["source"], "status": None}, facts={})
-        if rec.rule_id != ore.rule_id:
-            detected += 1
-        else:
-            st.fail("KR-MUTATION-NULLIFY", "missing-to-null undetected")
+        ore = real_oracle({**seed22["source"], "status": None}, facts={})
+        detected = rec.rule_id != ore.rule_id
+        record(
+            "mutation_6_nullify",
+            "force missing status to present-null for oracle",
+            "differential_pair",
+            "KR-MUTATION-NULLIFY",
+            "KR-MUTATION-NULLIFY" if detected else None,
+            detected,
+        )
 
+        # 7 UNKNOWN→TRUE
         def unknown_true(self, node):
             result = original_eval(self, node)
             return PredicateResult.TRUE if result is PredicateResult.UNKNOWN else result
@@ -1413,17 +1552,34 @@ class KernelValidator:
             node = {
                 "node": "compare",
                 "op": "eq",
-                "left": {"operand_kind": "field_ref", "field_ref": {"scope": "source_record", "path": ["status"], "data_type": "string", "nullable": True}},
-                "right": {"operand_kind": "typed_literal", "typed_literal": {"data_type": "string", "value": "reserved"}},
+                "left": {
+                    "operand_kind": "field_ref",
+                    "field_ref": {
+                        "scope": "source_record",
+                        "path": ["status"],
+                        "data_type": "string",
+                        "nullable": True,
+                    },
+                },
+                "right": {
+                    "operand_kind": "typed_literal",
+                    "typed_literal": {"data_type": "string", "value": "reserved"},
+                },
                 "null_semantics": "NULL_IS_UNKNOWN",
             }
-            if eng.evaluate(node) is PredicateResult.TRUE:
-                detected += 1
-            else:
-                st.fail("KR-MUTATION-UNKNOWN", "UNKNOWN-to-TRUE undetected")
+            detected = eng.evaluate(node) is PredicateResult.TRUE
         finally:
             pe.PredicateEngine.evaluate = original_eval
+        record(
+            "mutation_7_unknown_true",
+            "PredicateEngine UNKNOWN coerced to TRUE",
+            "predicate_semantics",
+            "KR-MUTATION-UNKNOWN",
+            "KR-MUTATION-UNKNOWN" if detected else None,
+            detected,
+        )
 
+        # 8 INVALID→FALSE
         def invalid_false(self, node):
             result = original_eval(self, node)
             return PredicateResult.FALSE if result is PredicateResult.INVALID else result
@@ -1434,20 +1590,36 @@ class KernelValidator:
             node = {
                 "node": "compare",
                 "op": "eq",
-                "left": {"operand_kind": "field_ref", "field_ref": {"scope": "source_record", "path": ["status"], "data_type": "string", "nullable": True}},
-                "right": {"operand_kind": "typed_literal", "typed_literal": {"data_type": "string", "value": "reserved"}},
+                "left": {
+                    "operand_kind": "field_ref",
+                    "field_ref": {
+                        "scope": "source_record",
+                        "path": ["status"],
+                        "data_type": "string",
+                        "nullable": True,
+                    },
+                },
+                "right": {
+                    "operand_kind": "typed_literal",
+                    "typed_literal": {"data_type": "string", "value": "reserved"},
+                },
                 "null_semantics": "NULL_IS_VALUE",
             }
-            if eng.evaluate(node) is PredicateResult.FALSE:
-                detected += 1
-            else:
-                st.fail("KR-MUTATION-INVALID", "INVALID-to-FALSE undetected")
+            detected = eng.evaluate(node) is PredicateResult.FALSE
         finally:
             pe.PredicateEngine.evaluate = original_eval
+        record(
+            "mutation_8_invalid_false",
+            "PredicateEngine INVALID coerced to FALSE",
+            "predicate_semantics",
+            "KR-MUTATION-INVALID",
+            "KR-MUTATION-INVALID" if detected else None,
+            detected,
+        )
 
+        # 9 classifier hardcode RULE-22
         def always22(source, rules_arg, **kwargs):
             rec = real_classify(source, rules_arg, **kwargs)
-            from tools.round5a_kernel.models import ClassificationRecord
             return ClassificationRecord(
                 source_identity=rec.source_identity,
                 rule_id="RULE-22",
@@ -1463,28 +1635,93 @@ class KernelValidator:
         cr.classify_source = always22
         try:
             rec = cr.classify_source(seed17["source"], rules)
-            ore = classify_oracle(seed17["source"], facts={})
-            if rec.rule_id != ore.rule_id:
-                detected += 1
-            else:
-                st.fail("KR-MUTATION-HARDCODE", "RULE-22 hardcode undetected")
+            ore = real_oracle(seed17["source"], facts={})
+            detected = rec.rule_id != ore.rule_id
         finally:
             cr.classify_source = real_classify
+        record(
+            "mutation_9_hardcode_rule22",
+            "classifier forced to RULE-22",
+            "differential_pair",
+            "KR-MUTATION-HARDCODE",
+            "KR-MUTATION-HARDCODE" if detected else None,
+            detected,
+        )
 
-        def oracle_calls_classifier(source, facts=None):
-            return real_classify(source, rules)
+        # 10 real oracle→classifier coupling (static + runtime)
+        oracle_path = self.path("tools/round5a_kernel/oracle_reference.py")
+        tree = ast.parse(oracle_path.read_text(encoding="utf-8"))
+        static_coupled = False
+        for node in ast.walk(tree):
+            mods: list[str] = []
+            if isinstance(node, ast.ImportFrom) and node.module:
+                mods.append(node.module)
+            if isinstance(node, ast.Import):
+                mods.extend(a.name for a in node.names)
+            for mod in mods:
+                if "classification_reference" in mod.split("."):
+                    static_coupled = True
+        independent_before = real_oracle(seed17["source"], facts={})
 
-        freevars = oracle_calls_classifier.__code__.co_freevars
-        names = oracle_calls_classifier.__code__.co_names
-        if "real_classify" in freevars or "real_classify" in names or "classify_source" in names:
-            detected += 1
-        else:
-            st.fail("KR-MUTATION-ORACLE-CALLS-CLF", "oracle classifier call not detectable")
+        def coupled_oracle(source, facts=None):
+            return cr.classify_source(source, rules)
 
-        st.metrics["mutation_detections"] = detected
-        st.metrics["mutation_sensitivity_failures"] = len([e for e in st.errors if e["code"].startswith("KR-MUTATION")])
-        if detected < 10:
-            st.fail("KR-MUTATION-COUNT", f"only {detected} mutations detected")
+        def corrupt_classify(source, rules_arg, **kwargs):
+            rec = real_classify(source, rules_arg, **kwargs)
+            return ClassificationRecord(
+                source_identity=rec.source_identity,
+                rule_id="RULE-22",
+                order=22,
+                outcome_slot=rec.outcome_slot,
+                failure_state="failed_frozen",
+                actions=rec.actions,
+                decisive_fields=rec.decisive_fields,
+                predicate_trace=rec.predicate_trace,
+                fallback=True,
+            )
+
+        ore_mod.classify_oracle = coupled_oracle  # type: ignore[assignment]
+        cr.classify_source = corrupt_classify  # type: ignore[assignment]
+        try:
+            coupled = ore_mod.classify_oracle(seed17["source"], facts={})
+            corrupted_clf = cr.classify_source(seed17["source"], rules)
+            runtime_detected = (
+                coupled.rule_id == corrupted_clf.rule_id == "RULE-22"
+                and independent_before.rule_id != "RULE-22"
+            )
+            # Closure-only local Boolean must not satisfy this mutation.
+            closure_only = "real_classify" in coupled_oracle.__code__.co_freevars
+            detected = (static_coupled or runtime_detected) and runtime_detected and not (
+                closure_only and not runtime_detected
+            )
+            actual = "KR-MUTATION-ORACLE-CLASSIFIER-COUPLING-UNDETECTED" if detected else None
+        finally:
+            ore_mod.classify_oracle = real_oracle
+            cr.classify_source = real_classify
+        record(
+            "mutation_10_oracle_classifier_coupling",
+            "monkeypatch oracle to delegate to classifier; corrupt classifier to RULE-22",
+            "proof_independence_and_differential",
+            "KR-MUTATION-ORACLE-CLASSIFIER-COUPLING-UNDETECTED",
+            actual,
+            detected,
+        )
+
+        genuine = [r for r in reports if not r["tautological"]]
+        detected_n = sum(1 for r in genuine if r["detected"])
+        tautological_n = sum(1 for r in reports if r["tautological"])
+        st.metrics["mutation_reports"] = reports
+        st.metrics["genuine_mutations"] = len(genuine)
+        st.metrics["mutation_detections"] = detected_n
+        st.metrics["tautological_mutations"] = tautological_n
+        st.metrics["mutation_sensitivity_failures"] = len(
+            [e for e in st.errors if e["code"].startswith("KR-MUTATION")]
+        )
+        if len(genuine) != 10 or detected_n != 10 or tautological_n != 0:
+            st.fail(
+                "KR-MUTATION-COUNT",
+                f"genuine={len(genuine)} detected={detected_n} tautological={tautological_n}",
+            )
 
     def _bounded_domain_comparison(self) -> None:
         # Retained name for compatibility; differential stage is authoritative.
@@ -1506,10 +1743,18 @@ class KernelValidator:
             "State B invalid cases detected": metrics.get("state_b_invalid_cases_detected"),
             "bounded-domain disagreements": metrics.get("bounded_domain_disagreements"),
             "privilege oracle failures": metrics.get("privilege_oracle_failures"),
+            "privilege path oracle failures": metrics.get("privilege_path_oracle_failures", 0),
+            "domain coverage failures": len(metrics.get("domain_coverage", {}).get("missing_values", []))
+            + len(metrics.get("domain_coverage", {}).get("missing_axes", [])),
+            "missing axes": metrics.get("missing_axes", 0),
+            "missing axis values": metrics.get("missing_axis_values", 0),
             "null oracle failures": metrics.get("null_oracle_failures"),
             "State B oracle failures": metrics.get("state_b_oracle_failures"),
             "proof-independence failures": metrics.get("proof_independence_failures"),
             "mutation-sensitivity failures": metrics.get("mutation_sensitivity_failures"),
+            "genuine mutations": metrics.get("genuine_mutations"),
+            "mutation detections": metrics.get("mutation_detections"),
+            "tautological mutations": metrics.get("tautological_mutations"),
         }
         expected = {
             "privilege_object_kinds": 5,
@@ -1521,10 +1766,17 @@ class KernelValidator:
             "State B invalid cases detected": "all",
             "bounded-domain disagreements": 0,
             "privilege oracle failures": 0,
+            "privilege path oracle failures": 0,
+            "domain coverage failures": 0,
+            "missing axes": 0,
+            "missing axis values": 0,
             "null oracle failures": 0,
             "State B oracle failures": 0,
             "proof-independence failures": 0,
             "mutation-sensitivity failures": 0,
+            "genuine mutations": 10,
+            "mutation detections": 10,
+            "tautological mutations": 0,
         }
         for key, exp in expected.items():
             if checks.get(key) != exp:
@@ -1543,6 +1795,7 @@ class KernelValidator:
 
 
 def build_manifest(root: Path) -> dict[str, Any]:
+    """Pure manifest builder: returns an in-memory object; never writes."""
     artifacts = []
     roles = {
         "docs/ROUND_5A_EXECUTABLE_KERNEL_RESET.md": "decision_document",
@@ -1576,32 +1829,47 @@ def build_manifest(root: Path) -> dict[str, Any]:
     }
 
 
+def manifest_bytes(root: Path) -> bytes:
+    """Deterministic manifest serialization without writing."""
+    return (json.dumps(build_manifest(root), indent=2) + "\n").encode("utf-8")
+
+
+def write_manifest(root: Path, destination: Path) -> bytes:
+    """Write manifest only to an explicitly provided destination."""
+    data = manifest_bytes(root)
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(data)
+    return data
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate Round 5A executable kernel")
     parser.add_argument("--root", default=".", help="repository root")
     parser.add_argument("--report", required=True, help="report json path")
     parser.add_argument(
         "--write-manifest",
-        action="store_true",
-        help="rewrite kernel_manifest.json hashes from current files",
+        nargs="?",
+        const="specs/round5a_kernel/kernel_manifest.json",
+        default=None,
+        help="write manifest to an explicit destination (default path if flag alone)",
     )
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
     if not root.is_dir():
         print("root is not a directory", file=sys.stderr)
         return 2
-    if args.write_manifest:
-        manifest = build_manifest(root)
-        (root / "specs/round5a_kernel/kernel_manifest.json").write_text(
-            json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
-        )
+    if args.write_manifest is not None:
+        dest = Path(args.write_manifest)
+        if not dest.is_absolute():
+            dest = root / dest
+        write_manifest(root, dest)
     validator = KernelValidator(root)
     report = validator.run()
     report_path = Path(args.report)
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"final_status": report.get("final_status"), "report": str(report_path)}, indent=2))
     return int(report.get("exit_hint", 2))
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
