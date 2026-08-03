@@ -92,7 +92,8 @@
   "limitations": [
     "Finite cartesian product over declared axes only; not universal proof.",
     "Conflict-rule axes are activated one-at-a-time in seeded witness cases to keep the domain bounded.",
-    "Does not inspect classifier predicates or oracle internals at generation time."
+    "Does not inspect classifier predicates or oracle internals at generation time.",
+    "Coverage classification: WITNESS_PLUS_AXIS (seeded witnesses plus per-axis value cases; not FULL_CARTESIAN)."
   ],
   "seeded_cases": [
     {
@@ -123,7 +124,13 @@
       },
       "oracle_facts": {},
       "classifier_contexts": {},
-      "classifier_computed_flags": []
+      "classifier_computed_flags": [],
+      "axis_values": {
+        "related_row_cardinality": "zero",
+        "identity_validity": "valid"
+      },
+      "expected_classifier_rule": "RULE-02",
+      "expected_oracle_rule": "RULE-02"
     },
     {
       "case_id": "seed_rule-03",
@@ -191,7 +198,13 @@
       "classifier_contexts": {},
       "classifier_computed_flags": [
         "duplicate_case_attempt"
-      ]
+      ],
+      "axis_values": {
+        "related_row_cardinality": "duplicate",
+        "identity_validity": "valid"
+      },
+      "expected_classifier_rule": "RULE-06",
+      "expected_oracle_rule": "RULE-06"
     },
     {
       "case_id": "seed_rule-07",
@@ -396,7 +409,13 @@
       },
       "oracle_facts": {},
       "classifier_contexts": {},
-      "classifier_computed_flags": []
+      "classifier_computed_flags": [],
+      "axis_values": {
+        "related_row_cardinality": "one",
+        "identity_validity": "valid"
+      },
+      "expected_classifier_rule": "RULE-17",
+      "expected_oracle_rule": "RULE-17"
     },
     {
       "case_id": "seed_rule-18",
@@ -471,6 +490,158 @@
       "oracle_facts": {},
       "classifier_contexts": {},
       "classifier_computed_flags": []
+    },
+    {
+      "case_id": "axis_related_row_zero",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01",
+        "pilot_proposal_id": null,
+        "authorization_id": "auth-z",
+        "benchmark_case_id": "case-z",
+        "idempotency_key": "idem-z",
+        "envelope_id": "env-z",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": [],
+      "axis_values": {
+        "related_row_cardinality": "zero",
+        "identity_validity": "valid"
+      },
+      "expected_classifier_rule": "RULE-02",
+      "expected_oracle_rule": "RULE-02"
+    },
+    {
+      "case_id": "axis_related_row_one",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc02",
+        "pilot_proposal_id": "pp-one",
+        "authorization_id": "auth-one",
+        "benchmark_case_id": "case-one",
+        "idempotency_key": "idem-one",
+        "envelope_id": "env-one",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": [],
+      "axis_values": {
+        "related_row_cardinality": "one",
+        "identity_validity": "valid"
+      },
+      "expected_classifier_rule": "RULE-17",
+      "expected_oracle_rule": "RULE-17"
+    },
+    {
+      "case_id": "axis_related_row_duplicate",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc03",
+        "pilot_proposal_id": "pp-dup",
+        "authorization_id": "auth-dup",
+        "benchmark_case_id": "case-dup",
+        "idempotency_key": "idem-dup",
+        "envelope_id": "env-dup",
+        "status": "reserved"
+      },
+      "oracle_facts": {
+        "duplicate_case_attempt": true
+      },
+      "classifier_contexts": {},
+      "classifier_computed_flags": [
+        "duplicate_case_attempt"
+      ],
+      "axis_values": {
+        "related_row_cardinality": "duplicate",
+        "identity_validity": "valid"
+      },
+      "expected_classifier_rule": "RULE-06",
+      "expected_oracle_rule": "RULE-06"
+    },
+    {
+      "case_id": "axis_identity_valid",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc04",
+        "pilot_proposal_id": "pp-v",
+        "authorization_id": "auth-v",
+        "benchmark_case_id": "case-v",
+        "idempotency_key": "idem-v",
+        "envelope_id": "env-v",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": [],
+      "axis_values": {
+        "related_row_cardinality": "one",
+        "identity_validity": "valid"
+      },
+      "expected_classifier_rule": "RULE-17",
+      "expected_oracle_rule": "RULE-17"
+    },
+    {
+      "case_id": "axis_identity_missing_component",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc05",
+        "pilot_proposal_id": null,
+        "authorization_id": "auth-m",
+        "benchmark_case_id": "case-m",
+        "idempotency_key": "idem-m",
+        "envelope_id": "env-m",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": [],
+      "axis_values": {
+        "related_row_cardinality": "zero",
+        "identity_validity": "missing_component"
+      },
+      "expected_classifier_rule": "RULE-02",
+      "expected_oracle_rule": "RULE-02"
+    },
+    {
+      "case_id": "axis_identity_normalization_collision_candidate",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc06",
+        "pilot_proposal_id": "pp-coll",
+        "authorization_id": "auth-coll",
+        "benchmark_case_id": "case-coll",
+        "idempotency_key": "idem-coll",
+        "envelope_id": "env-coll",
+        "status": "reserved"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": [],
+      "axis_values": {
+        "related_row_cardinality": "one",
+        "identity_validity": "normalization_collision_candidate"
+      },
+      "normalization_collision": true,
+      "expected_classifier_rule": "RULE-17",
+      "expected_oracle_rule": "RULE-17"
+    },
+    {
+      "case_id": "axis_envelope_missing",
+      "source": {
+        "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc07",
+        "pilot_proposal_id": "pp-em",
+        "authorization_id": "auth-em",
+        "benchmark_case_id": "case-em",
+        "idempotency_key": "idem-em"
+      },
+      "oracle_facts": {},
+      "classifier_contexts": {},
+      "classifier_computed_flags": [],
+      "axis_values": {
+        "envelope_id": "MISSING",
+        "related_row_cardinality": "one",
+        "identity_validity": "valid",
+        "status": "MISSING"
+      },
+      "expected_classifier_rule": "RULE-22",
+      "expected_oracle_rule": "RULE-22"
     }
   ],
   "sweep_cases": [
