@@ -1,0 +1,33 @@
+{
+  "generator_name": "generate_round5a_docs",
+  "generator_version": "1.1.0",
+  "specification_schema_version": "1.1.0",
+  "registry_version": "1.1.0",
+  "normative_sources": {
+    "specs/round5a/catalog_contract.yaml": "61aa1b058c224908ecfe9e18164826a6fc097551f993c1dde2c60d121c1fe53a",
+    "specs/round5a/checkpoints.yaml": "fdc4047ba03e621a9fae2b443124c4e302b3549b225001b3811173fd200c09d6",
+    "specs/round5a/evidence_aliases.yaml": "489bbf0a51d06d6505d8d41bb28a0877ad91a04f4622776d2a07089f08d884c7",
+    "specs/round5a/fixtures/checkpoint_oracles.yaml": "66136228e6d8110a86efd5f0c139c77848a6c9c47dd3cc7b56e0e5ae23b4a6d4",
+    "specs/round5a/fixtures/privilege_cases.yaml": "745b90d9a065d628255b1ce3b8b8619b648a5226e634e7a860a964f25d7d8266",
+    "specs/round5a/fixtures/reconciliation_witnesses.yaml": "1ba95a157bb1a6acca3c114b29f7e4b2d9cfbd7314685c3dd6c6c6fe37b4292b",
+    "specs/round5a/reconciliation_rules.yaml": "c187ec468ec9e8f806dd4ac877b503c274489aa235ded5d03b07317137349295",
+    "specs/round5a/registry_manifest.yaml": "0adc71a9e37d220b28e0259f53135c64330fc54b5f8e1f6281507c0915bb8f7c",
+    "specs/round5a/schema/round5a_registry.schema.json": "b06912bc615dc0cd55e8e76c868841d102e22f7f3f959e43f0b96cbaf730e825"
+  },
+  "generated_outputs": {
+    "docs/generated/round5a/ARCHITECTURE.md": "2ca39a101fe009acaa5067a2868abd6898b04833f1a35829700065e349010399",
+    "docs/generated/round5a/VERIFICATION.md": "0043c14da072b4721df00580830ac01b332ad9f2a0ddcd7ea5ed48a273b60c40",
+    "docs/generated/round5a/TRACEABILITY.md": "2e6f209539a36a2bfb1ad2db6b5c9295d47e0b8c67bcd3a3bf0547475e94c6cf"
+  },
+  "counts": {
+    "evidence_markers": 31,
+    "reconstructed": 17,
+    "live_preflight": 11,
+    "runtime_revalidation": 3,
+    "checkpoints": 18,
+    "rules": 22,
+    "witnesses": 22,
+    "boundaries": 21,
+    "shadowing_pairs": 231
+  }
+}
