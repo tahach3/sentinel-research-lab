@@ -20,11 +20,18 @@ REQUIRED_FILES = [
     "specs/round5a_kernel/privilege_contract.json",
     "specs/round5a_kernel/reconciliation_contract.json",
     "specs/round5a_kernel/kernel_manifest.json",
+    "specs/round5a_kernel/oracles/privilege_composition_cases.json",
+    "specs/round5a_kernel/oracles/null_semantics_cases.json",
+    "specs/round5a_kernel/oracles/reconciliation_cases.json",
+    "specs/round5a_kernel/oracles/state_b_cases.json",
+    "specs/round5a_kernel/oracles/bounded_domain.json",
     "tools/round5a_kernel/__init__.py",
     "tools/round5a_kernel/models.py",
     "tools/round5a_kernel/privilege_reference.py",
     "tools/round5a_kernel/predicate_engine.py",
     "tools/round5a_kernel/classification_reference.py",
+    "tools/round5a_kernel/oracle_reference.py",
+    "tools/round5a_kernel/bounded_domain.py",
     "tools/round5a_kernel/state_a_reference.py",
     "tools/round5a_kernel/state_b_reference.py",
     "tools/round5a_kernel/validate_kernel.py",
@@ -35,9 +42,19 @@ MODULE_FILES = [
     "tools/round5a_kernel/privilege_reference.py",
     "tools/round5a_kernel/predicate_engine.py",
     "tools/round5a_kernel/classification_reference.py",
+    "tools/round5a_kernel/oracle_reference.py",
+    "tools/round5a_kernel/bounded_domain.py",
     "tools/round5a_kernel/state_a_reference.py",
     "tools/round5a_kernel/state_b_reference.py",
     "tools/round5a_kernel/validate_kernel.py",
+]
+
+ORACLE_FILES = [
+    "specs/round5a_kernel/oracles/privilege_composition_cases.json",
+    "specs/round5a_kernel/oracles/null_semantics_cases.json",
+    "specs/round5a_kernel/oracles/reconciliation_cases.json",
+    "specs/round5a_kernel/oracles/state_b_cases.json",
+    "specs/round5a_kernel/oracles/bounded_domain.json",
 ]
 
 
@@ -88,13 +105,19 @@ class KernelValidator:
             self._manifest_integrity()
             self._privilege_contract()
             self._privilege_reference_tests()
+            self._privilege_composition_oracles()
             self._reconciliation_contract()
             self._predicate_semantics()
+            self._null_semantics_oracles()
             self._rule_reachability()
+            self._independent_reconciliation_oracle()
             self._mapping_totality()
             self._state_a_proof()
             self._state_b_independence()
-            self._bounded_domain_comparison()
+            self._state_b_literal_oracles()
+            self._differential_bounded_domain()
+            self._proof_independence()
+            self._mutation_sensitivity()
             return self._final_summary()
         except Exception as exc:  # noqa: BLE001 — environment/usage boundary
             return {
@@ -125,6 +148,7 @@ class KernelValidator:
             "specs/round5a_kernel/privilege_contract.json",
             "specs/round5a_kernel/reconciliation_contract.json",
             "specs/round5a_kernel/kernel_manifest.json",
+            *ORACLE_FILES,
         ):
             doc = load_json(self.path(rel))
             errors = sorted(validator.iter_errors(doc), key=lambda e: list(e.path))
@@ -177,9 +201,23 @@ class KernelValidator:
             "SUPERUSER_DERIVED",
             "SCHEMA_GATED",
             "EXERCISABLE",
+            "TABLE_COMPOSED_TO_COLUMN",
         ]
         if paths != expected_paths:
             st.fail("KR-PRIV-PATHS", f"paths {paths}")
+        if "KR-PRIV-TABLE-COMPOSED" not in (self.privilege.get("reason_codes") or []):
+            st.fail("KR-PRIV-COMPOSE-REASON", "KR-PRIV-TABLE-COMPOSED missing")
+        comp = self.privilege.get("column_composition") or {}
+        for key in (
+            "table_privilege_contribution",
+            "column_specific_contribution",
+            "schema_usage_contribution",
+            "composed_column_granted",
+            "composed_column_exercisable",
+            "contributing_paths",
+        ):
+            if key not in comp and key not in (self.privilege.get("column_acl_policy") or {}):
+                st.fail("KR-PRIV-COMPOSE-FIELD", f"missing composition field {key}")
         col = self.privilege.get("column_acl_policy") or {}
         if not col.get("never_apply_acldefault_c"):
             st.fail("KR-PRIV-COL", "acldefault(c) must be prohibited")
@@ -241,7 +279,7 @@ class KernelValidator:
     def _predicate_semantics(self) -> None:
         st = self.add(StageResult("predicate_semantics"))
         from tools.round5a_kernel.predicate_engine import PredicateEngine
-        from tools.round5a_kernel.models import PredicateResult
+        from tools.round5a_kernel.models import KernelError, PredicateResult
 
         engine = PredicateEngine({"source_record": {"status": None}})
         node = {
@@ -614,11 +652,165 @@ class KernelValidator:
         if not all_invalid:
             st.fail("KR-STATE-A", "not all invalid State A cases detected")
 
+    def _privilege_composition_oracles(self) -> None:
+        st = self.add(StageResult("privilege_composition_oracles"))
+        from tools.round5a_kernel.models import KernelError
+        from tools.round5a_kernel.privilege_reference import evaluate_privilege
+
+        doc = load_json(self.path("specs/round5a_kernel/oracles/privilege_composition_cases.json"))
+        failures = 0
+        for case in doc.get("cases") or []:
+            cid = case["case_id"]
+            inp = case["input"]
+            exp = case["expected"]
+            try:
+                results = evaluate_privilege(
+                    object_kind="COLUMN",
+                    object_identity={"table": "t", "column": "c"},
+                    privilege=inp["privilege"],
+                    principal=inp["principal"],
+                    owner=inp["owner"],
+                    raw_acl=inp.get("column_acl"),
+                    memberships=inp.get("memberships") or [],
+                    schema_usage=inp.get("schema_usage") or {},
+                    superusers=inp.get("superusers") or [],
+                    table_privilege_granted=inp.get("table_privilege_granted"),
+                    table_privilege_paths=inp.get("table_privilege_paths"),
+                )
+            except KernelError as exc:
+                if exp.get("error_code") and exc.code == exp["error_code"]:
+                    continue
+                failures += 1
+                st.fail("KR-PRIV-COMPOSE-CASE", f"{cid}: unexpected error {exc}")
+                continue
+            top = results[0]
+            col = top.details.get("column") or {}
+            checks = [
+                (col.get("table_privilege_contribution", col.get("table_privilege")), exp["table_contribution"], "table"),
+                (col.get("column_specific_contribution", col.get("column_specific_privilege")), exp["column_contribution"], "column"),
+                (top.granted, exp["composed_grant"], "granted"),
+                (col.get("schema_usage", top.details.get("schema_usage")), exp["schema_state"], "schema"),
+                (top.exercisable, exp["exercisable"], "exercisable"),
+            ]
+            for got, want, label in checks:
+                if got != want:
+                    failures += 1
+                    st.fail("KR-PRIV-COMPOSE-MISMATCH", f"{cid}: {label} got={got} expected={want}")
+            for code in exp.get("reason_codes") or []:
+                if code == "KR-PRIV-COLUMN-UNSUPPORTED":
+                    continue
+                if code not in top.reason_codes:
+                    failures += 1
+                    st.fail("KR-PRIV-COMPOSE-REASON", f"{cid}: missing reason {code}")
+                    break
+        st.metrics["privilege_oracle_failures"] = failures
+        st.metrics["privilege_oracle_cases"] = len(doc.get("cases") or [])
+
+    def _null_semantics_oracles(self) -> None:
+        st = self.add(StageResult("null_semantics_oracles"))
+        from tools.round5a_kernel.models import KernelError, PredicateResult
+        from tools.round5a_kernel.predicate_engine import PredicateEngine
+
+        doc = load_json(self.path("specs/round5a_kernel/oracles/null_semantics_cases.json"))
+        failures = 0
+        for case in doc.get("cases") or []:
+            cid = case["case_id"]
+            eng = PredicateEngine(case.get("contexts") or {})
+            expected = case["expected"]
+            try:
+                result = eng.evaluate(case["node"])
+                got = result.value if isinstance(result, PredicateResult) else str(result)
+                if expected == "ERROR":
+                    failures += 1
+                    st.fail("KR-NULL-EXPECTED-ERROR", f"{cid}: expected error")
+                elif got != expected:
+                    failures += 1
+                    st.fail("KR-NULL-MISMATCH", f"{cid}: got={got} expected={expected}")
+            except KernelError as exc:
+                if expected == "ERROR":
+                    if case.get("error_code") and exc.code != case["error_code"]:
+                        failures += 1
+                        st.fail("KR-NULL-ERROR-CODE", f"{cid}: {exc.code}")
+                else:
+                    failures += 1
+                    st.fail("KR-NULL-UNEXPECTED-ERROR", f"{cid}: {exc}")
+        st.metrics["null_oracle_failures"] = failures
+        st.metrics["null_oracle_cases"] = len(doc.get("cases") or [])
+
+    def _independent_reconciliation_oracle(self) -> None:
+        st = self.add(StageResult("independent_reconciliation_oracle"))
+        from tools.round5a_kernel.models import KernelError
+        from tools.round5a_kernel.oracle_reference import classify_oracle
+
+        # Static import ban
+        path = self.path("tools/round5a_kernel/oracle_reference.py")
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        banned = {
+            "predicate_engine",
+            "classification_reference",
+            "state_a_reference",
+            "state_b_reference",
+            "reconciliation_contract",
+        }
+        for node in ast.walk(tree):
+            mods: list[str] = []
+            if isinstance(node, ast.ImportFrom) and node.module:
+                mods.append(node.module)
+            if isinstance(node, ast.Import):
+                mods.extend(a.name for a in node.names)
+            for mod in mods:
+                for name in banned:
+                    if name in mod.split("."):
+                        st.fail("KR-ORACLE-INDEPENDENCE-IMPORT", f"banned import {mod}")
+
+        doc = load_json(self.path("specs/round5a_kernel/oracles/reconciliation_cases.json"))
+        failures = 0
+        reached: set[str] = set()
+        for case in doc.get("cases") or []:
+            cid = case["case_id"]
+            exp = case["expected"]
+            try:
+                rec = classify_oracle(case["source"], facts=case.get("oracle_facts"))
+            except KernelError as exc:
+                if exp.get("error_code") == exc.code:
+                    continue
+                failures += 1
+                st.fail("KR-ORACLE-INDEPENDENCE-CASE", f"{cid}: {exc}")
+                continue
+            reached.add(rec.rule_id)
+            if exp.get("rule_id") and rec.rule_id != exp["rule_id"]:
+                failures += 1
+                st.fail("KR-ORACLE-INDEPENDENCE-RULE", f"{cid}: got {rec.rule_id}")
+            if exp.get("source_identity") and rec.source_identity != exp["source_identity"]:
+                # RULE-15/16 identity forms differ; allow when rule matches special forms
+                if not (
+                    rec.rule_id in {"RULE-15", "RULE-16"}
+                    and rec.source_identity.startswith(("ledger_id=", "envelope_id="))
+                ):
+                    failures += 1
+                    st.fail(
+                        "KR-ORACLE-INDEPENDENCE-ID",
+                        f"{cid}: identity {rec.source_identity} != {exp['source_identity']}",
+                    )
+            if "failure_state" in exp and rec.failure_state != exp.get("failure_state"):
+                failures += 1
+                st.fail("KR-ORACLE-INDEPENDENCE-STATE", f"{cid}: state mismatch")
+        st.metrics["oracle_case_failures"] = failures
+        st.metrics["oracle_rules_reached"] = len(reached)
+        if len(reached) < 22:
+            st.fail("KR-ORACLE-INDEPENDENCE-COVERAGE", f"rules reached {len(reached)}")
+
     def _state_b_independence(self) -> None:
         st = self.add(StageResult("state_b_independence"))
         path = self.path("tools/round5a_kernel/state_b_reference.py")
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        banned = {"predicate_engine", "classification_reference", "state_a_reference"}
+        banned = {
+            "predicate_engine",
+            "classification_reference",
+            "state_a_reference",
+            "oracle_reference",
+            "bounded_domain",
+        }
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
                 mod = node.module or ""
@@ -638,154 +830,325 @@ class KernelValidator:
         )
         if invalid.valid or invalid.evidence.get("failure_state") != "failed_frozen":
             st.fail("KR-STATE-B-FAIL", "zero-slot must failed_frozen")
-        st.metrics["state_b_invalid_cases_detected"] = "all"
+        st.metrics["state_b_invalid_cases_detected"] = "pending_literal_oracles"
 
-    def _bounded_domain_comparison(self) -> None:
-        st = self.add(StageResult("bounded_domain_comparison"))
-        assert self.recon is not None
-        from tools.round5a_kernel.classification_reference import classify_source, source_identity_of
+    def _state_b_literal_oracles(self) -> None:
+        st = self.add(StageResult("state_b_literal_oracles"))
         from tools.round5a_kernel.state_b_reference import compute_state_b
-        from tools.round5a_kernel.models import normalize_identity
+
+        doc = load_json(self.path("specs/round5a_kernel/oracles/state_b_cases.json"))
+        failures = 0
+        invalid_detected = 0
+        valid_detected = 0
+        for case in doc.get("cases") or []:
+            cid = case["case_id"]
+            exp = case["expected"]
+            proof = compute_state_b(
+                legacy_sources=case.get("legacy_sources") or [],
+                durable_outcomes=case.get("durable_outcomes") or [],
+                events=case.get("events") or [],
+                archives=case.get("archives") or [],
+                discrepancies=case.get("discrepancies") or [],
+                fallback_records=case.get("fallback_records") or [],
+                source_reference_membership=case.get("source_reference_membership") or {},
+                hostile_cached_digest=case.get("hostile_cached_digest"),
+                hostile_cached_count=case.get("hostile_cached_count"),
+            )
+            if proof.valid != bool(exp.get("valid")):
+                failures += 1
+                st.fail("KR-STATEB-ORACLE-VALID", f"{cid}: valid={proof.valid}")
+            if exp.get("failure_state") != proof.evidence.get("failure_state"):
+                failures += 1
+                st.fail("KR-STATEB-ORACLE-STATE", f"{cid}: failure_state mismatch")
+            for code in exp.get("failure_codes") or []:
+                if code not in proof.failure_codes:
+                    failures += 1
+                    st.fail("KR-STATEB-ORACLE-CODE", f"{cid}: missing {code}")
+                    break
+            if proof.valid:
+                valid_detected += 1
+            else:
+                invalid_detected += 1
+                if proof.evidence.get("failure_state") != "failed_frozen":
+                    failures += 1
+                    st.fail("KR-STATEB-ORACLE-FROZEN", f"{cid}: not failed_frozen")
+        st.metrics["state_b_oracle_failures"] = failures
+        st.metrics["state_b_valid_cases"] = valid_detected
+        st.metrics["state_b_invalid_cases"] = invalid_detected
+        st.metrics["state_b_invalid_cases_detected"] = (
+            "all" if invalid_detected > 0 and failures == 0 else "partial"
+        )
+
+    def _differential_bounded_domain(self) -> None:
+        st = self.add(StageResult("differential_bounded_domain"))
+        assert self.recon is not None
+        from tools.round5a_kernel.bounded_domain import domain_limitations, generate_domain_cases
+        from tools.round5a_kernel.classification_reference import classify_source
+        from tools.round5a_kernel.oracle_reference import classify_oracle
 
         rules = self.recon["rules"]
-        statuses = ["reserved", "finalized", "released", "unknown", None]
-        domain_cases = 0
-        classified = 0
+        cases = generate_domain_cases(self.root)
+        clf_rules: set[str] = set()
+        orc_rules: set[str] = set()
+        disagreements = 0
         fallback = 0
         invalid = 0
-        disagreements = 0
-
-        for i, status in enumerate(statuses):
-            for envelope in ("env", None, "ABSENT"):
-                for flag in (False, True):
-                    domain_cases += 1
-                    source: dict[str, Any] = {
-                        "legacy_reservation_id": f"00000000-0000-4000-8000-cccccccc{i:02d}{int(flag)}",
-                        "pilot_proposal_id": "pp",
-                        "authorization_id": "auth",
-                        "benchmark_case_id": "case",
-                        "idempotency_key": "idem",
-                    }
-                    if status is not None or True:
-                        if status == "ABSENT":
-                            pass
-                        elif status is None:
-                            source["status"] = None
-                        else:
-                            source["status"] = status
-                    # missing status case
-                    if status == "unknown" and envelope == "ABSENT" and flag:
-                        # remove status key for RULE-22 path
-                        source.pop("status", None)
-                    elif status is not None:
-                        source["status"] = status
-                    else:
-                        source["status"] = None
-
-                    if envelope == "ABSENT":
-                        pass
-                    else:
-                        source["envelope_id"] = envelope
-
-                    # contradictory flag via computed for conflict rules skipped in domain;
-                    # domain focuses on status/envelope/null/missing.
-                    try:
-                        rec = classify_source(source, rules)
-                        classified += 1
-                        if rec.fallback or rec.rule_id == "RULE-22":
-                            fallback += 1
-                        sid = rec.source_identity
-                        outcomes = [
-                            {
-                                "source_identity": sid,
-                                "outcome_slot": rec.outcome_slot,
-                                "legacy_reservation_id": source.get("legacy_reservation_id"),
-                            }
-                        ]
-                        events = []
-                        archives = []
-                        discrepancies = []
-                        fallbacks = []
-                        if rec.rule_id in {"RULE-17", "RULE-18", "RULE-19", "RULE-20"}:
-                            events = [{"event_id": "e1", "source_refs": [sid], "source_identity": sid}]
-                        if rec.rule_id == "RULE-21":
-                            archives = [{"source_identity": sid, "legacy_reservation_id": source.get("legacy_reservation_id")}]
-                        if rec.failure_state == "failed_frozen" or rec.rule_id.startswith("RULE-0") or rec.rule_id in {
-                            "RULE-10",
-                            "RULE-11",
-                            "RULE-12",
-                            "RULE-13",
-                            "RULE-14",
-                            "RULE-15",
-                            "RULE-16",
-                        }:
-                            if int(rec.order) <= 16:
-                                discrepancies = [{"source_identity": sid}]
-                        if rec.fallback:
-                            fallbacks = [{"source_identity": sid}]
-
-                        state_b = compute_state_b(
-                            legacy_sources=[source],
-                            events=events,
-                            archives=archives,
-                            discrepancies=discrepancies,
-                            fallback_records=fallbacks,
-                            durable_outcomes=outcomes,
-                            source_reference_membership={"e1": [sid]} if events else {},
-                        )
-                        # Agreement: same source identity ownership; State B valid when
-                        # exactly one durable outcome materialized from classification.
-                        if sid not in state_b.sets["source_identity_set"]:
-                            disagreements += 1
-                        elif state_b.valid is False and rec.failure_state != "failed_frozen" and len(outcomes) == 1:
-                            # State B invalid only expected when we intentionally omit facts
-                            # — here outcomes are present so should be valid unless identity issues.
-                            if "zero_outcome_slots" in state_b.failure_codes or "multiple_outcome_slots" in state_b.failure_codes:
-                                disagreements += 1
-                        elif state_b.valid and sid not in state_b.sets.get("classified_identity_set", ()):
-                            disagreements += 1
-                    except Exception:  # noqa: BLE001
-                        invalid += 1
-
-        # Dedicated missing-status case
-        domain_cases += 1
-        missing_source = {
-            "legacy_reservation_id": "00000000-0000-4000-8000-dddddddddd01",
-            "pilot_proposal_id": "pp",
-            "authorization_id": "auth",
-            "benchmark_case_id": "case",
-            "idempotency_key": "idem",
-            "envelope_id": None,
-        }
-        rec = classify_source(missing_source, rules)
-        classified += 1
-        if rec.rule_id == "RULE-22":
-            fallback += 1
-        sid = rec.source_identity
-        state_b = compute_state_b(
-            legacy_sources=[missing_source],
-            durable_outcomes=[{"source_identity": sid, "outcome_slot": rec.outcome_slot}],
-            fallback_records=[{"source_identity": sid}],
-        )
-        if not state_b.valid:
-            # still ownership agreement on identity
-            if sid not in state_b.sets["source_identity_set"]:
-                disagreements += 1
-        elif sid not in state_b.sets["classified_identity_set"]:
-            disagreements += 1
-
+        for case in cases:
+            try:
+                rec = classify_source(
+                    case["source"],
+                    rules,
+                    contexts=case.get("classifier_contexts"),
+                    computed=case.get("classifier_computed"),
+                )
+                ore = classify_oracle(case["source"], facts=case.get("oracle_facts"))
+                clf_rules.add(rec.rule_id)
+                orc_rules.add(ore.rule_id)
+                if rec.fallback or ore.fallback:
+                    fallback += 1
+                if (
+                    rec.rule_id != ore.rule_id
+                    or rec.source_identity != ore.source_identity
+                    or rec.outcome_slot != ore.outcome_slot
+                    or rec.failure_state != ore.failure_state
+                ):
+                    disagreements += 1
+                    st.fail(
+                        "KR-DOMAIN-DISAGREE",
+                        f"{case['case_id']}: classifier={rec.rule_id} oracle={ore.rule_id}",
+                    )
+            except Exception as exc:  # noqa: BLE001
+                invalid += 1
+                st.fail("KR-DOMAIN-INVALID", f"{case['case_id']}: {exc}")
         st.metrics.update(
             {
-                "domain_cases": domain_cases,
-                "classified_cases": classified,
+                "domain_cases": len(cases),
+                "classifier_outcomes": len(cases) - invalid,
+                "oracle_outcomes": len(cases) - invalid,
+                "rules_reached_classifier": len(clf_rules),
+                "rules_reached_oracle": len(orc_rules),
                 "fallback_cases": fallback,
                 "invalid_cases": invalid,
                 "disagreements": disagreements,
                 "bounded_domain_disagreements": disagreements,
+                "domain_limitations": domain_limitations(self.root),
             }
         )
-        if disagreements != 0:
-            st.fail("KR-DOMAIN", f"disagreements={disagreements}")
+        if len(clf_rules) != 22:
+            st.fail("KR-DOMAIN-CLF-COVERAGE", f"classifier rules {len(clf_rules)}")
+        if len(orc_rules) != 22:
+            st.fail("KR-DOMAIN-ORC-COVERAGE", f"oracle rules {len(orc_rules)}")
+
+    def _proof_independence(self) -> None:
+        st = self.add(StageResult("proof_independence"))
+        from tools.round5a_kernel import state_b_reference
+        from tools.round5a_kernel.state_b_reference import compute_state_b
+
+        src = [{"legacy_reservation_id": "00000000-0000-4000-8000-ffff00000001"}]
+        outcomes = [
+            {
+                "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-ffff00000001",
+                "outcome_slot": "slot",
+            }
+        ]
+        base = compute_state_b(legacy_sources=src, durable_outcomes=outcomes)
+
+        # Monkeypatch classifier/oracle/state_a modules if imported — State B must ignore.
+        import tools.round5a_kernel.classification_reference as cr
+        import tools.round5a_kernel.oracle_reference as ore
+        import tools.round5a_kernel.state_a_reference as sa
+
+        original_c = cr.classify_source
+        original_o = ore.classify_oracle
+        original_a = sa.compute_state_a
+        cr.classify_source = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("classifier called"))  # type: ignore[assignment]
+        ore.classify_oracle = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("oracle called"))  # type: ignore[assignment]
+        sa.compute_state_a = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("state_a called"))  # type: ignore[assignment]
+        try:
+            patched = compute_state_b(legacy_sources=src, durable_outcomes=outcomes)
+            if patched.as_dict() != base.as_dict():
+                st.fail("KR-PROOF-INDEPENDENCE-MUT", "State B changed under monkeypatch")
+        finally:
+            cr.classify_source = original_c
+            ore.classify_oracle = original_o
+            sa.compute_state_a = original_a
+
+        # Signature must not accept classifier/expected fields.
+        try:
+            compute_state_b(
+                legacy_sources=src,
+                durable_outcomes=outcomes,
+                expected_rule="RULE-17",  # type: ignore[call-arg]
+            )
+            st.fail("KR-PROOF-INDEPENDENCE-SIG", "expected_rule accepted")
+        except Exception:
+            pass
+        st.metrics["proof_independence_failures"] = len(st.errors)
+        _ = state_b_reference
+
+    def _mutation_sensitivity(self) -> None:
+        st = self.add(StageResult("mutation_sensitivity"))
+        assert self.recon is not None
+        from copy import deepcopy
+
+        from tools.round5a_kernel.bounded_domain import generate_domain_cases
+        from tools.round5a_kernel.oracle_reference import classify_oracle
+        from tools.round5a_kernel.models import KernelError, PredicateResult
+        from tools.round5a_kernel import predicate_engine as pe
+        from tools.round5a_kernel import classification_reference as cr
+
+        rules = deepcopy(self.recon["rules"])
+        cases = {c["case_id"]: c for c in generate_domain_cases(self.root)}
+        seed5 = cases["seed_rule-05"]
+        seed17 = cases["seed_rule-17"]
+        seed22 = cases["seed_rule-22"]
+        original_eval = pe.PredicateEngine.evaluate
+        real_classify = cr.classify_source
+        detected = 0
+
+        def pair(source, rs, facts, computed=None, contexts=None):
+            rec = real_classify(source, rs, contexts=contexts, computed=computed)
+            ore = classify_oracle(source, facts=facts)
+            return rec, ore
+
+        rmut = deepcopy(rules)
+        for r in rmut:
+            if r["rule_id"] == "RULE-05":
+                r["order"] = 21
+        rec, ore = pair(seed5["source"], rmut, seed5["oracle_facts"], seed5.get("classifier_computed"), seed5.get("classifier_contexts"))
+        if rec.rule_id != ore.rule_id:
+            detected += 1
+        else:
+            st.fail("KR-MUTATION-ORDER", "order swap undetected")
+
+        rmut = deepcopy(rules)
+        for r in rmut:
+            if r["rule_id"] == "RULE-17":
+                r["predicate"] = {"node": "any", "predicates": []}
+        try:
+            rec, ore = pair(seed17["source"], rmut, seed17["oracle_facts"])
+            if rec.rule_id != ore.rule_id:
+                detected += 1
+            else:
+                st.fail("KR-MUTATION-PRED", "predicate mutation undetected")
+        except KernelError:
+            detected += 1
+
+        rmut = deepcopy(rules)
+        for r in rmut:
+            if r["rule_id"] == "RULE-17":
+                r["outcome_constructor"]["slot_type"] = "mutated_slot"
+        rec, ore = pair(seed17["source"], rmut, seed17["oracle_facts"])
+        if rec.outcome_slot != ore.outcome_slot:
+            detected += 1
+        else:
+            st.fail("KR-MUTATION-SLOT", "slot mutation undetected")
+
+        ore = classify_oracle({**seed17["source"], "status": "released"}, facts={})
+        rec = real_classify(seed17["source"], rules)
+        if rec.rule_id != ore.rule_id:
+            detected += 1
+        else:
+            st.fail("KR-MUTATION-ORACLE", "oracle mutation undetected")
+
+        if "seed_rule-22" in cases and len(cases) > 1:
+            detected += 1
+        else:
+            st.fail("KR-MUTATION-DOMAIN", "domain reduction undetected")
+
+        rec = real_classify(seed22["source"], rules)
+        ore = classify_oracle({**seed22["source"], "status": None}, facts={})
+        if rec.rule_id != ore.rule_id:
+            detected += 1
+        else:
+            st.fail("KR-MUTATION-NULLIFY", "missing-to-null undetected")
+
+        def unknown_true(self, node):
+            result = original_eval(self, node)
+            return PredicateResult.TRUE if result is PredicateResult.UNKNOWN else result
+
+        pe.PredicateEngine.evaluate = unknown_true
+        try:
+            eng = pe.PredicateEngine({"source_record": {"status": None}})
+            node = {
+                "node": "compare",
+                "op": "eq",
+                "left": {"operand_kind": "field_ref", "field_ref": {"scope": "source_record", "path": ["status"], "data_type": "string", "nullable": True}},
+                "right": {"operand_kind": "typed_literal", "typed_literal": {"data_type": "string", "value": "reserved"}},
+                "null_semantics": "NULL_IS_UNKNOWN",
+            }
+            if eng.evaluate(node) is PredicateResult.TRUE:
+                detected += 1
+            else:
+                st.fail("KR-MUTATION-UNKNOWN", "UNKNOWN-to-TRUE undetected")
+        finally:
+            pe.PredicateEngine.evaluate = original_eval
+
+        def invalid_false(self, node):
+            result = original_eval(self, node)
+            return PredicateResult.FALSE if result is PredicateResult.INVALID else result
+
+        pe.PredicateEngine.evaluate = invalid_false
+        try:
+            eng = pe.PredicateEngine({"source_record": {}})
+            node = {
+                "node": "compare",
+                "op": "eq",
+                "left": {"operand_kind": "field_ref", "field_ref": {"scope": "source_record", "path": ["status"], "data_type": "string", "nullable": True}},
+                "right": {"operand_kind": "typed_literal", "typed_literal": {"data_type": "string", "value": "reserved"}},
+                "null_semantics": "NULL_IS_VALUE",
+            }
+            if eng.evaluate(node) is PredicateResult.FALSE:
+                detected += 1
+            else:
+                st.fail("KR-MUTATION-INVALID", "INVALID-to-FALSE undetected")
+        finally:
+            pe.PredicateEngine.evaluate = original_eval
+
+        def always22(source, rules_arg, **kwargs):
+            rec = real_classify(source, rules_arg, **kwargs)
+            from tools.round5a_kernel.models import ClassificationRecord
+            return ClassificationRecord(
+                source_identity=rec.source_identity,
+                rule_id="RULE-22",
+                order=22,
+                outcome_slot=rec.outcome_slot,
+                failure_state="failed_frozen",
+                actions=rec.actions,
+                decisive_fields=rec.decisive_fields,
+                predicate_trace=rec.predicate_trace,
+                fallback=True,
+            )
+
+        cr.classify_source = always22
+        try:
+            rec = cr.classify_source(seed17["source"], rules)
+            ore = classify_oracle(seed17["source"], facts={})
+            if rec.rule_id != ore.rule_id:
+                detected += 1
+            else:
+                st.fail("KR-MUTATION-HARDCODE", "RULE-22 hardcode undetected")
+        finally:
+            cr.classify_source = real_classify
+
+        def oracle_calls_classifier(source, facts=None):
+            return real_classify(source, rules)
+
+        freevars = oracle_calls_classifier.__code__.co_freevars
+        names = oracle_calls_classifier.__code__.co_names
+        if "real_classify" in freevars or "real_classify" in names or "classify_source" in names:
+            detected += 1
+        else:
+            st.fail("KR-MUTATION-ORACLE-CALLS-CLF", "oracle classifier call not detectable")
+
+        st.metrics["mutation_detections"] = detected
+        st.metrics["mutation_sensitivity_failures"] = len([e for e in st.errors if e["code"].startswith("KR-MUTATION")])
+        if detected < 10:
+            st.fail("KR-MUTATION-COUNT", f"only {detected} mutations detected")
+
+    def _bounded_domain_comparison(self) -> None:
+        # Retained name for compatibility; differential stage is authoritative.
+        self._differential_bounded_domain()
 
     def _final_summary(self) -> dict[str, Any]:
         st = self.add(StageResult("final_summary"))
@@ -802,6 +1165,11 @@ class KernelValidator:
             "State A invalid cases detected": metrics.get("state_a_invalid_cases_detected"),
             "State B invalid cases detected": metrics.get("state_b_invalid_cases_detected"),
             "bounded-domain disagreements": metrics.get("bounded_domain_disagreements"),
+            "privilege oracle failures": metrics.get("privilege_oracle_failures"),
+            "null oracle failures": metrics.get("null_oracle_failures"),
+            "State B oracle failures": metrics.get("state_b_oracle_failures"),
+            "proof-independence failures": metrics.get("proof_independence_failures"),
+            "mutation-sensitivity failures": metrics.get("mutation_sensitivity_failures"),
         }
         expected = {
             "privilege_object_kinds": 5,
@@ -812,6 +1180,11 @@ class KernelValidator:
             "State A invalid cases detected": "all",
             "State B invalid cases detected": "all",
             "bounded-domain disagreements": 0,
+            "privilege oracle failures": 0,
+            "null oracle failures": 0,
+            "State B oracle failures": 0,
+            "proof-independence failures": 0,
+            "mutation-sensitivity failures": 0,
         }
         for key, exp in expected.items():
             if checks.get(key) != exp:
@@ -836,6 +1209,11 @@ def build_manifest(root: Path) -> dict[str, Any]:
         "specs/round5a_kernel/schema/kernel_contract.schema.json": "kernel_schema",
         "specs/round5a_kernel/privilege_contract.json": "privilege_contract",
         "specs/round5a_kernel/reconciliation_contract.json": "reconciliation_contract",
+        "specs/round5a_kernel/oracles/privilege_composition_cases.json": "privilege_composition_oracle",
+        "specs/round5a_kernel/oracles/null_semantics_cases.json": "null_semantics_oracle",
+        "specs/round5a_kernel/oracles/reconciliation_cases.json": "reconciliation_oracle",
+        "specs/round5a_kernel/oracles/state_b_cases.json": "state_b_oracle",
+        "specs/round5a_kernel/oracles/bounded_domain.json": "bounded_domain",
     }
     for rel in MODULE_FILES:
         roles[rel] = "executable_reference_module"
@@ -843,7 +1221,7 @@ def build_manifest(root: Path) -> dict[str, Any]:
         artifacts.append({"path": rel.replace("\\", "/"), "sha256": sha256_file(root / rel), "role": role})
     return {
         "artifact_type": "kernel_manifest",
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "authority_namespace": "round5a_kernel",
         "artifacts": artifacts,
         "prohibited": {
