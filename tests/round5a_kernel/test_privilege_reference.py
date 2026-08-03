@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+
+from tools.round5a_kernel.models import KernelError
 from tools.round5a_kernel.privilege_reference import (
     evaluate_privilege,
     resolve_effective_acl,
@@ -216,11 +219,13 @@ def test_column_null_attacl_independence() -> None:
         owner="postgres",
         raw_acl=None,
         schema_usage=_schemas(),
-        table_privilege_granted=True,
+        table_raw_acl=[{"grantee": "research_app", "privileges": ["UPDATE"]}],
     )[0]
     assert r.details["column"]["null_attacl"] is True
     assert r.details["column"]["acldefault_c_applied"] is False
     assert r.details["column"]["table_privilege"] is True
+    assert r.details["column"]["table_paths"] == ["DIRECT"]
+    assert r.details["column"]["column_paths"] == []
     assert r.granted is True
     assert r.exercisable is True
     assert r.path == "TABLE_COMPOSED_TO_COLUMN"
@@ -239,6 +244,7 @@ def test_column_null_attacl_independence() -> None:
         table_privilege_granted=False,
     )[0]
     assert col_only.details["column"]["column_specific_privilege"] is True
+    assert col_only.details["column"]["column_paths"] == ["DIRECT"]
     assert col_only.granted is True
     assert col_only.exercisable is True
 
@@ -250,12 +256,129 @@ def test_column_null_attacl_independence() -> None:
         owner="postgres",
         raw_acl=[],
         schema_usage=_schemas(),
-        table_privilege_granted=True,
+        table_raw_acl=[{"grantee": "research_app", "privileges": ["UPDATE"]}],
     )[0]
     assert empty.details["column"]["empty_attacl"] is True
     assert empty.granted is True
     assert empty.exercisable is True
     assert empty.object_identity  # retained identity even when ACL empty
+
+
+def test_privilege_paths_derived_from_raw_facts() -> None:
+    memberships = [
+        {"member": "research_app", "granted_role": "gov", "set_role_only": False},
+        {"member": "research_app", "granted_role": "elev", "set_role_only": True},
+    ]
+    direct = evaluate_privilege(
+        object_kind="COLUMN",
+        object_identity={"table": "t", "column": "c"},
+        privilege="UPDATE",
+        principal="research_app",
+        owner="postgres",
+        raw_acl=None,
+        memberships=memberships,
+        schema_usage=_schemas(),
+        table_raw_acl=[{"grantee": "research_app", "privileges": ["UPDATE"]}],
+    )[0]
+    assert direct.details["column"]["table_paths"] == ["DIRECT"]
+
+    public = evaluate_privilege(
+        object_kind="COLUMN",
+        object_identity={"table": "t", "column": "c"},
+        privilege="UPDATE",
+        principal="research_app",
+        owner="postgres",
+        raw_acl=None,
+        schema_usage=_schemas(),
+        table_raw_acl=[{"grantee": "PUBLIC", "privileges": ["UPDATE"]}],
+    )[0]
+    assert public.details["column"]["table_paths"] == ["PUBLIC_DERIVED"]
+
+    inherited = evaluate_privilege(
+        object_kind="COLUMN",
+        object_identity={"table": "t", "column": "c"},
+        privilege="UPDATE",
+        principal="research_app",
+        owner="postgres",
+        raw_acl=None,
+        memberships=memberships,
+        schema_usage=_schemas(),
+        table_raw_acl=[{"grantee": "gov", "privileges": ["UPDATE"]}],
+    )[0]
+    assert inherited.details["column"]["table_paths"] == ["INHERITED"]
+
+    set_role = evaluate_privilege(
+        object_kind="COLUMN",
+        object_identity={"table": "t", "column": "c"},
+        privilege="UPDATE",
+        principal="research_app",
+        owner="postgres",
+        raw_acl=None,
+        memberships=memberships,
+        schema_usage=_schemas(),
+        table_raw_acl=[{"grantee": "elev", "privileges": ["UPDATE"]}],
+    )[0]
+    assert set_role.details["column"]["table_paths"] == ["SET_ROLE_ONLY"]
+
+    owner = evaluate_privilege(
+        object_kind="COLUMN",
+        object_identity={"table": "t", "column": "c"},
+        privilege="UPDATE",
+        principal="postgres",
+        owner="postgres",
+        raw_acl=[],
+        schema_usage=_schemas("postgres"),
+        table_raw_acl=[],
+        table_privilege_granted=True,
+    )[0]
+    assert owner.details["column"]["table_paths"] == ["OWNER_DERIVED"]
+    assert owner.details["column"]["column_paths"] == ["OWNER_DERIVED"]
+
+    su = evaluate_privilege(
+        object_kind="COLUMN",
+        object_identity={"table": "t", "column": "c"},
+        privilege="UPDATE",
+        principal="research_app",
+        owner="other",
+        raw_acl=[],
+        schema_usage=_schemas(ok=False),
+        superusers=["research_app"],
+        table_raw_acl=[],
+        table_privilege_granted=True,
+    )[0]
+    assert su.details["column"]["table_paths"] == ["SUPERUSER_DERIVED"]
+
+
+def test_fabricated_path_inputs_rejected() -> None:
+    with pytest.raises(KernelError) as ei:
+        evaluate_privilege(
+            object_kind="COLUMN",
+            object_identity={"table": "t", "column": "c"},
+            privilege="UPDATE",
+            principal="research_app",
+            owner="postgres",
+            raw_acl=None,
+            schema_usage=_schemas(),
+            table_raw_acl=[{"grantee": "research_app", "privileges": ["UPDATE"]}],
+            table_privilege_paths=["INHERITED"],
+        )
+    assert ei.value.code == "KR-PRIV-PATH-FABRICATED"
+
+
+def test_schema_denied_preserves_underlying_paths() -> None:
+    r = evaluate_privilege(
+        object_kind="COLUMN",
+        object_identity={"table": "t", "column": "c"},
+        privilege="UPDATE",
+        principal="research_app",
+        owner="postgres",
+        raw_acl=None,
+        schema_usage={"research_app": False},
+        table_raw_acl=[{"grantee": "research_app", "privileges": ["UPDATE"]}],
+    )[0]
+    assert r.path == "SCHEMA_GATED"
+    assert r.details["column"]["table_paths"] == ["DIRECT"]
+    assert "KR-PRIV-SCHEMA-DENIED" in r.reason_codes
 
 
 def test_default_privilege_owner_mismatch() -> None:
