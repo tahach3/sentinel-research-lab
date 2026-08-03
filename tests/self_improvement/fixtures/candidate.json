@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "candidate_id": "cand-pilot-001",
+  "repository": "sentinel-research-lab",
+  "problem": "Missing a short documentation note and fixture marker for the offline self-improvement pilot.",
+  "evidence": [
+    "docs/SELF_IMPROVEMENT_LOOP_V1.md describes the offline pilot requirement",
+    "No SELF_IMPROVEMENT_NOTE.md exists in the temporary pilot repository"
+  ],
+  "expected_benefit": "Prove bounded docs+tests improvement without live AI calls.",
+  "success_metrics": [
+    "documentation file created",
+    "fixture marker created",
+    "DOCUMENTATION_ONLY validation passes"
+  ],
+  "risk_indicators": [],
+  "source_agent": "srl-research-agent",
+  "created_from_run": "offline-pilot-run-001"
+}
