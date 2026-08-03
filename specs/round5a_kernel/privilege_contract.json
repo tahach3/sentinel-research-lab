@@ -1,0 +1,133 @@
+{
+  "artifact_type": "privilege_contract",
+  "schema_version": "1.0.0",
+  "authority_namespace": "round5a_kernel",
+  "decisions": ["KR-ND-001"],
+  "object_kinds": ["SCHEMA", "FUNCTION", "TABLE", "COLUMN", "SEQUENCE"],
+  "principals": ["ROLE", "PUBLIC", "OWNER", "SUPERUSER"],
+  "privilege_paths": [
+    "DIRECT",
+    "PUBLIC_DERIVED",
+    "INHERITED",
+    "SET_ROLE_ONLY",
+    "OWNER_DERIVED",
+    "SUPERUSER_DERIVED",
+    "SCHEMA_GATED",
+    "EXERCISABLE"
+  ],
+  "acl_defaults": {
+    "FUNCTION": {
+      "effective_acl": "COALESCE(proacl, acldefault('f', proowner))",
+      "acldefault_entries": [
+        {"grantee": "PUBLIC", "privileges": ["EXECUTE"], "grant_option": false},
+        {"grantee": "OWNER", "privileges": ["EXECUTE"], "grant_option": true}
+      ]
+    },
+    "TABLE": {
+      "effective_acl": "COALESCE(relacl, acldefault('r', relowner))",
+      "acldefault_entries": [
+        {
+          "grantee": "OWNER",
+          "privileges": ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"],
+          "grant_option": true
+        }
+      ]
+    },
+    "SEQUENCE": {
+      "effective_acl": "COALESCE(relacl, acldefault('s', relowner))",
+      "acldefault_entries": [
+        {
+          "grantee": "OWNER",
+          "privileges": ["SELECT", "UPDATE", "USAGE"],
+          "grant_option": true
+        }
+      ]
+    },
+    "COLUMN": {
+      "null_attacl": "no_column_specific_acl",
+      "acldefault_c_prohibited": true,
+      "effective_acl": "attacl_when_present_else_empty_column_specific_set"
+    },
+    "SCHEMA": {
+      "effective_acl": "COALESCE(nspacl, acldefault('n', nspowner))",
+      "acldefault_entries": [
+        {
+          "grantee": "OWNER",
+          "privileges": ["USAGE", "CREATE"],
+          "grant_option": true
+        }
+      ]
+    }
+  },
+  "column_acl_policy": {
+    "null_attacl_means": "no_column_specific_acl",
+    "empty_attacl_means": "explicit_empty_column_acl_array",
+    "never_apply_acldefault_c": true,
+    "table_privilege_independent": true,
+    "column_privilege_independent": true,
+    "resulting_column_exercisability": "independent_composition"
+  },
+  "input_facts": {
+    "object_identity": "natural_identity_fields_no_oid",
+    "owner_role": "string_role_name",
+    "acl_field": "null_or_acl_entry_array",
+    "memberships": "member_granted_role_grant_option_edges",
+    "set_role_edges": "roles_reachable_only_via_set_role",
+    "schema_usage": "per_role_schema_usage_fact",
+    "superuser_flags": "per_role_boolean",
+    "security_definer": "function_metadata_boolean_preserved",
+    "default_privilege_owner": "optional_default_acl_owner_role",
+    "discovered_roles": "dynamic_catalog_role_set"
+  },
+  "derivation_rules": {
+    "effective_acl_resolution": "kind_specific_coalesce_or_column_null_policy",
+    "direct_grant": "acl_entry_grantee_equals_principal",
+    "public_derived": "acl_entry_grantee_equals_PUBLIC",
+    "inherited": "membership_closure_without_set_role_only_edges",
+    "set_role_only": "reachable_via_set_role_edge_not_inherit",
+    "owner_derived": "principal_equals_object_owner",
+    "superuser_derived": "principal_superuser_flag_true",
+    "schema_gated": "object_privilege_and_schema_usage",
+    "exercisable": "granted_and_schema_gate_satisfied",
+    "column_composition": "table_level_and_column_specific_evaluated_separately"
+  },
+  "distinctions": [
+    "null_acl",
+    "explicitly_empty_acl_array",
+    "public_grant",
+    "public_revoke",
+    "direct_grant",
+    "membership_inheritance",
+    "set_role_reachability",
+    "object_ownership",
+    "superuser_capability",
+    "schema_usage_gating",
+    "privilege_grant_option",
+    "table_level_privilege",
+    "column_level_privilege",
+    "default_privilege_owner",
+    "actual_object_owner",
+    "overload_specific_function_identity"
+  ],
+  "reason_codes": [
+    "KR-PRIV-DIRECT",
+    "KR-PRIV-PUBLIC",
+    "KR-PRIV-INHERITED",
+    "KR-PRIV-SET-ROLE",
+    "KR-PRIV-OWNER",
+    "KR-PRIV-SUPERUSER",
+    "KR-PRIV-SCHEMA-DENIED",
+    "KR-PRIV-NO-GRANT",
+    "KR-PRIV-COLUMN-INDEPENDENT",
+    "KR-PRIV-DEFAULT-OWNER-MISMATCH"
+  ],
+  "prohibited": {
+    "arbitrary_sql": true,
+    "arbitrary_python": true,
+    "executable_strings": true,
+    "shell_commands": true,
+    "templates": true,
+    "eval_content": true,
+    "oid_identities": true
+  }
+}
