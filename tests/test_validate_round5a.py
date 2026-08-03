@@ -22,13 +22,23 @@ NORMATIVE = [
     "specs/round5a/checkpoints.yaml",
     "specs/round5a/reconciliation_rules.yaml",
     "specs/round5a/registry_manifest.yaml",
+    "specs/round5a/evidence_aliases.yaml",
     "specs/round5a/fixtures/reconciliation_witnesses.yaml",
     "specs/round5a/fixtures/checkpoint_oracles.yaml",
     "specs/round5a/fixtures/privilege_cases.yaml",
     "docs/ROUND_5A_REVISION_8_NORMATIVE_DECISION_RECORD.md",
     "docs/ROUND_5A_REVISION_8_EVIDENCE_POLICY.md",
+    "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md",
     "docs/ROUND_5A_SECURITY_BOUNDARY_REDESIGN.md",
     "docs/ROUND_5A_SECURITY_BOUNDARY_TEST_PLAN.md",
+    "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+    "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+    "evidence/round5a/archived_phase1/PROVENANCE.json",
+    "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+    "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+    "evidence/round5a/recreated_phase1/RUN_ORDER.txt",
+    "evidence/round5a/recreated_phase1/SHA256SUMS.txt",
+    "evidence/round5a/recreated_phase1/PROVENANCE.json",
 ]
 
 
@@ -363,6 +373,163 @@ class ValidateRound5ATests(unittest.TestCase):
         code, report = self._run(root)
         self.assertEqual(code, 1)
         self.assertTrue(any(e["code"] == "R5A-EVIDENCE-COUNT" for e in report["errors"]))
+
+    def _refresh_manifest(self, root: Path) -> None:
+        man = self._load(root, "specs/round5a/registry_manifest.yaml")
+        for e in man["registry_manifest"]["artifact_hashes"]:
+            p = root / e["path"]
+            if p.exists():
+                e["sha256"] = v.sha256_file(p)
+        self._dump(root, "specs/round5a/registry_manifest.yaml", man)
+
+    def test_30_valid_alias_registry_passes(self):
+        root = self._clone_repo()
+        code, report = self._run(root)
+        self.assertEqual(code, 0)
+        self.assertEqual(report["final_status"], "PASS")
+        self.assertTrue(any(s["name"] == "evidence_alias_integrity" and s["status"] == "PASS" for s in report["stages"]))
+
+    def test_31_missing_alias_target_fails(self):
+        root = self._clone_repo()
+        doc = self._load(root, "specs/round5a/evidence_aliases.yaml")
+        doc["evidence_alias_registry"]["mappings"][0]["recreated_evidence_ids"] = ["EV-DOES-NOT-EXIST-001"]
+        self._dump(root, "specs/round5a/evidence_aliases.yaml", doc)
+        self._refresh_manifest(root)
+        code, report = self._run(root)
+        self.assertEqual(code, 1)
+        self.assertTrue(any(e["code"] == "R5A-PROV-ALIAS-TARGET-MISSING" for e in report["errors"]))
+
+    def test_32_unmapped_required_ev_fails(self):
+        root = self._clone_repo()
+        doc = self._load(root, "specs/round5a/evidence_aliases.yaml")
+        doc["evidence_alias_registry"]["mappings"] = [
+            m for m in doc["evidence_alias_registry"]["mappings"] if "EV-EXTENSIONS" not in m["current_evidence_ids"]
+        ]
+        self._dump(root, "specs/round5a/evidence_aliases.yaml", doc)
+        self._refresh_manifest(root)
+        code, report = self._run(root)
+        self.assertEqual(code, 1)
+        self.assertTrue(any(e["code"] in {"R5A-PROV-ALIAS-UNMAPPED", "R5A-PROV-ALIAS-MARKER"} for e in report["errors"]))
+
+    def test_33_alias_missing_source_fails(self):
+        root = self._clone_repo()
+        doc = self._load(root, "specs/round5a/evidence_aliases.yaml")
+        for m in doc["evidence_alias_registry"]["mappings"]:
+            if m["mapping_id"] == "MAP-ALIAS-EXT-001":
+                m["archived_evidence_ids"] = ["EV-NOT-IN-ARCHIVE-001"]
+                m["field_mappings"][0]["source_evidence_id"] = "EV-NOT-IN-ARCHIVE-001"
+        self._dump(root, "specs/round5a/evidence_aliases.yaml", doc)
+        self._refresh_manifest(root)
+        code, report = self._run(root)
+        self.assertEqual(code, 1)
+        self.assertTrue(any(e["code"] == "R5A-PROV-ALIAS-SOURCE-MISSING" for e in report["errors"]))
+
+    def test_34_split_uncovered_field_fails(self):
+        root = self._clone_repo()
+        doc = self._load(root, "specs/round5a/evidence_aliases.yaml")
+        for m in doc["evidence_alias_registry"]["mappings"]:
+            if m["mapping_type"] == "SEMANTIC_SPLIT":
+                m["field_mappings"] = []
+                break
+        self._dump(root, "specs/round5a/evidence_aliases.yaml", doc)
+        self._refresh_manifest(root)
+        code, report = self._run(root)
+        self.assertEqual(code, 1)
+        self.assertTrue(any(e["code"] == "R5A-PROV-ALIAS-FIELD-COVERAGE" for e in report["errors"]))
+
+    def test_35_merge_conflicting_field_meaning_fails(self):
+        root = self._clone_repo()
+        doc = self._load(root, "specs/round5a/evidence_aliases.yaml")
+        for m in doc["evidence_alias_registry"]["mappings"]:
+            if m["mapping_type"] == "SEMANTIC_MERGE":
+                m["semantic_equivalence"] = "CONFLICTING_FIELD_MEANING"
+                break
+        self._dump(root, "specs/round5a/evidence_aliases.yaml", doc)
+        self._refresh_manifest(root)
+        code, report = self._run(root)
+        self.assertEqual(code, 1)
+        self.assertTrue(any(e["code"] == "R5A-PROV-ALIAS-FIELD-CONFLICT" for e in report["errors"]))
+
+    def test_36_blocking_conflict_fails(self):
+        root = self._clone_repo()
+        doc = self._load(root, "specs/round5a/evidence_aliases.yaml")
+        doc["evidence_alias_registry"]["mappings"][0]["mapping_type"] = "CONFLICTING_MEANING"
+        doc["evidence_alias_registry"]["mappings"][0]["status"] = "BLOCKING_CONFLICT"
+        self._dump(root, "specs/round5a/evidence_aliases.yaml", doc)
+        self._refresh_manifest(root)
+        code, report = self._run(root)
+        self.assertEqual(code, 1)
+        self.assertTrue(any(e["code"] == "R5A-PROV-ALIAS-CONFLICT" for e in report["errors"]))
+
+    def test_37_incorrect_archived_hash_fails(self):
+        root = self._clone_repo()
+        p = root / "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql"
+        p.write_bytes(p.read_bytes() + b"\n")
+        code, report = self._run(root)
+        self.assertEqual(code, 1)
+        self.assertTrue(any(e["code"] == "R5A-PROV-SOURCE-ARCHIVED-HASH" for e in report["errors"]))
+
+    def test_38_incorrect_recreated_hash_fails(self):
+        root = self._clone_repo()
+        p = root / "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql"
+        p.write_bytes(p.read_bytes() + b"\n")
+        code, report = self._run(root)
+        self.assertEqual(code, 1)
+        self.assertTrue(any(e["code"] == "R5A-PROV-SOURCE-RECREATED-HASH" for e in report["errors"]))
+
+    def test_39_absolute_temp_path_fails(self):
+        root = self._clone_repo()
+        man = self._load(root, "specs/round5a/registry_manifest.yaml")
+        man["registry_manifest"]["generator_version"] = r"C:\Users\tahai\AppData\Local\Temp\bad"
+        self._dump(root, "specs/round5a/registry_manifest.yaml", man)
+        code, report = self._run(root)
+        self.assertEqual(code, 1)
+        self.assertTrue(any(e["code"] in {"R5A-PROV-PATH-ABSOLUTE", "R5A-PROV-PATH-TEMP"} for e in report["errors"]))
+
+    def test_40_absolute_user_profile_path_fails(self):
+        root = self._clone_repo()
+        man = self._load(root, "specs/round5a/registry_manifest.yaml")
+        man["registry_manifest"]["generator_version"] = r"/Users/tahai/bad-path"
+        self._dump(root, "specs/round5a/registry_manifest.yaml", man)
+        code, report = self._run(root)
+        self.assertEqual(code, 1)
+        self.assertTrue(any(e["code"] == "R5A-PROV-PATH-ABSOLUTE" for e in report["errors"]))
+
+    def test_41_false_historical_authentication_fails(self):
+        root = self._clone_repo()
+        prov = self._load(root, "evidence/round5a/archived_phase1/PROVENANCE.json")
+        prov["historical_git_authentication"] = "VERIFIED"
+        self._dump(root, "evidence/round5a/archived_phase1/PROVENANCE.json", prov)
+        self._refresh_manifest(root)
+        code, report = self._run(root)
+        self.assertEqual(code, 1)
+        self.assertTrue(
+            any(e["code"] in {"R5A-PROV-AUTH-HISTORICAL", "R5A-PROV-AUTH-FALSE-CLAIM"} for e in report["errors"])
+        )
+
+    def test_42_marker_counts_remain_17_11_3(self):
+        root = self._clone_repo()
+        code, report = self._run(root)
+        self.assertEqual(code, 0)
+        self.assertEqual(report["counts"]["markers"], 31)
+        self.assertEqual(report["counts"]["reconstructed"], 17)
+        self.assertEqual(report["counts"]["live"], 11)
+        self.assertEqual(report["counts"]["runtime"], 3)
+
+    def test_43_existing_clean_artifact_set_still_passes(self):
+        root = self._clone_repo()
+        code, report = self._run(root)
+        self.assertEqual(code, 0)
+        self.assertEqual(report["final_status"], "PASS")
+        stage_names = {s["name"] for s in report["stages"]}
+        for required in (
+            "evidence_source_integrity",
+            "evidence_alias_integrity",
+            "portable_path_invariants",
+            "evidence_class_invariants",
+            "reconciliation_semantics",
+        ):
+            self.assertIn(required, stage_names)
 
 
 if __name__ == "__main__":

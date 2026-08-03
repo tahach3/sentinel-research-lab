@@ -1,0 +1,16 @@
+{
+  "provenance_status": "HASH_MATCHED_OFFLINE_COPY",
+  "claimed_historical_commit": "8d592bf",
+  "historical_git_authentication": "UNVERIFIED",
+  "current_repository_binding": "COMMIT_CONTAINING_THIS_FILE",
+  "bundle_role": "archived_phase1_query_artifacts",
+  "files": {
+    "SRL_Phase1_catalog_snapshot.sql": "1c4225887c88c9208bc50e69f08443bc65771ca0cce89f563d8d8ffef88cf9b4",
+    "SRL_Phase1_evidence_spec.md": "a121e8d6b2d84d711734e16be5101b3b5cdb54aabb75465dddd753c5a76945a9"
+  },
+  "notes": [
+    "Bytes are accepted as a hash-matched offline copy bound by the provenance repair commit.",
+    "Hash equality does not prove retrieval from claimed historical commit 8d592bf.",
+    "SQL artifacts are query producers, not catalog output rows."
+  ]
+}

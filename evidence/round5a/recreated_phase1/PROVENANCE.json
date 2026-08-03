@@ -1,0 +1,18 @@
+{
+  "provenance_status": "HASH_MATCHED_RECREATED_BUNDLE",
+  "claimed_historical_commit": null,
+  "historical_git_authentication": "NOT_APPLICABLE",
+  "current_repository_binding": "COMMIT_CONTAINING_THIS_FILE",
+  "bundle_role": "recreated_phase1_query_artifacts",
+  "bundle_manifest_sha256": "f7992bddd241693b108b6919240256569fac1e74aa13b6ba97264e05371d48b7",
+  "files": {
+    "SRL_Phase1_catalog_snapshot.sql": "484f1955f587a06b04bf2a5896d32edaba8c903934e1c2f8487f58aa851d5017",
+    "SRL_Phase1_evidence_spec.md": "af6da96a51c26eae8f2e5c9fecc47cad842169b8570a2be4a488b261c28baa41",
+    "RUN_ORDER.txt": "287b04f0b82a0549c928fc5094f60c74c3a39c4325852341548d21c40845ec9b",
+    "SHA256SUMS.txt": "f7992bddd241693b108b6919240256569fac1e74aa13b6ba97264e05371d48b7"
+  },
+  "notes": [
+    "Recreated Phase 1 catalog SQL/spec bundle verified against its SHA256SUMS.txt manifest.",
+    "SQL artifacts are query producers, not catalog output rows."
+  ]
+}

@@ -1,0 +1,59 @@
+SRL Phase 1 — Catalog SQL Bundle Run Order
+Bundle directory: %TEMP%\srl-phase1-catalog-sql-recreated-20260801
+Authoritative SQL: SRL_Phase1_catalog_snapshot.sql
+
+The SQL is safe to run repeatedly: it opens a read-only transaction with bounded
+timeouts and ends with ROLLBACK. It performs no DDL/DML mutations and selects no
+secret column values.
+
+Steps
+-----
+1. Static safety validation
+   - Scan SRL_Phase1_catalog_snapshot.sql outside comments and string literals.
+   - Reject INSERT/UPDATE/DELETE/MERGE/CREATE/ALTER/DROP/GRANT/REVOKE/TRUNCATE/
+     CALL/DO/LOCK/advisory locks/temporary-object creation/COPY FROM.
+   - Confirm BEGIN, SET TRANSACTION READ ONLY, timeouts, final ROLLBACK.
+
+2. Database/version verification
+   - Connect with a least-privilege reader appropriate for catalog inspection.
+   - Confirm PostgreSQL >= 11 (G01 fails closed otherwise).
+   - Do not install or move extensions.
+
+3. Read-only execution
+   - Execute SRL_Phase1_catalog_snapshot.sql as a single script.
+   - Capture all result sets with evidence_set / row_key columns.
+
+4. G19 discovery capture
+   - Persist EV-APP-DISCOVERY-001 rows (table candidates, column inventory,
+     secret-risk name flags only).
+
+5. Unique placeholder resolution
+   - For each G20 placeholder, require exactly one matching G19 candidate.
+   - If not unique or missing: BLOCKED_MISSING_CATALOG_DETAIL.
+
+6. Run-specific G20 generation outside the repository
+   - Copy the G20 template into a run-specific file under Temp (not the repo).
+   - Replace placeholders only from step 5 unique resolutions.
+   - Never fill from guesses or Revision 7 table-name assumptions alone.
+
+7. Full evidence capture
+   - Materialize all G00–G19 (+ resolved G20) evidence sets per
+     SRL_Phase1_evidence_spec.md.
+
+8. Start/end drift comparison
+   - Compare EV-DRIFT-START and EV-DRIFT-END digests.
+   - Any difference => MUTATION_OR_CATALOG_DRIFT_DETECTED.
+
+9. Canonical serialization
+   - UTF-8, U+001F fields, U+001E records, \N nulls, t/f booleans,
+     COLLATE "C" order, no OIDs in digest input.
+
+10. SHA-256 manifest generation
+    - Hash canonical evidence artifacts and record lowercase hex digests.
+
+11. Marker crosswalk generation
+    - Map captured sets to the 31 Decision Record EV-* markers.
+    - Leave unresolved markers as EVIDENCE_REQUIRED / BLOCKED_MISSING_INPUT.
+
+Stop after evidence capture unless a later authorized phase explicitly continues.
+Do not implement schema 9 in this bundle.

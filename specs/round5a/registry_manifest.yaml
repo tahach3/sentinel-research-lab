@@ -1,27 +1,33 @@
 {
   "artifact_type": "registry_manifest",
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "registry_manifest": {
     "architecture_reset_name": "Round 5A Architecture Reset",
-    "schema_version": "1.0.0",
-    "registry_version": "1.0.0",
+    "schema_version": "1.1.0",
+    "registry_version": "1.1.0",
     "artifact_hashes": [
       {
         "artifact_type": "catalog_contract",
         "path": "specs/round5a/catalog_contract.yaml",
-        "sha256": "a0a1e1482b8b24a93cae5f08305c177d89a351125889b3b439d1e2774c185c48",
+        "sha256": "61aa1b058c224908ecfe9e18164826a6fc097551f993c1dde2c60d121c1fe53a",
         "authority_class": "normative_source"
       },
       {
         "artifact_type": "checkpoint_registry",
         "path": "specs/round5a/checkpoints.yaml",
-        "sha256": "ef96df85d79be6be10fff5d843560f0de35d00ab1ea810a0180612fae016da37",
+        "sha256": "fdc4047ba03e621a9fae2b443124c4e302b3549b225001b3811173fd200c09d6",
         "authority_class": "normative_source"
       },
       {
         "artifact_type": "reconciliation_rule_registry",
         "path": "specs/round5a/reconciliation_rules.yaml",
-        "sha256": "136329637e07fe605899428ac1203d5cf6d37a3dd3f96a57bc65e1848fb467de",
+        "sha256": "c187ec468ec9e8f806dd4ac877b503c274489aa235ded5d03b07317137349295",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "evidence_alias_registry",
+        "path": "specs/round5a/evidence_aliases.yaml",
+        "sha256": "489bbf0a51d06d6505d8d41bb28a0877ad91a04f4622776d2a07089f08d884c7",
         "authority_class": "normative_source"
       },
       {
@@ -37,9 +43,15 @@
         "authority_class": "normative_source"
       },
       {
+        "artifact_type": "evidence_provenance_decision",
+        "path": "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md",
+        "sha256": "42f0f6d5d2b7bb408ec892d51c818b644ec2f731d5baf23c68c82ccd4422e152",
+        "authority_class": "normative_source"
+      },
+      {
         "artifact_type": "generated_document",
         "path": "specs/round5a/schema/round5a_registry.schema.json",
-        "sha256": "c6d9f19a6fc30dce9f6e3dcdc11fd480f8175fce6187b2940cad2853d6c65959",
+        "sha256": "b06912bc615dc0cd55e8e76c868841d102e22f7f3f959e43f0b96cbaf730e825",
         "authority_class": "normative_source"
       },
       {
@@ -53,21 +65,72 @@
         "path": "docs/ROUND_5A_SECURITY_BOUNDARY_TEST_PLAN.md",
         "sha256": "cd23eab536629b6296728bba44ee4adae10697e814bb2aa62398e17334866a0f",
         "authority_class": "generated_document"
+      },
+      {
+        "artifact_type": "evidence_bundle",
+        "path": "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+        "sha256": "1c4225887c88c9208bc50e69f08443bc65771ca0cce89f563d8d8ffef88cf9b4",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "evidence_bundle",
+        "path": "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+        "sha256": "a121e8d6b2d84d711734e16be5101b3b5cdb54aabb75465dddd753c5a76945a9",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "evidence_bundle",
+        "path": "evidence/round5a/archived_phase1/PROVENANCE.json",
+        "sha256": "acf0102284817b6efc5ab3857a4ebbfaf282f585831d183cdbe0eee2ba69d136",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "evidence_bundle",
+        "path": "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+        "sha256": "484f1955f587a06b04bf2a5896d32edaba8c903934e1c2f8487f58aa851d5017",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "evidence_bundle",
+        "path": "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+        "sha256": "af6da96a51c26eae8f2e5c9fecc47cad842169b8570a2be4a488b261c28baa41",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "evidence_bundle",
+        "path": "evidence/round5a/recreated_phase1/RUN_ORDER.txt",
+        "sha256": "287b04f0b82a0549c928fc5094f60c74c3a39c4325852341548d21c40845ec9b",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "evidence_bundle",
+        "path": "evidence/round5a/recreated_phase1/SHA256SUMS.txt",
+        "sha256": "f7992bddd241693b108b6919240256569fac1e74aa13b6ba97264e05371d48b7",
+        "authority_class": "normative_source"
+      },
+      {
+        "artifact_type": "evidence_bundle",
+        "path": "evidence/round5a/recreated_phase1/PROVENANCE.json",
+        "sha256": "1238b34a375445091348348a47fc6ca04d3d4a7231b2859fc8e46b2007526678",
+        "authority_class": "normative_source"
       }
     ],
     "decision_record_commit": "eb1d0b7a936df8ed98cd7a0913457fdeb208e233",
     "evidence_policy_commit": "7f10e1e32f7f0df2255b70d624ec3928b4c33737",
     "reconstructed_evidence_manifest": {
-      "path": "C:\\Users\\tahai\\AppData\\Local\\Temp\\srl-schema8-reconstruction-20260801_151349\\SHA256SUMS.txt",
-      "sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+      "artifact_id": "ROUND5A-RECONSTRUCTED-REFERENCE-SCHEMA8",
+      "location_policy": "RUNTIME_SUPPLIED_EXTERNAL_ARTIFACT",
+      "manifest_sha256": "09c2ea9957fef7357b89824796b46c36de5e0b9de414d617f642f4efc1d5bcb2",
+      "crosswalk_sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
       "authority_class": "runtime_evidence"
     },
     "evidence_crosswalk": {
-      "path": "C:\\Users\\tahai\\AppData\\Local\\Temp\\srl-schema8-reconstruction-20260801_151349\\RECONSTRUCTED_EVIDENCE_CROSSWALK.tsv",
+      "artifact_id": "ROUND5A-RECONSTRUCTED-EVIDENCE-CROSSWALK",
+      "location_policy": "RUNTIME_SUPPLIED_EXTERNAL_ARTIFACT",
       "sha256": "9d38f04d3be2b519c59837acd825b9dd74ca3724d793bac7495b29c4b66e141f",
       "authority_class": "runtime_evidence"
     },
     "generated_at": "2026-08-02T05:12:54Z",
-    "generator_version": "round5a-phaseb-generator/1.0.0"
+    "generator_version": "round5a-provenance-repair/1.1.0"
   }
 }

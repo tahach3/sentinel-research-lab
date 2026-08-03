@@ -1,6 +1,6 @@
 {
   "artifact_type": "privilege_fixture_pack",
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "provenance": {
     "decision_refs": [
       "ND-CHECKPOINT-02",

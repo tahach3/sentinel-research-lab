@@ -1,7 +1,7 @@
 # Round 5A Architecture Reset — Schema Contract
 
 Architecture reset name: **Round 5A Architecture Reset**  
-Specification schema version: **1.0.0**
+Specification schema version: **1.1.0**
 
 Authoritative machine-readable schema:
 
@@ -49,6 +49,7 @@ Generated Markdown is never normative when it differs from a registry.
 | Checkpoint expected digests and canonical bytes | `checkpoint_oracle_pack` | normative_source |
 | Privilege expansion / exercisable path cases | `privilege_fixture_pack` | normative_source |
 | Cross-artifact hashes and commit pins | `registry_manifest` | normative_source |
+| Archived↔recreated evidence identifier mappings | `evidence_alias_registry` | normative_source |
 | Generated architecture tables / appendix matrices | `docs/generated/*` (future) | generated_document |
 | Generated test documentation | `docs/generated/*` (future) | generated_document |
 | Live catalog / live-preflight / runtime revalidation packs | external / pinned manifests | runtime_evidence |
@@ -167,7 +168,7 @@ Architecture reset name:
 Round 5A Architecture Reset
 
 Specification schema version:
-1.0.0
+1.1.0
 ```
 
 - Schema changes use semantic versioning.
@@ -189,6 +190,7 @@ reconciliation_fixture_pack
 checkpoint_oracle_pack
 privilege_fixture_pack
 registry_manifest
+evidence_alias_registry
 ```
 
 Root and normative nested objects use `unevaluatedProperties: false` so unknown fields are rejected.
@@ -203,3 +205,38 @@ Root and normative nested objects use `unevaluatedProperties: false` so unknown 
 - Generated architecture or test Markdown  
 - Schema-9 migration or runtime code  
 - Database connections, reconstruction restarts, migrations, paid/live calls  
+
+
+---
+
+## Evidence-alias registry (schema 1.1.0)
+
+Normative owner:
+
+```text
+specs/round5a/evidence_aliases.yaml
+```
+
+`artifact_type: evidence_alias_registry`
+
+Each mapping requires typed fields (`mapping_id`, `mapping_type`, archived/recreated/current evidence IDs, `field_mappings`, `semantic_equivalence`, `decision_refs`, `affected_markers`, `source_artifacts`, `status`, `notes`).
+
+Allowed mapping types:
+
+```text
+EXACT_MATCH
+EXPLICIT_ALIAS
+SEMANTIC_SPLIT
+SEMANTIC_MERGE
+REPLACEMENT
+NO_LONGER_REQUIRED
+CONFLICTING_MEANING
+```
+
+`CONFLICTING_MEANING` mappings are blocking and must not be accepted.
+
+Name similarity alone is never a valid mapping basis.
+
+Historical archive authentication remains `UNVERIFIED` even when offline bytes hash-match (see `docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md`).
+
+Normative manifests may use repository-relative paths or logical external artifact identifiers with hashes, but must not embed absolute machine, TEMP, or user-profile paths.

@@ -1,6 +1,6 @@
 {
   "artifact_type": "catalog_contract",
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "provenance": {
     "decision_refs": [
       "ND-CHECKPOINT-COMMON",
@@ -3555,7 +3555,7 @@
             "EV-COLUMN-EFFECTIVE"
           ],
           "evidence_class": "EXECUTION_TIME_LIVE_PREFLIGHT",
-          "source_location": "docs/ROUND_5A_SECURITY_BOUNDARY_REDESIGN.md; no exact column×role matrix in sources — empty column ACL + effective-from-table"
+          "source_location": "docs/ROUND_5A_SECURITY_BOUNDARY_REDESIGN.md; no exact column\u00d7role matrix in sources \u2014 empty column ACL + effective-from-table"
         },
         "attributes": {
           "column_acl_policy_id": "EMPTY_COLUMN_ACL_SET_WITH_EFFECTIVE_FROM_TABLE",

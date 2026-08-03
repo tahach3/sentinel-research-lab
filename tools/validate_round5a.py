@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import hashlib
 import json
 import sys
@@ -10,8 +11,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
-VALIDATOR_VERSION = "round5a-offline-validator/1.0.0"
-SPEC_SCHEMA_VERSION = "1.0.0"
+VALIDATOR_VERSION = "round5a-offline-validator/1.1.0"
+SPEC_SCHEMA_VERSION = "1.1.0"
 MISSING = object()
 ALG = "schema9_checkpoint_digest_v1"
 US = "\u001f"
@@ -24,10 +25,42 @@ REQUIRED_FILES = [
     "specs/round5a/checkpoints.yaml",
     "specs/round5a/reconciliation_rules.yaml",
     "specs/round5a/registry_manifest.yaml",
+    "specs/round5a/evidence_aliases.yaml",
     "specs/round5a/fixtures/reconciliation_witnesses.yaml",
     "specs/round5a/fixtures/checkpoint_oracles.yaml",
     "specs/round5a/fixtures/privilege_cases.yaml",
+    "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md",
+    "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+    "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+    "evidence/round5a/archived_phase1/PROVENANCE.json",
+    "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+    "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+    "evidence/round5a/recreated_phase1/RUN_ORDER.txt",
+    "evidence/round5a/recreated_phase1/SHA256SUMS.txt",
+    "evidence/round5a/recreated_phase1/PROVENANCE.json",
 ]
+
+EVIDENCE_PROVENANCE_FILES = [
+    "evidence/round5a/archived_phase1/PROVENANCE.json",
+    "evidence/round5a/recreated_phase1/PROVENANCE.json",
+]
+
+PORTABLE_PATH_SCAN_FILES = [
+    "specs/round5a/catalog_contract.yaml",
+    "specs/round5a/checkpoints.yaml",
+    "specs/round5a/reconciliation_rules.yaml",
+    "specs/round5a/registry_manifest.yaml",
+    "specs/round5a/evidence_aliases.yaml",
+    "specs/round5a/fixtures/reconciliation_witnesses.yaml",
+    "specs/round5a/fixtures/checkpoint_oracles.yaml",
+    "specs/round5a/fixtures/privilege_cases.yaml",
+    "evidence/round5a/archived_phase1/PROVENANCE.json",
+    "evidence/round5a/recreated_phase1/PROVENANCE.json",
+]
+
+ABS_PATH_RE = re.compile(
+    r"(?i)(?:[A-Za-z]:\\|/Users/|/home/|/tmp/|/var/tmp/|AppData\\Local\\Temp|\\Temp\\|\$env:TEMP)"
+)
 
 
 @dataclass
@@ -328,6 +361,9 @@ class Round5AValidator:
         self._stage_state()
         self._stage_privilege()
         self._stage_evidence()
+        self._stage_evidence_source_integrity()
+        self._stage_evidence_alias_integrity()
+        self._stage_portable_path_invariants()
         self._stage_final()
         status = "PASS" if not self.errors else "FAIL"
         return self._report(status)
@@ -403,6 +439,7 @@ class Round5AValidator:
         self.docs["witnesses"] = self.docs.get("specs/round5a/fixtures/reconciliation_witnesses.yaml")
         self.docs["oracles"] = self.docs.get("specs/round5a/fixtures/checkpoint_oracles.yaml")
         self.docs["privileges"] = self.docs.get("specs/round5a/fixtures/privilege_cases.yaml")
+        self.docs["aliases"] = self.docs.get("specs/round5a/evidence_aliases.yaml")
         self.docs["schema"] = self.docs.get("specs/round5a/schema/round5a_registry.schema.json")
         self.add_stage(st)
         if st.status == "FAIL":
@@ -420,6 +457,9 @@ class Round5AValidator:
                 "state_invariants",
                 "privilege_semantics",
                 "evidence_class_invariants",
+                "evidence_source_integrity",
+                "evidence_alias_integrity",
+                "portable_path_invariants",
                 "final_summary",
             ]:
                 skipped = StageResult(name, status="FAIL")
@@ -439,6 +479,7 @@ class Round5AValidator:
             ("specs/round5a/checkpoints.yaml", "checkpoints"),
             ("specs/round5a/reconciliation_rules.yaml", "rules"),
             ("specs/round5a/registry_manifest.yaml", "manifest"),
+            ("specs/round5a/evidence_aliases.yaml", "aliases"),
             ("specs/round5a/fixtures/reconciliation_witnesses.yaml", "witnesses"),
             ("specs/round5a/fixtures/checkpoint_oracles.yaml", "oracles"),
             ("specs/round5a/fixtures/privilege_cases.yaml", "privileges"),
@@ -790,6 +831,352 @@ class Round5AValidator:
         if st.counts["markers"] != 31:
             st.fail(ErrorRec("R5A-EVIDENCE-COUNT", "marker count mismatch"))
         self.add_stage(st)
+
+
+    def _collect_current_ev_refs(self) -> set[str]:
+        refs: set[str] = set()
+        cat = self.docs.get("catalog") or {}
+        for obj in cat.get("catalog_contract", {}).get("objects", []):
+            attrs = obj.get("attributes") or {}
+            if str(attrs.get("marker_id", "")).startswith("MARKER-"):
+                mid = attrs.get("marker_identity")
+                if mid:
+                    refs.add(mid)
+            prov = obj.get("provenance") or {}
+            for ev in prov.get("evidence_refs") or []:
+                refs.add(ev)
+        for doc_key in ("checkpoints", "rules", "witnesses", "oracles", "privileges"):
+            blob = json.dumps(self.docs.get(doc_key) or {})
+            for m in re.findall(r"EV-[A-Z0-9]+(?:-[A-Z0-9]+)*", blob):
+                refs.add(m)
+        return refs
+
+    def _stage_evidence_source_integrity(self) -> None:
+        st = StageResult("evidence_source_integrity")
+        # schema/manifest version alignment
+        man = self.docs.get("manifest") or {}
+        schema = self.docs.get("schema") or {}
+        man_ver = (man.get("registry_manifest") or {}).get("schema_version")
+        schema_ver = schema.get("x-round5a-schema-version")
+        if man_ver != SPEC_SCHEMA_VERSION or schema_ver != SPEC_SCHEMA_VERSION:
+            st.fail(
+                ErrorRec(
+                    "R5A-PROV-SOURCE-SCHEMA-VERSION",
+                    f"schema/manifest/spec version mismatch schema={schema_ver} manifest={man_ver} expected={SPEC_SCHEMA_VERSION}",
+                )
+            )
+        # archived/recreated provenance + file hashes
+        expected = {
+            "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql": "1c4225887c88c9208bc50e69f08443bc65771ca0cce89f563d8d8ffef88cf9b4",
+            "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md": "a121e8d6b2d84d711734e16be5101b3b5cdb54aabb75465dddd753c5a76945a9",
+            "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql": "484f1955f587a06b04bf2a5896d32edaba8c903934e1c2f8487f58aa851d5017",
+            "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md": "af6da96a51c26eae8f2e5c9fecc47cad842169b8570a2be4a488b261c28baa41",
+            "evidence/round5a/recreated_phase1/RUN_ORDER.txt": "287b04f0b82a0549c928fc5094f60c74c3a39c4325852341548d21c40845ec9b",
+            "evidence/round5a/recreated_phase1/SHA256SUMS.txt": "f7992bddd241693b108b6919240256569fac1e74aa13b6ba97264e05371d48b7",
+        }
+        for rel, exp in expected.items():
+            p = self.path(rel)
+            if not p.exists():
+                st.fail(ErrorRec("R5A-PROV-SOURCE-MISSING", f"missing evidence file {rel}", rel))
+                continue
+            actual = sha256_file(p)
+            if actual != exp:
+                code = (
+                    "R5A-PROV-SOURCE-ARCHIVED-HASH"
+                    if "archived_phase1" in rel
+                    else "R5A-PROV-SOURCE-RECREATED-HASH"
+                )
+                st.fail(ErrorRec(code, f"hash mismatch for {rel}", rel))
+        # provenance authentication invariants
+        for rel in EVIDENCE_PROVENANCE_FILES:
+            p = self.path(rel)
+            if not p.exists():
+                st.fail(ErrorRec("R5A-PROV-SOURCE-MISSING", f"missing {rel}", rel))
+                continue
+            try:
+                prov = load_json_file(p)
+            except Exception as exc:
+                st.fail(ErrorRec("R5A-PROV-SOURCE-JSON", str(exc), rel))
+                continue
+            if "archived_phase1" in rel:
+                if prov.get("historical_git_authentication") != "UNVERIFIED":
+                    st.fail(
+                        ErrorRec(
+                            "R5A-PROV-AUTH-HISTORICAL",
+                            "archived historical_git_authentication must remain UNVERIFIED",
+                            rel,
+                        )
+                    )
+                if prov.get("claimed_historical_commit") == "8d592bf" and prov.get(
+                    "historical_git_authentication"
+                ) == "VERIFIED":
+                    st.fail(
+                        ErrorRec(
+                            "R5A-PROV-AUTH-FALSE-CLAIM",
+                            "false historical authentication claim for 8d592bf",
+                            rel,
+                        )
+                    )
+                if str(prov.get("historical_git_authentication", "")).upper() in {
+                    "VERIFIED",
+                    "AUTHENTICATED",
+                    "PROVEN",
+                }:
+                    st.fail(
+                        ErrorRec(
+                            "R5A-PROV-AUTH-FALSE-CLAIM",
+                            "archived provenance must not claim verified historical authentication",
+                            rel,
+                        )
+                    )
+            binding = prov.get("current_repository_binding")
+            if binding not in {"COMMIT_CONTAINING_THIS_FILE", "PENDING_CURRENT_COMMIT"}:
+                st.fail(
+                    ErrorRec(
+                        "R5A-PROV-AUTH-BINDING",
+                        f"invalid current_repository_binding {binding}",
+                        rel,
+                    )
+                )
+            files = prov.get("files") or {}
+            for fname, exp_hash in files.items():
+                fpath = p.parent / fname
+                if not fpath.exists():
+                    st.fail(ErrorRec("R5A-PROV-SOURCE-MISSING", f"missing {fpath.name}", rel, fname))
+                    continue
+                if sha256_file(fpath) != exp_hash:
+                    st.fail(
+                        ErrorRec(
+                            "R5A-PROV-SOURCE-PROVENANCE-HASH",
+                            f"PROVENANCE files hash mismatch for {fname}",
+                            rel,
+                            fname,
+                        )
+                    )
+        # decision doc must state UNVERIFIED
+        decision = self.path("docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md")
+        if decision.exists():
+            dtxt = decision.read_text(encoding="utf-8")
+            if "HISTORICAL GIT AUTHENTICATION: UNVERIFIED" not in dtxt:
+                st.fail(
+                    ErrorRec(
+                        "R5A-PROV-AUTH-DECISION",
+                        "decision record missing UNVERIFIED historical authentication statement",
+                        "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md",
+                    )
+                )
+            if "CLAIMED HISTORICAL COMMIT: 8d592bf" not in dtxt:
+                st.fail(
+                    ErrorRec(
+                        "R5A-PROV-AUTH-DECISION",
+                        "decision record missing claimed historical commit statement",
+                        "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md",
+                    )
+                )
+        st.counts["expected_files"] = len(expected)
+        self.add_stage(st)
+
+    def _stage_evidence_alias_integrity(self) -> None:
+        st = StageResult("evidence_alias_integrity")
+        aliases = self.docs.get("aliases")
+        if not aliases:
+            st.fail(ErrorRec("R5A-PROV-ALIAS-MISSING", "evidence_aliases.yaml missing"))
+            self.add_stage(st)
+            return
+        mappings = aliases.get("evidence_alias_registry", {}).get("mappings") or []
+        st.counts["mappings"] = len(mappings)
+
+        # known evidence ids from committed producers
+        producer_text = ""
+        for rel in [
+            "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+            "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+            "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+            "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+        ]:
+            p = self.path(rel)
+            if p.exists():
+                producer_text += p.read_text(encoding="utf-8", errors="replace")
+        producer_ids = set(re.findall(r"EV-[A-Z0-9]+(?:-[A-Z0-9]+)*", producer_text))
+
+        current_refs = self._collect_current_ev_refs()
+        covered_current: set[str] = set()
+        covered_markers: set[str] = set()
+
+        for m in mappings:
+            mid = m.get("mapping_id", "")
+            if m.get("mapping_type") == "CONFLICTING_MEANING" or m.get("status") == "BLOCKING_CONFLICT":
+                st.fail(
+                    ErrorRec(
+                        "R5A-PROV-ALIAS-CONFLICT",
+                        "blocking conflict mapping is not accepted",
+                        "evidence_aliases.yaml",
+                        mid,
+                    )
+                )
+            for eid in m.get("archived_evidence_ids") or []:
+                if eid not in producer_ids and m.get("mapping_type") != "NO_LONGER_REQUIRED":
+                    # archived id must exist in archived producers unless purely current mapping
+                    arch_blob = ""
+                    for rel in [
+                        "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+                        "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+                    ]:
+                        pp = self.path(rel)
+                        if pp.exists():
+                            arch_blob += pp.read_text(encoding="utf-8", errors="replace")
+                    if eid not in arch_blob and m.get("archived_evidence_ids"):
+                        st.fail(
+                            ErrorRec(
+                                "R5A-PROV-ALIAS-SOURCE-MISSING",
+                                f"alias source {eid} not found in archived producers",
+                                "evidence_aliases.yaml",
+                                mid,
+                            )
+                        )
+            for eid in m.get("recreated_evidence_ids") or []:
+                rec_blob = ""
+                for rel in [
+                    "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+                    "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+                ]:
+                    pp = self.path(rel)
+                    if pp.exists():
+                        rec_blob += pp.read_text(encoding="utf-8", errors="replace")
+                if eid not in rec_blob and eid not in {
+                    # allow current marker set ids that appear only as marker names
+                }:
+                    # recreated target must exist unless mapping documents current-only via empty archived and notes
+                    if m.get("archived_evidence_ids") and eid not in rec_blob:
+                        st.fail(
+                            ErrorRec(
+                                "R5A-PROV-ALIAS-TARGET-MISSING",
+                                f"alias target {eid} not found in recreated producers",
+                                "evidence_aliases.yaml",
+                                mid,
+                            )
+                        )
+            for eid in m.get("current_evidence_ids") or []:
+                covered_current.add(eid)
+            for mk in m.get("affected_markers") or []:
+                covered_markers.add(mk)
+
+            # split/merge field coverage: require at least one field mapping when split/merge/replacement
+            if m.get("mapping_type") in {"SEMANTIC_SPLIT", "SEMANTIC_MERGE", "REPLACEMENT", "EXPLICIT_ALIAS"}:
+                fmaps = m.get("field_mappings") or []
+                if not fmaps:
+                    st.fail(
+                        ErrorRec(
+                            "R5A-PROV-ALIAS-FIELD-COVERAGE",
+                            "split/merge/alias/replacement requires field_mappings",
+                            "evidence_aliases.yaml",
+                            mid,
+                        )
+                    )
+                # uncovered required consumer field signaled by coverage NOT in allowed set
+                for fm in fmaps:
+                    if fm.get("coverage") == "UNCOVERED":
+                        st.fail(
+                            ErrorRec(
+                                "R5A-PROV-ALIAS-FIELD-UNCOVERED",
+                                f"required field uncovered {fm}",
+                                "evidence_aliases.yaml",
+                                mid,
+                            )
+                        )
+                # conflicting field meaning marker
+                if "CONFLICTING_FIELD_MEANING" in str(m.get("semantic_equivalence", "")):
+                    st.fail(
+                        ErrorRec(
+                            "R5A-PROV-ALIAS-FIELD-CONFLICT",
+                            "merge/split reports conflicting field meaning",
+                            "evidence_aliases.yaml",
+                            mid,
+                        )
+                    )
+
+        # every current marker identity must be covered
+        cat = self.docs.get("catalog") or {}
+        marker_ids = set()
+        marker_evs = set()
+        for obj in cat.get("catalog_contract", {}).get("objects", []):
+            attrs = obj.get("attributes") or {}
+            mk = attrs.get("marker_id")
+            ev = attrs.get("marker_identity")
+            if mk and str(mk).startswith("MARKER-"):
+                marker_ids.add(mk)
+                if ev:
+                    marker_evs.add(ev)
+        for ev in marker_evs:
+            if ev not in covered_current:
+                st.fail(
+                    ErrorRec(
+                        "R5A-PROV-ALIAS-UNMAPPED",
+                        f"unmapped required EV reference {ev}",
+                        "evidence_aliases.yaml",
+                        ev,
+                    )
+                )
+        for mk in marker_ids:
+            if mk not in covered_markers:
+                st.fail(
+                    ErrorRec(
+                        "R5A-PROV-ALIAS-MARKER",
+                        f"marker not covered by alias registry {mk}",
+                        "evidence_aliases.yaml",
+                        mk,
+                    )
+                )
+        st.counts["markers_covered"] = len(covered_markers)
+        st.counts["current_ev_covered"] = len(covered_current)
+        st.counts["current_refs_seen"] = len(current_refs)
+        self.add_stage(st)
+
+    def _stage_portable_path_invariants(self) -> None:
+        st = StageResult("portable_path_invariants")
+        hits = 0
+        for rel in PORTABLE_PATH_SCAN_FILES:
+            p = self.path(rel)
+            if not p.exists():
+                continue
+            txt = p.read_text(encoding="utf-8", errors="replace")
+            # allow prose about prohibited examples only in decision markdown-like notes? none of these files should have abs paths
+            for m in ABS_PATH_RE.finditer(txt):
+                # skip if explicitly marked as prohibited example nearby
+                start = max(0, m.start() - 80)
+                window = txt[start : m.end() + 80]
+                if "prohibited example" in window.lower() or "PROHIBITED_EXAMPLE" in window:
+                    continue
+                hits += 1
+                st.fail(
+                    ErrorRec(
+                        "R5A-PROV-PATH-ABSOLUTE",
+                        f"absolute or machine-specific path found: {m.group(0)}",
+                        rel,
+                    )
+                )
+        # reconstructed evidence must be logical external artifact
+        man = (self.docs.get("manifest") or {}).get("registry_manifest") or {}
+        recon = man.get("reconstructed_evidence_manifest") or {}
+        if recon.get("location_policy") != "RUNTIME_SUPPLIED_EXTERNAL_ARTIFACT":
+            st.fail(
+                ErrorRec(
+                    "R5A-PROV-PATH-EXTERNAL",
+                    "reconstructed_evidence_manifest must use RUNTIME_SUPPLIED_EXTERNAL_ARTIFACT",
+                    "registry_manifest.yaml",
+                )
+            )
+        if "path" in recon and isinstance(recon.get("path"), str) and ABS_PATH_RE.search(recon["path"] or ""):
+            st.fail(
+                ErrorRec(
+                    "R5A-PROV-PATH-TEMP",
+                    "reconstructed_evidence_manifest must not use absolute TEMP path",
+                    "registry_manifest.yaml",
+                )
+            )
+        st.counts["hits"] = hits
+        self.add_stage(st)
+
 
     def _stage_final(self) -> None:
         st = StageResult("final_summary")

@@ -1,6 +1,6 @@
 {
   "artifact_type": "checkpoint_oracle_pack",
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "provenance": {
     "decision_refs": [
       "ND-DIGEST-CHECKPOINT-V1",
@@ -864,7 +864,7 @@
         "case_kind": "unicode",
         "fixture_rows": [
           {
-            "extname": "Ω-café",
+            "extname": "\u03a9-caf\u00e9",
             "extschema": "x",
             "proc_identity": "x",
             "proc_schema": "x",
@@ -873,14 +873,14 @@
         ],
         "normalized_rows": [
           {
-            "extname": "Ω-café",
+            "extname": "\u03a9-caf\u00e9",
             "extschema": "x",
             "proc_identity": "x",
             "proc_schema": "x",
             "proc_owner": "x"
           }
         ],
-        "canonical_bytes": "schema9_checkpoint_digest_v1\u001fΩ-café\u001fx\u001fx\u001fx\u001fx",
+        "canonical_bytes": "schema9_checkpoint_digest_v1\u001f\u03a9-caf\u00e9\u001fx\u001fx\u001fx\u001fx",
         "expected_digest": "bb0e137ff9b1c7ddb6835f71556f8f61957b7134bd8ba4b4708104138d134161",
         "algorithm_version": "schema9_checkpoint_digest_v1",
         "expected_result": "PASS"

@@ -1,0 +1,1963 @@
+{
+  "artifact_type": "evidence_alias_registry",
+  "schema_version": "1.1.0",
+  "provenance": {
+    "decision_refs": [
+      "ND-PROV-001",
+      "ND-PROV-002",
+      "ND-PROV-003",
+      "ND-PROV-004"
+    ],
+    "evidence_refs": [
+      "EV-EXTENSIONS",
+      "EV-RLS",
+      "EV-INDEXES",
+      "EV-MEMBERSHIPS",
+      "EV-ROLES",
+      "EV-DRIFT-START",
+      "EV-DRIFT-END",
+      "EV-FUNCTIONS",
+      "EV-PG-VERSION",
+      "EV-SCHEMA-VERSION",
+      "EV-SCHEMA-PRIVS",
+      "EV-SAFETY-BASELINE",
+      "EV-RESERVATION-STATE",
+      "EV-CUTOVER-STATE"
+    ],
+    "evidence_class": "NORMATIVE_DECISION_ONLY",
+    "source_location": "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+  },
+  "evidence_alias_registry": {
+    "architecture_reset_name": "Round 5A Architecture Reset",
+    "mappings": [
+      {
+        "mapping_id": "MAP-EXACT-ROLE-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-ROLE-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-ROLE-001"
+        ],
+        "current_evidence_ids": [
+          "EV-ROLES"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-ROLE-001",
+            "source_field": "role_name",
+            "target_evidence_id": "EV-ROLE-001",
+            "target_field": "role_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-ROLE-001",
+            "source_field": "can_login",
+            "target_evidence_id": "EV-ROLE-001",
+            "target_field": "can_login",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-ROLE-001",
+            "source_field": "inherit_attr",
+            "target_evidence_id": "EV-ROLE-001",
+            "target_field": "inherit_attr",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-ROLE-001",
+            "source_field": "is_superuser",
+            "target_evidence_id": "EV-ROLE-001",
+            "target_field": "is_superuser",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-ROLES"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-ROLE-001; current marker consumes EV-ROLES.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-EXACT-SCHEMA-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-SCHEMA-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-SCHEMA-001"
+        ],
+        "current_evidence_ids": [
+          "EV-SCHEMAS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-SCHEMA-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-SCHEMA-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-SCHEMA-001",
+            "source_field": "owner_name",
+            "target_evidence_id": "EV-SCHEMA-001",
+            "target_field": "owner_name",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-SCHEMAS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-SCHEMA-001; current marker consumes EV-SCHEMAS.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-EXACT-FUNCTION-ACL-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-FUNCTION-ACL-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-FUNCTION-ACL-001"
+        ],
+        "current_evidence_ids": [
+          "EV-FUNCTION-ACLS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-FUNCTION-ACL-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-FUNCTION-ACL-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-ACL-001",
+            "source_field": "function_name",
+            "target_evidence_id": "EV-FUNCTION-ACL-001",
+            "target_field": "function_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-ACL-001",
+            "source_field": "grantee_name",
+            "target_evidence_id": "EV-FUNCTION-ACL-001",
+            "target_field": "grantee_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-ACL-001",
+            "source_field": "privilege",
+            "target_evidence_id": "EV-FUNCTION-ACL-001",
+            "target_field": "privilege",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-FUNCTION-ACLS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-FUNCTION-ACL-001; current marker consumes EV-FUNCTION-ACLS.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-EXACT-FUNCTION-ACL-002",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-FUNCTION-ACL-002"
+        ],
+        "recreated_evidence_ids": [
+          "EV-FUNCTION-ACL-002"
+        ],
+        "current_evidence_ids": [
+          "EV-FUNCTION-ACLS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-FUNCTION-ACL-002",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-FUNCTION-ACL-002",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-ACL-002",
+            "source_field": "function_name",
+            "target_evidence_id": "EV-FUNCTION-ACL-002",
+            "target_field": "function_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-ACL-002",
+            "source_field": "privilege_path",
+            "target_evidence_id": "EV-FUNCTION-ACL-002",
+            "target_field": "privilege_path",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-FUNCTION-ACLS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-FUNCTION-ACL-002; current marker consumes EV-FUNCTION-ACLS.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-EXACT-FUNCTION-EXEC-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-FUNCTION-EXEC-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-FUNCTION-EXEC-001"
+        ],
+        "current_evidence_ids": [
+          "EV-FUNCTION-EFFECTIVE"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-FUNCTION-EXEC-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-FUNCTION-EXEC-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-EXEC-001",
+            "source_field": "function_name",
+            "target_evidence_id": "EV-FUNCTION-EXEC-001",
+            "target_field": "function_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-EXEC-001",
+            "source_field": "effective_execute",
+            "target_evidence_id": "EV-FUNCTION-EXEC-001",
+            "target_field": "effective_execute",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-FUNCTION-EFFECTIVE"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-FUNCTION-EXEC-001; current marker consumes EV-FUNCTION-EFFECTIVE.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-EXACT-TABLE-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-TABLE-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-TABLE-001"
+        ],
+        "current_evidence_ids": [
+          "EV-TABLES"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-TABLE-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-TABLE-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-TABLE-001",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-TABLE-001",
+            "target_field": "table_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-TABLE-001",
+            "source_field": "owner_name",
+            "target_evidence_id": "EV-TABLE-001",
+            "target_field": "owner_name",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-TABLES"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-TABLE-001; current marker consumes EV-TABLES.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-EXACT-TABLE-ACL-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-TABLE-ACL-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-TABLE-ACL-001"
+        ],
+        "current_evidence_ids": [
+          "EV-TABLE-ACLS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-TABLE-ACL-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-TABLE-ACL-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-TABLE-ACL-001",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-TABLE-ACL-001",
+            "target_field": "table_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-TABLE-ACL-001",
+            "source_field": "grantee_name",
+            "target_evidence_id": "EV-TABLE-ACL-001",
+            "target_field": "grantee_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-TABLE-ACL-001",
+            "source_field": "privilege",
+            "target_evidence_id": "EV-TABLE-ACL-001",
+            "target_field": "privilege",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-TABLE-ACLS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-TABLE-ACL-001; current marker consumes EV-TABLE-ACLS.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-EXACT-TABLE-WRITE-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-TABLE-WRITE-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-TABLE-WRITE-001"
+        ],
+        "current_evidence_ids": [
+          "EV-TABLE-WRITES"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-TABLE-WRITE-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-TABLE-WRITE-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-TABLE-WRITE-001",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-TABLE-WRITE-001",
+            "target_field": "table_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-TABLE-WRITE-001",
+            "source_field": "write_privilege",
+            "target_evidence_id": "EV-TABLE-WRITE-001",
+            "target_field": "write_privilege",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-TABLE-WRITES"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-TABLE-WRITE-001; current marker consumes EV-TABLE-WRITES.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-EXACT-TABLE-WRITE-002",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-TABLE-WRITE-002"
+        ],
+        "recreated_evidence_ids": [
+          "EV-TABLE-WRITE-002"
+        ],
+        "current_evidence_ids": [
+          "EV-TABLE-WRITES"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-TABLE-WRITE-002",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-TABLE-WRITE-002",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-TABLE-WRITE-002",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-TABLE-WRITE-002",
+            "target_field": "table_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-TABLE-WRITE-002",
+            "source_field": "write_path",
+            "target_evidence_id": "EV-TABLE-WRITE-002",
+            "target_field": "write_path",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-TABLE-WRITES"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-TABLE-WRITE-002; current marker consumes EV-TABLE-WRITES.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-EXACT-COLUMN-ACL-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-COLUMN-ACL-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-COLUMN-ACL-001"
+        ],
+        "current_evidence_ids": [
+          "EV-COLUMN-ACLS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-COLUMN-ACL-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-COLUMN-ACL-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-COLUMN-ACL-001",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-COLUMN-ACL-001",
+            "target_field": "table_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-COLUMN-ACL-001",
+            "source_field": "column_name",
+            "target_evidence_id": "EV-COLUMN-ACL-001",
+            "target_field": "column_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-COLUMN-ACL-001",
+            "source_field": "grantee_name",
+            "target_evidence_id": "EV-COLUMN-ACL-001",
+            "target_field": "grantee_name",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-COLUMN-ACLS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-COLUMN-ACL-001; current marker consumes EV-COLUMN-ACLS.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-EXACT-COLUMN-EFF-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-COLUMN-EFF-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-COLUMN-EFF-001"
+        ],
+        "current_evidence_ids": [
+          "EV-COLUMN-EFFECTIVE"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-COLUMN-EFF-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-COLUMN-EFF-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-COLUMN-EFF-001",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-COLUMN-EFF-001",
+            "target_field": "table_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-COLUMN-EFF-001",
+            "source_field": "column_name",
+            "target_evidence_id": "EV-COLUMN-EFF-001",
+            "target_field": "column_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-COLUMN-EFF-001",
+            "source_field": "effective_privilege",
+            "target_evidence_id": "EV-COLUMN-EFF-001",
+            "target_field": "effective_privilege",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-COLUMN-EFFECTIVE"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-COLUMN-EFF-001; current marker consumes EV-COLUMN-EFFECTIVE.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-EXACT-VIEW-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-VIEW-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-VIEW-001"
+        ],
+        "current_evidence_ids": [
+          "EV-VIEWS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-VIEW-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-VIEW-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-VIEW-001",
+            "source_field": "view_name",
+            "target_evidence_id": "EV-VIEW-001",
+            "target_field": "view_name",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-VIEWS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-VIEW-001; current marker consumes EV-VIEWS.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-EXACT-SEQUENCE-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-SEQUENCE-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-SEQUENCE-001"
+        ],
+        "current_evidence_ids": [
+          "EV-SEQUENCES"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-SEQUENCE-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-SEQUENCE-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-SEQUENCE-001",
+            "source_field": "sequence_name",
+            "target_evidence_id": "EV-SEQUENCE-001",
+            "target_field": "sequence_name",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-SEQUENCES"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-SEQUENCE-001; current marker consumes EV-SEQUENCES.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-EXACT-TRIGGER-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-TRIGGER-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-TRIGGER-001"
+        ],
+        "current_evidence_ids": [
+          "EV-TRIGGERS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-TRIGGER-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-TRIGGER-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-TRIGGER-001",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-TRIGGER-001",
+            "target_field": "table_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-TRIGGER-001",
+            "source_field": "trigger_name",
+            "target_evidence_id": "EV-TRIGGER-001",
+            "target_field": "trigger_name",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-TRIGGERS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-TRIGGER-001; current marker consumes EV-TRIGGERS.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-EXACT-CONSTRAINT-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-CONSTRAINT-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-CONSTRAINT-001"
+        ],
+        "current_evidence_ids": [
+          "EV-CONSTRAINTS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-CONSTRAINT-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-CONSTRAINT-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-CONSTRAINT-001",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-CONSTRAINT-001",
+            "target_field": "table_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-CONSTRAINT-001",
+            "source_field": "constraint_name",
+            "target_evidence_id": "EV-CONSTRAINT-001",
+            "target_field": "constraint_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-CONSTRAINT-001",
+            "source_field": "constraint_type",
+            "target_evidence_id": "EV-CONSTRAINT-001",
+            "target_field": "constraint_type",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-CONSTRAINTS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-CONSTRAINT-001; current marker consumes EV-CONSTRAINTS.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-EXACT-DEFACL-001",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-DEFACL-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-DEFACL-001"
+        ],
+        "current_evidence_ids": [
+          "EV-DEFAULT-PRIVS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-DEFACL-001",
+            "source_field": "role_name",
+            "target_evidence_id": "EV-DEFACL-001",
+            "target_field": "role_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-DEFACL-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-DEFACL-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-DEFACL-001",
+            "source_field": "object_type",
+            "target_evidence_id": "EV-DEFACL-001",
+            "target_field": "object_type",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-DEFAULT-PRIVS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-DEFACL-001; current marker consumes EV-DEFAULT-PRIVS.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-EXACT-DEFACL-002",
+        "mapping_type": "EXACT_MATCH",
+        "archived_evidence_ids": [
+          "EV-DEFACL-002"
+        ],
+        "recreated_evidence_ids": [
+          "EV-DEFACL-002"
+        ],
+        "current_evidence_ids": [
+          "EV-DEFAULT-PRIVS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-DEFACL-002",
+            "source_field": "role_name",
+            "target_evidence_id": "EV-DEFACL-002",
+            "target_field": "role_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-DEFACL-002",
+            "source_field": "privilege",
+            "target_evidence_id": "EV-DEFACL-002",
+            "target_field": "privilege",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "IDENTICAL_PRODUCER_ID_AND_FIELD_MEANING",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-DEFAULT-PRIVS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived and recreated both emit EV-DEFACL-002; current marker consumes EV-DEFAULT-PRIVS.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-ALIAS-EXT-001",
+        "mapping_type": "EXPLICIT_ALIAS",
+        "archived_evidence_ids": [
+          "EV-EXT-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-EXTENSION-001"
+        ],
+        "current_evidence_ids": [
+          "EV-EXTENSIONS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-EXT-001",
+            "source_field": "extension_name",
+            "target_evidence_id": "EV-EXTENSION-001",
+            "target_field": "extension_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-EXT-001",
+            "source_field": "extension_version",
+            "target_evidence_id": "EV-EXTENSION-001",
+            "target_field": "extension_version",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-EXT-001",
+            "source_field": "extension_schema",
+            "target_evidence_id": "EV-EXTENSION-001",
+            "target_field": "extension_schema",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-EXT-001",
+            "source_field": "owner_name",
+            "target_evidence_id": "EV-EXTENSION-001",
+            "target_field": "owner_name",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "EQUIVALENT_EXTENSION_INVENTORY",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-EXTENSIONS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "G05 extension inventory renamed EV-EXT-001 -> EV-EXTENSION-001; fields and meaning equivalent.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-ALIAS-POLICY-001",
+        "mapping_type": "EXPLICIT_ALIAS",
+        "archived_evidence_ids": [
+          "EV-POLICY-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-RLS-001"
+        ],
+        "current_evidence_ids": [
+          "EV-RLS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-POLICY-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-RLS-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-POLICY-001",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-RLS-001",
+            "target_field": "table_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-POLICY-001",
+            "source_field": "policy_name",
+            "target_evidence_id": "EV-RLS-001",
+            "target_field": "policy_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-POLICY-001",
+            "source_field": "using_expression",
+            "target_evidence_id": "EV-RLS-001",
+            "target_field": "using_expression",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-POLICY-001",
+            "source_field": "with_check_expression",
+            "target_evidence_id": "EV-RLS-001",
+            "target_field": "with_check_expression",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "EQUIVALENT_RLS_POLICY_INVENTORY",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-RLS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "G16 RLS policy inventory renamed EV-POLICY-001 -> EV-RLS-001; fields and meaning equivalent.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-REPL-CONSTRAINT-002-INDEX",
+        "mapping_type": "REPLACEMENT",
+        "archived_evidence_ids": [
+          "EV-CONSTRAINT-002"
+        ],
+        "recreated_evidence_ids": [
+          "EV-INDEX-001"
+        ],
+        "current_evidence_ids": [
+          "EV-INDEXES"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-CONSTRAINT-002",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-INDEX-001",
+            "target_field": "schema_name",
+            "coverage": "REPLACED"
+          },
+          {
+            "source_evidence_id": "EV-CONSTRAINT-002",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-INDEX-001",
+            "target_field": "table_name",
+            "coverage": "REPLACED"
+          },
+          {
+            "source_evidence_id": "EV-CONSTRAINT-002",
+            "source_field": "index_name",
+            "target_evidence_id": "EV-INDEX-001",
+            "target_field": "index_name",
+            "coverage": "REPLACED"
+          },
+          {
+            "source_evidence_id": "EV-CONSTRAINT-002",
+            "source_field": "indisunique",
+            "target_evidence_id": "EV-INDEX-001",
+            "target_field": "is_unique",
+            "coverage": "REPLACED"
+          },
+          {
+            "source_evidence_id": "EV-CONSTRAINT-002",
+            "source_field": "indisprimary",
+            "target_evidence_id": "EV-INDEX-001",
+            "target_field": "is_primary",
+            "coverage": "REPLACED"
+          }
+        ],
+        "semantic_equivalence": "CONTENT_EQUIVALENT_INDEX_INVENTORY_ARCHIVED_ID_MISLABELED",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-INDEXES"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived EV-CONSTRAINT-002 SQL emits index rows (comment Row key: schema.index). ID label said CONSTRAINT but content is index inventory; replaced by EV-INDEX-001. Not accepted as CONFLICTING_MEANING because content-to-content mapping is explicit.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-SPLIT-ROLE-002",
+        "mapping_type": "SEMANTIC_SPLIT",
+        "archived_evidence_ids": [
+          "EV-ROLE-002"
+        ],
+        "recreated_evidence_ids": [
+          "EV-ROLE-MEM-001",
+          "EV-ROLE-ATTR-001"
+        ],
+        "current_evidence_ids": [
+          "EV-MEMBERSHIPS",
+          "EV-ROLES"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-ROLE-002",
+            "source_field": "member_name",
+            "target_evidence_id": "EV-ROLE-MEM-001",
+            "target_field": "member_name",
+            "coverage": "SPLIT_TARGET"
+          },
+          {
+            "source_evidence_id": "EV-ROLE-002",
+            "source_field": "granted_name",
+            "target_evidence_id": "EV-ROLE-MEM-001",
+            "target_field": "granted_name",
+            "coverage": "SPLIT_TARGET"
+          },
+          {
+            "source_evidence_id": "EV-ROLE-002",
+            "source_field": "membership_path",
+            "target_evidence_id": "EV-ROLE-MEM-001",
+            "target_field": "membership_path",
+            "coverage": "SPLIT_TARGET"
+          },
+          {
+            "source_evidence_id": "EV-ROLE-002",
+            "source_field": "inherited_auto",
+            "target_evidence_id": "EV-ROLE-MEM-001",
+            "target_field": "path_grants_inherited_authority",
+            "coverage": "SPLIT_TARGET"
+          },
+          {
+            "source_evidence_id": "EV-ROLE-002",
+            "source_field": "set_role_only",
+            "target_evidence_id": "EV-ROLE-MEM-001",
+            "target_field": "requires_explicit_set_role",
+            "coverage": "SPLIT_TARGET"
+          },
+          {
+            "source_evidence_id": "EV-ROLE-002",
+            "source_field": "inherit_attr",
+            "target_evidence_id": "EV-ROLE-ATTR-001",
+            "target_field": "inherit_attr",
+            "coverage": "SPLIT_TARGET"
+          }
+        ],
+        "semantic_equivalence": "ROLE_MEMBERSHIP_GRAPH_SPLIT_TO_MEMBERSHIP_AND_ATTR_PRODUCERS",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-MEMBERSHIPS",
+          "MARKER-ROLES"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived transitive membership graph EV-ROLE-002 splits into recreated EV-ROLE-MEM-001 (membership paths) with role attribute continuity under EV-ROLE-ATTR-001/EV-ROLES.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-MERGE-DRIFT",
+        "mapping_type": "SEMANTIC_MERGE",
+        "archived_evidence_ids": [
+          "EV-DRIFT-001",
+          "EV-DRIFT-002"
+        ],
+        "recreated_evidence_ids": [
+          "EV-DRIFT-START",
+          "EV-DRIFT-END"
+        ],
+        "current_evidence_ids": [
+          "EV-DRIFT-START",
+          "EV-DRIFT-END"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-DRIFT-001",
+            "source_field": "position",
+            "target_evidence_id": "EV-DRIFT-START",
+            "target_field": "drift_algorithm",
+            "coverage": "MERGED_SOURCE"
+          },
+          {
+            "source_evidence_id": "EV-DRIFT-001",
+            "source_field": "digest",
+            "target_evidence_id": "EV-DRIFT-START",
+            "target_field": "drift_digest_md5_fallback",
+            "coverage": "MERGED_SOURCE"
+          },
+          {
+            "source_evidence_id": "EV-DRIFT-002",
+            "source_field": "position",
+            "target_evidence_id": "EV-DRIFT-END",
+            "target_field": "drift_algorithm",
+            "coverage": "MERGED_SOURCE"
+          },
+          {
+            "source_evidence_id": "EV-DRIFT-002",
+            "source_field": "digest",
+            "target_evidence_id": "EV-DRIFT-END",
+            "target_field": "drift_digest_md5_fallback",
+            "coverage": "MERGED_SOURCE"
+          }
+        ],
+        "semantic_equivalence": "DRIFT_START_END_PAIR_CONTINUITY",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-DRIFT-START",
+          "MARKER-DRIFT-END"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived start/end drift digests map to recreated EV-DRIFT-START/END pair with equivalent capture-guard role.",
+        "resolution_gate": "RUNTIME_REVALIDATION_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-MERGE-FUNCTIONS",
+        "mapping_type": "SEMANTIC_MERGE",
+        "archived_evidence_ids": [
+          "EV-FUNCTION-001",
+          "EV-FUNCTION-002"
+        ],
+        "recreated_evidence_ids": [
+          "EV-FUNCTION-001"
+        ],
+        "current_evidence_ids": [
+          "EV-FUNCTIONS",
+          "EV-HELPER-FUNCTIONS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-FUNCTION-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-FUNCTION-001",
+            "target_field": "schema_name",
+            "coverage": "MERGED_SOURCE"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-001",
+            "source_field": "function_name",
+            "target_evidence_id": "EV-FUNCTION-001",
+            "target_field": "function_name",
+            "coverage": "MERGED_SOURCE"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-001",
+            "source_field": "identity_args",
+            "target_evidence_id": "EV-FUNCTION-001",
+            "target_field": "identity_args",
+            "coverage": "MERGED_SOURCE"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-002",
+            "source_field": "prokind",
+            "target_evidence_id": "EV-FUNCTION-001",
+            "target_field": "result_type",
+            "coverage": "MERGED_SOURCE"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-002",
+            "source_field": "function_count",
+            "target_evidence_id": "EV-FUNCTION-001",
+            "target_field": "research_function_count",
+            "coverage": "MERGED_SOURCE"
+          }
+        ],
+        "semantic_equivalence": "FUNCTION_INVENTORY_AND_COUNTS_MERGED",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-FUNCTIONS",
+          "MARKER-HELPER-FUNCTIONS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived function inventory plus population counts merge into recreated EV-FUNCTION-001 feeding EV-FUNCTIONS/EV-HELPER-FUNCTIONS.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-ALIAS-BASELINE-001-PG",
+        "mapping_type": "EXPLICIT_ALIAS",
+        "archived_evidence_ids": [
+          "EV-BASELINE-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-PG-VERSION"
+        ],
+        "current_evidence_ids": [
+          "EV-PG-VERSION"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-BASELINE-001",
+            "source_field": "server_version",
+            "target_evidence_id": "EV-PG-VERSION",
+            "target_field": "server_version",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-BASELINE-001",
+            "source_field": "database_name",
+            "target_evidence_id": "EV-PG-VERSION",
+            "target_field": "database_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-BASELINE-001",
+            "source_field": "current_user",
+            "target_evidence_id": "EV-PG-VERSION",
+            "target_field": "current_user_name",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "EQUIVALENT_SESSION_VERSION_GUARD",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-PG-VERSION"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived database/version guard EV-BASELINE-001 maps to recreated EV-PG-VERSION session metadata.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-ALIAS-BASELINE-002-SCHEMA-VERSION",
+        "mapping_type": "EXPLICIT_ALIAS",
+        "archived_evidence_ids": [
+          "EV-BASELINE-002"
+        ],
+        "recreated_evidence_ids": [
+          "EV-SCHEMA-VERSION"
+        ],
+        "current_evidence_ids": [
+          "EV-SCHEMA-VERSION"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-BASELINE-002",
+            "source_field": "schema_version",
+            "target_evidence_id": "EV-SCHEMA-VERSION",
+            "target_field": "schema_version_table_present",
+            "coverage": "REPLACED"
+          },
+          {
+            "source_evidence_id": "EV-BASELINE-002",
+            "source_field": "version_table",
+            "target_evidence_id": "EV-SCHEMA-VERSION",
+            "target_field": "table_name",
+            "coverage": "REPLACED"
+          }
+        ],
+        "semantic_equivalence": "EQUIVALENT_SCHEMA_VERSION_PRESENCE_PROTOCOL",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-SCHEMA-VERSION"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived templated schema-version query becomes recreated presence/column protocol EV-SCHEMA-VERSION.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-ALIAS-SCHEMA-002-PRIVS",
+        "mapping_type": "EXPLICIT_ALIAS",
+        "archived_evidence_ids": [
+          "EV-SCHEMA-002"
+        ],
+        "recreated_evidence_ids": [
+          "EV-SCHEMA-001"
+        ],
+        "current_evidence_ids": [
+          "EV-SCHEMA-PRIVS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-SCHEMA-002",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-SCHEMA-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-SCHEMA-002",
+            "source_field": "rolname",
+            "target_evidence_id": "EV-SCHEMA-001",
+            "target_field": "role_name",
+            "coverage": "REPLACED"
+          },
+          {
+            "source_evidence_id": "EV-SCHEMA-002",
+            "source_field": "effective_usage",
+            "target_evidence_id": "EV-SCHEMA-001",
+            "target_field": "effective_usage",
+            "coverage": "REPLACED"
+          }
+        ],
+        "semantic_equivalence": "EQUIVALENT_SCHEMA_PRIVILEGE_MATRIX",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-SCHEMA-PRIVS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived schema privilege matrix EV-SCHEMA-002 continues under recreated schema privilege emission feeding EV-SCHEMA-PRIVS.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-SPLIT-BASELINE-DISCOVERY",
+        "mapping_type": "SEMANTIC_SPLIT",
+        "archived_evidence_ids": [
+          "EV-BASELINE-DISCOVERY-001",
+          "EV-BASELINE-DISCOVERY-002"
+        ],
+        "recreated_evidence_ids": [
+          "EV-APP-DISCOVERY-001"
+        ],
+        "current_evidence_ids": [
+          "EV-SAFETY-BASELINE",
+          "EV-RESERVATION-STATE",
+          "EV-CUTOVER-STATE"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-BASELINE-DISCOVERY-001",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-APP-DISCOVERY-001",
+            "target_field": "table_name",
+            "coverage": "SPLIT_TARGET"
+          },
+          {
+            "source_evidence_id": "EV-BASELINE-DISCOVERY-001",
+            "source_field": "live_row_count",
+            "target_evidence_id": "EV-APP-DISCOVERY-001",
+            "target_field": "discovery_kind",
+            "coverage": "SPLIT_TARGET"
+          },
+          {
+            "source_evidence_id": "EV-BASELINE-DISCOVERY-002",
+            "source_field": "column_name",
+            "target_evidence_id": "EV-APP-DISCOVERY-001",
+            "target_field": "column_name",
+            "coverage": "SPLIT_TARGET"
+          },
+          {
+            "source_evidence_id": "EV-BASELINE-DISCOVERY-002",
+            "source_field": "secret_risk",
+            "target_evidence_id": "EV-APP-DISCOVERY-001",
+            "target_field": "secret_risk_name_match",
+            "coverage": "SPLIT_TARGET"
+          }
+        ],
+        "semantic_equivalence": "DISCOVERY_FEEDS_SAFETY_RESERVATION_CUTOVER_CANDIDATES",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-SAFETY-BASELINE",
+          "MARKER-RESERVATION-STATE",
+          "MARKER-CUTOVER-STATE"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived discovery sets split/refactor into recreated EV-APP-DISCOVERY-001 candidate feed for safety/reservation/cutover markers.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-REPL-RESERVATION",
+        "mapping_type": "REPLACEMENT",
+        "archived_evidence_ids": [
+          "EV-RESERVATION-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-RESERVATION-STATE"
+        ],
+        "current_evidence_ids": [
+          "EV-RESERVATION-STATE"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-RESERVATION-001",
+            "source_field": "original_exists",
+            "target_evidence_id": "EV-RESERVATION-STATE",
+            "target_field": "reservation_state",
+            "coverage": "REPLACED"
+          },
+          {
+            "source_evidence_id": "EV-RESERVATION-001",
+            "source_field": "legacy_exists",
+            "target_evidence_id": "EV-RESERVATION-STATE",
+            "target_field": "reservation_state",
+            "coverage": "REPLACED"
+          }
+        ],
+        "semantic_equivalence": "RESERVATION_STATE_PROTOCOL_CONTINUITY",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-RESERVATION-STATE"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived templated reservation state A/B/C determination replaced by EV-RESERVATION-STATE marker protocol.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-REPL-CUTOVER",
+        "mapping_type": "REPLACEMENT",
+        "archived_evidence_ids": [
+          "EV-CUTOVER-001"
+        ],
+        "recreated_evidence_ids": [
+          "EV-CUTOVER-STATE"
+        ],
+        "current_evidence_ids": [
+          "EV-CUTOVER-STATE"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-CUTOVER-001",
+            "source_field": "cutover_columns",
+            "target_evidence_id": "EV-CUTOVER-STATE",
+            "target_field": "cutover_state",
+            "coverage": "REPLACED"
+          }
+        ],
+        "semantic_equivalence": "CUTOVER_STATE_PROTOCOL_CONTINUITY",
+        "decision_refs": [
+          "ND-PROV-002"
+        ],
+        "affected_markers": [
+          "MARKER-CUTOVER-STATE"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Archived templated cutover-state rows replaced by EV-CUTOVER-STATE marker protocol.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-RETIRE-BASELINE-003",
+        "mapping_type": "NO_LONGER_REQUIRED",
+        "archived_evidence_ids": [
+          "EV-BASELINE-003"
+        ],
+        "recreated_evidence_ids": [
+          "EV-APP-DISCOVERY-001"
+        ],
+        "current_evidence_ids": [
+          "EV-SAFETY-BASELINE"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-BASELINE-003",
+            "source_field": "templated_fields",
+            "target_evidence_id": "EV-APP-DISCOVERY-001",
+            "target_field": "discovery_kind",
+            "coverage": "RETIRED_NOT_REQUIRED"
+          }
+        ],
+        "semantic_equivalence": "RETIRED_TEMPLATED_BASELINE_COVERED_BY_DISCOVERY_AND_RUNTIME_GATE",
+        "decision_refs": [
+          "ND-PROV-001",
+          "ND-PROV-004"
+        ],
+        "affected_markers": [
+          "MARKER-SAFETY-BASELINE"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "RETIRED",
+        "notes": "Archived templated provider/model enablement (EV-BASELINE-003) is no longer a required standalone producer; coverage is via EV-APP-DISCOVERY-001 candidates and EV-SAFETY-BASELINE runtime gate. ND-PROV-001/004.",
+        "resolution_gate": "RUNTIME_REVALIDATION_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-RETIRE-BASELINE-004",
+        "mapping_type": "NO_LONGER_REQUIRED",
+        "archived_evidence_ids": [
+          "EV-BASELINE-004"
+        ],
+        "recreated_evidence_ids": [
+          "EV-APP-DISCOVERY-001"
+        ],
+        "current_evidence_ids": [
+          "EV-SAFETY-BASELINE"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-BASELINE-004",
+            "source_field": "templated_fields",
+            "target_evidence_id": "EV-APP-DISCOVERY-001",
+            "target_field": "discovery_kind",
+            "coverage": "RETIRED_NOT_REQUIRED"
+          }
+        ],
+        "semantic_equivalence": "RETIRED_TEMPLATED_BASELINE_COVERED_BY_DISCOVERY_AND_RUNTIME_GATE",
+        "decision_refs": [
+          "ND-PROV-001",
+          "ND-PROV-004"
+        ],
+        "affected_markers": [
+          "MARKER-SAFETY-BASELINE"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "RETIRED",
+        "notes": "Archived templated credential status non-secret fields (EV-BASELINE-004) is no longer a required standalone producer; coverage is via EV-APP-DISCOVERY-001 candidates and EV-SAFETY-BASELINE runtime gate. ND-PROV-001/004.",
+        "resolution_gate": "RUNTIME_REVALIDATION_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-RETIRE-BASELINE-005",
+        "mapping_type": "NO_LONGER_REQUIRED",
+        "archived_evidence_ids": [
+          "EV-BASELINE-005"
+        ],
+        "recreated_evidence_ids": [
+          "EV-APP-DISCOVERY-001"
+        ],
+        "current_evidence_ids": [
+          "EV-SAFETY-BASELINE"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-BASELINE-005",
+            "source_field": "templated_fields",
+            "target_evidence_id": "EV-APP-DISCOVERY-001",
+            "target_field": "discovery_kind",
+            "coverage": "RETIRED_NOT_REQUIRED"
+          }
+        ],
+        "semantic_equivalence": "RETIRED_TEMPLATED_BASELINE_COVERED_BY_DISCOVERY_AND_RUNTIME_GATE",
+        "decision_refs": [
+          "ND-PROV-001",
+          "ND-PROV-004"
+        ],
+        "affected_markers": [
+          "MARKER-SAFETY-BASELINE"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "RETIRED",
+        "notes": "Archived templated zero-activity assertions (EV-BASELINE-005) is no longer a required standalone producer; coverage is via EV-APP-DISCOVERY-001 candidates and EV-SAFETY-BASELINE runtime gate. ND-PROV-001/004.",
+        "resolution_gate": "RUNTIME_REVALIDATION_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-RETIRE-BASELINE-006",
+        "mapping_type": "NO_LONGER_REQUIRED",
+        "archived_evidence_ids": [
+          "EV-BASELINE-006"
+        ],
+        "recreated_evidence_ids": [
+          "EV-APP-DISCOVERY-001"
+        ],
+        "current_evidence_ids": [
+          "EV-SAFETY-BASELINE"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-BASELINE-006",
+            "source_field": "templated_fields",
+            "target_evidence_id": "EV-APP-DISCOVERY-001",
+            "target_field": "discovery_kind",
+            "coverage": "RETIRED_NOT_REQUIRED"
+          }
+        ],
+        "semantic_equivalence": "RETIRED_TEMPLATED_BASELINE_COVERED_BY_DISCOVERY_AND_RUNTIME_GATE",
+        "decision_refs": [
+          "ND-PROV-001",
+          "ND-PROV-004"
+        ],
+        "affected_markers": [
+          "MARKER-SAFETY-BASELINE"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "RETIRED",
+        "notes": "Archived templated paid usage zero assertion (EV-BASELINE-006) is no longer a required standalone producer; coverage is via EV-APP-DISCOVERY-001 candidates and EV-SAFETY-BASELINE runtime gate. ND-PROV-001/004.",
+        "resolution_gate": "RUNTIME_REVALIDATION_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-CURRENT-CRYPTO",
+        "mapping_type": "EXPLICIT_ALIAS",
+        "archived_evidence_ids": [],
+        "recreated_evidence_ids": [
+          "EV-CRYPTO-LOCATION"
+        ],
+        "current_evidence_ids": [
+          "EV-CRYPTO-LOCATION"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-CRYPTO-LOCATION",
+            "source_field": "crypto_probe_status",
+            "target_evidence_id": "EV-CRYPTO-LOCATION",
+            "target_field": "crypto_probe_status",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "CURRENT_PRODUCER_WITHOUT_ARCHIVED_COUNTERPART",
+        "decision_refs": [
+          "ND-PROV-004"
+        ],
+        "affected_markers": [
+          "MARKER-CRYPTO-LOCATION"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Recreated/current crypto location probe has no archived EV counterpart; bound as current producer.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      },
+      {
+        "mapping_id": "MAP-CURRENT-FUNCTION-PUBLIC",
+        "mapping_type": "EXPLICIT_ALIAS",
+        "archived_evidence_ids": [],
+        "recreated_evidence_ids": [
+          "EV-FUNCTION-PUBLIC"
+        ],
+        "current_evidence_ids": [
+          "EV-FUNCTION-PUBLIC"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-FUNCTION-PUBLIC",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-FUNCTION-PUBLIC",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-PUBLIC",
+            "source_field": "function_name",
+            "target_evidence_id": "EV-FUNCTION-PUBLIC",
+            "target_field": "function_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-FUNCTION-PUBLIC",
+            "source_field": "public_execute",
+            "target_evidence_id": "EV-FUNCTION-PUBLIC",
+            "target_field": "public_execute",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "CURRENT_PRODUCER_WITHOUT_ARCHIVED_COUNTERPART",
+        "decision_refs": [
+          "ND-PROV-004"
+        ],
+        "affected_markers": [
+          "MARKER-FUNCTION-PUBLIC"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "PUBLIC EXECUTE path is a current/recreated producer without archived dedicated EV id.",
+        "resolution_gate": "LIVE_PREFLIGHT_UNKNOWN_GATE"
+      },
+      {
+        "mapping_id": "MAP-CURRENT-COLUMNS",
+        "mapping_type": "EXPLICIT_ALIAS",
+        "archived_evidence_ids": [],
+        "recreated_evidence_ids": [
+          "EV-COLUMN-ACL-001"
+        ],
+        "current_evidence_ids": [
+          "EV-COLUMNS"
+        ],
+        "field_mappings": [
+          {
+            "source_evidence_id": "EV-COLUMN-ACL-001",
+            "source_field": "schema_name",
+            "target_evidence_id": "EV-COLUMN-ACL-001",
+            "target_field": "schema_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-COLUMN-ACL-001",
+            "source_field": "table_name",
+            "target_evidence_id": "EV-COLUMN-ACL-001",
+            "target_field": "table_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-COLUMN-ACL-001",
+            "source_field": "column_name",
+            "target_evidence_id": "EV-COLUMN-ACL-001",
+            "target_field": "column_name",
+            "coverage": "EQUIVALENT"
+          },
+          {
+            "source_evidence_id": "EV-COLUMN-ACL-001",
+            "source_field": "data_type",
+            "target_evidence_id": "EV-COLUMN-ACL-001",
+            "target_field": "data_type",
+            "coverage": "EQUIVALENT"
+          }
+        ],
+        "semantic_equivalence": "CURRENT_PRODUCER_WITHOUT_ARCHIVED_COUNTERPART",
+        "decision_refs": [
+          "ND-PROV-004"
+        ],
+        "affected_markers": [
+          "MARKER-COLUMNS"
+        ],
+        "source_artifacts": [
+          "evidence/round5a/archived_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/archived_phase1/SRL_Phase1_evidence_spec.md",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_catalog_snapshot.sql",
+          "evidence/round5a/recreated_phase1/SRL_Phase1_evidence_spec.md",
+          "docs/ROUND_5A_EVIDENCE_PROVENANCE_DECISION.md"
+        ],
+        "status": "ACCEPTED",
+        "notes": "Current EV-COLUMNS marker resolves through reconstructed/recreated column inventory producers.",
+        "resolution_gate": "COMMITTED_PRODUCER"
+      }
+    ]
+  }
+}
