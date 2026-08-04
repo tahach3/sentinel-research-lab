@@ -18,9 +18,13 @@ from tools.self_improvement_v2.executor import execute_proposal
 from tools.self_improvement_v2.experience_store import ExperienceStore
 from tools.self_improvement_v2.finalizer import finalize_or_freeze
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
-from tools.self_improvement_v2.path_policy import classify_and_authorize, load_policy, policy_sha256
+from tools.self_improvement_v2.path_policy import load_policy, policy_sha256
 from tools.self_improvement_v2.repair_policy import assert_repair_attempt_allowed
 from tools.self_improvement_v2.review_gate import assert_no_conflicting_review, assert_review_bound
+from tools.self_improvement_v2.risk_authority import (
+    authorize_execution,
+    enforce_authorization,
+)
 from tools.self_improvement_v2.runtime_config import (
     RuntimeConfig,
     build_arg_parser,
@@ -105,23 +109,30 @@ def validate_proposal_operation(config: RuntimeConfig, proposal: dict[str, Any])
     proposal = ensure_schema_version(proposal)
     validate_instance("proposal", proposal, root=config.repository_root)
     assert_repair_attempt_allowed(int(proposal.get("repair_attempt") or 0))
-    classify_and_authorize(proposal, policy)
+    auth = authorize_execution(proposal, policy, policy_sha256=policy_sha256(config.repository_root))
+    enforce_authorization(auth)
     return {
         "status": "PASS",
         "proposal_id": proposal["proposal_id"],
         "proposal_sha256": content_sha256(proposal),
         "policy_sha256": policy_sha256(config.repository_root),
+        "worker_decision": auth.decision,
+        "declared_risk": auth.declared_risk,
+        "computed_risk_pre": auth.computed_risk_pre,
+        "effective_risk_pre": auth.effective_risk_pre,
+        "risk_reason_codes_pre": auth.risk_reason_codes_pre,
     }
 
 
 def execute_operation(config: RuntimeConfig, proposal: dict[str, Any], candidate: dict[str, Any] | None) -> dict[str, Any]:
     proposal = ensure_schema_version(proposal)
     validate_instance("proposal", proposal, root=config.repository_root)
-    if proposal.get("risk_level") != "LOW":
+    # Authorization is recomputed inside execute_proposal; never trust proposer risk_level alone.
+    if "authorization" in proposal or proposal.get("skip_risk_check"):
         raise WorkerError(
-            ERROR_CODES["RISK_NOT_AUTO_AUTHORIZED"],
-            "execute allows LOW risk only",
-            state="DECISION_REQUIRED",
+            ERROR_CODES["POLICY_REJECTED"],
+            "classification bypass fields rejected",
+            state="POLICY_REJECTED",
         )
     bundle = execute_proposal(
         root=config.repository_root,

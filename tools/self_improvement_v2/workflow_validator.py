@@ -24,11 +24,10 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Candidate Schema Validation": "n8n-nodes-base.if",
     "Proposal Schema Validation": "n8n-nodes-base.if",
     "Proposal Freeze": "n8n-nodes-base.code",
-    "Risk Classification": "n8n-nodes-base.switch",
-    "LOW Auto-Authorize": "n8n-nodes-base.code",
-    "MEDIUM Decision Required": "n8n-nodes-base.code",
-    "HIGH Human Approval Required": "n8n-nodes-base.code",
-    "PROHIBITED Policy Rejected": "n8n-nodes-base.code",
+    "Worker Authorize": "n8n-nodes-base.code",
+    "Worker Decision Router": "n8n-nodes-base.switch",
+    "Worker AUTHORIZED Continue": "n8n-nodes-base.code",
+    "Annotate Authorize Failure": "n8n-nodes-base.code",
     "Detached Worker Execute": "n8n-nodes-base.code",
     "Execution Result Validation": "n8n-nodes-base.if",
     "Independent Review Bind": "n8n-nodes-base.code",
@@ -56,12 +55,11 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Terminal IMMUTABILITY_VIOLATION": "n8n-nodes-base.code",
 }
 
-# Risk Classification switch output index → required destination (direct).
-RISK_OUTPUT_TARGETS = {
-    0: "LOW Auto-Authorize",
-    1: "MEDIUM Decision Required",
-    2: "HIGH Human Approval Required",
-    3: "PROHIBITED Policy Rejected",
+# Worker Decision Router switch output index → required destination (direct).
+WORKER_DECISION_TARGETS = {
+    0: "Worker AUTHORIZED Continue",
+    1: "Terminal DECISION_REQUIRED",
+    2: "Terminal POLICY_REJECTED",
 }
 
 # Failure Router switch output index → required terminal.
@@ -75,6 +73,7 @@ FAILURE_ROUTER_TARGETS = {
     6: "Terminal PATCH_REJECTED",
     7: "Terminal BASELINE_MISMATCH",
     8: "Terminal IMMUTABILITY_VIOLATION",
+    9: "Terminal DECISION_REQUIRED",
 }
 
 # (source, output_index, destination) required failure/risk edges.
@@ -83,9 +82,10 @@ REQUIRED_EDGES: list[tuple[str, int, str]] = [
     ("Invalid Candidate", 0, "Failure Router"),
     ("Proposal Schema Validation", 1, "Invalid Proposal"),
     ("Invalid Proposal", 0, "Failure Router"),
-    ("MEDIUM Decision Required", 0, "Terminal DECISION_REQUIRED"),
-    ("HIGH Human Approval Required", 0, "Terminal DECISION_REQUIRED"),
-    ("PROHIBITED Policy Rejected", 0, "Failure Router"),
+    ("Worker Authorize", 1, "Annotate Authorize Failure"),
+    ("Annotate Authorize Failure", 0, "Failure Router"),
+    ("Worker Decision Router", 1, "Terminal DECISION_REQUIRED"),
+    ("Worker Decision Router", 2, "Terminal POLICY_REJECTED"),
     ("Detached Worker Execute", 1, "Annotate Worker Failure"),
     ("Annotate Worker Failure", 0, "Failure Router"),
     ("Execution Result Validation", 1, "Annotate Validation Failure"),
@@ -100,6 +100,7 @@ REQUIRED_EDGES: list[tuple[str, int, str]] = [
 ]
 
 ERROR_OUTPUT_NODES = (
+    "Worker Authorize",
     "Detached Worker Execute",
     "Independent Review Bind",
     "Finalization",
@@ -202,6 +203,22 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
     if len(ids) != len(set(ids)) or any(not i for i in ids):
         errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "node IDs must be unique and non-empty"))
 
+    # Forbidden: n8n must not classify from proposal risk_level.
+    for banned in (
+        "Risk Classification",
+        "LOW Auto-Authorize",
+        "MEDIUM Decision Required",
+        "HIGH Human Approval Required",
+        "PROHIBITED Policy Rejected",
+    ):
+        if banned in by_name:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-INVALID-RISK-ROUTE"],
+                    f"executable risk node forbidden in n8n design: {banned}",
+                )
+            )
+
     for name, expected_type in REQUIRED_NODE_SPECS.items():
         node = by_name.get(name)
         if node is None:
@@ -216,51 +233,35 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 )
             )
 
-    # Risk Classification outputs — structural only.
-    risk_node = by_name.get("Risk Classification")
-    if risk_node is not None:
-        for out_idx, dest in RISK_OUTPUT_TARGETS.items():
-            if not _has_edge(connections, "Risk Classification", out_idx, dest):
+    # Worker decision router — structural only.
+    decision_node = by_name.get("Worker Decision Router")
+    if decision_node is not None:
+        for out_idx, dest in WORKER_DECISION_TARGETS.items():
+            if not _has_edge(connections, "Worker Decision Router", out_idx, dest):
                 errors.append(
                     _err(
                         ERROR_CODES["SI2-WF-INVALID-RISK-ROUTE"],
-                        f"Risk Classification output {out_idx} must connect to {dest}",
+                        f"Worker Decision Router output {out_idx} must connect to {dest}",
                     )
                 )
 
-        # HIGH must not reach AUTO_AUTHORIZED / worker.
-        high_reach = _reachable_from(connections, "Risk Classification", only_output=2)
-        if "LOW Auto-Authorize" in high_reach or "Detached Worker Execute" in high_reach:
-            errors.append(
-                _err(
-                    ERROR_CODES["SI2-WF-AUTOAUTH-NONLOW"],
-                    "HIGH risk reaches AUTO_AUTHORIZED or worker",
+        # Non-AUTHORIZED outputs must not reach worker execute.
+        for out_idx, label in ((1, "DECISION_REQUIRED"), (2, "POLICY_REJECTED")):
+            reach = _reachable_from(connections, "Worker Decision Router", only_output=out_idx)
+            if "Detached Worker Execute" in reach or "Worker AUTHORIZED Continue" in reach:
+                errors.append(
+                    _err(
+                        ERROR_CODES["SI2-WF-AUTOAUTH-NONLOW"],
+                        f"{label} reaches worker execution path",
+                    )
                 )
-            )
-        # PROHIBITED must not reach worker / AUTO_AUTHORIZED.
-        prol_reach = _reachable_from(connections, "Risk Classification", only_output=3)
-        if "LOW Auto-Authorize" in prol_reach or "Detached Worker Execute" in prol_reach:
+
+        auth_reach = _reachable_from(connections, "Worker Decision Router", only_output=0)
+        if "Detached Worker Execute" not in auth_reach:
             errors.append(
                 _err(
                     ERROR_CODES["SI2-WF-INVALID-RISK-ROUTE"],
-                    "PROHIBITED risk reaches worker or AUTO_AUTHORIZED",
-                )
-            )
-        # Only LOW may reach worker.
-        low_reach = _reachable_from(connections, "Risk Classification", only_output=0)
-        if "Detached Worker Execute" not in low_reach:
-            errors.append(
-                _err(
-                    ERROR_CODES["SI2-WF-INVALID-RISK-ROUTE"],
-                    "LOW risk does not reach Detached Worker Execute",
-                )
-            )
-        med_reach = _reachable_from(connections, "Risk Classification", only_output=1)
-        if "Detached Worker Execute" in med_reach or "LOW Auto-Authorize" in med_reach:
-            errors.append(
-                _err(
-                    ERROR_CODES["SI2-WF-AUTOAUTH-NONLOW"],
-                    "MEDIUM risk reaches AUTO_AUTHORIZED or worker",
+                    "AUTHORIZED does not reach Detached Worker Execute",
                 )
             )
 
@@ -285,24 +286,14 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
             )
         for out_idx, dest in FAILURE_ROUTER_TARGETS.items():
             if not _has_edge(connections, "Failure Router", out_idx, dest):
-                code = (
-                    ERROR_CODES["SI2-WF-DISCONNECTED-FAILURE-STATE"]
-                    if dest == "Terminal CONTENT_BINDING_MISMATCH"
-                    else ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"]
-                )
-                # Prefer disconnected for missing terminal destinations generally.
-                if dest.startswith("Terminal "):
-                    code = ERROR_CODES["SI2-WF-DISCONNECTED-FAILURE-STATE"]
+                code = ERROR_CODES["SI2-WF-DISCONNECTED-FAILURE-STATE"]
                 errors.append(
                     _err(code, f"Failure Router output {out_idx} must connect to {dest}")
                 )
 
     for source, out_idx, dest in REQUIRED_EDGES:
         if source not in by_name or dest not in by_name:
-            # Missing nodes already reported.
-            if source in by_name and dest in by_name:
-                pass
-            elif source in by_name:
+            if source in by_name and dest not in by_name:
                 errors.append(
                     _err(
                         ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
@@ -342,7 +333,9 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
     success_edges = [
         ("Candidate Schema Validation", 0, "Proposal Schema Validation"),
         ("Proposal Schema Validation", 0, "Proposal Freeze"),
-        ("LOW Auto-Authorize", 0, "Detached Worker Execute"),
+        ("Proposal Freeze", 0, "Worker Authorize"),
+        ("Worker Authorize", 0, "Worker Decision Router"),
+        ("Worker AUTHORIZED Continue", 0, "Detached Worker Execute"),
         ("Detached Worker Execute", 0, "Execution Result Validation"),
         ("Execution Result Validation", 0, "Independent Review Bind"),
         ("Independent Review Bind", 0, "Review Result Validation"),
@@ -379,8 +372,8 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
         "errors": errors,
         "nodes": sorted(by_name),
         "graph": {
-            "risk_outputs": {
-                str(i): RISK_OUTPUT_TARGETS[i] for i in RISK_OUTPUT_TARGETS
+            "worker_decision_outputs": {
+                str(i): WORKER_DECISION_TARGETS[i] for i in WORKER_DECISION_TARGETS
             },
             "failure_router_outputs": {
                 str(i): FAILURE_ROUTER_TARGETS[i] for i in FAILURE_ROUTER_TARGETS
