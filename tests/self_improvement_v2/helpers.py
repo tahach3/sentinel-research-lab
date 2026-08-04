@@ -136,6 +136,15 @@ def build_pass_review(bundle: dict[str, Any], proposal: dict[str, Any], review_i
         "architecture_findings": [],
         "verdict": "PASS",
         "repair_instructions": [],
+        "declared_risk": bundle.get("declared_risk", proposal.get("risk_level", "LOW")),
+        "computed_risk_pre": bundle.get("computed_risk_pre", "LOW"),
+        "effective_risk_pre": bundle.get("effective_risk_pre", "LOW"),
+        "computed_risk_post": bundle.get("computed_risk_post", "LOW"),
+        "effective_risk_post": bundle.get("effective_risk_post", "LOW"),
+        "risk_reason_codes_pre": list(bundle.get("risk_reason_codes_pre") or []),
+        "risk_reason_codes_post": list(bundle.get("risk_reason_codes_post") or []),
+        "policy_sha256": bundle.get("policy_sha256", "0" * 64),
+        "risk_classifier_version": bundle.get("risk_classifier_version", "2.1.0"),
     }
 
 
