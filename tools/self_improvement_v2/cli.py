@@ -13,9 +13,10 @@ from tools.self_improvement_v2.experience_store import ExperienceStore
 from tools.self_improvement_v2.executor import execute_proposal
 from tools.self_improvement_v2.finalizer import finalize_or_freeze
 from tools.self_improvement_v2.models import ERROR_CODES, SCHEMA_VERSION, WorkerError
-from tools.self_improvement_v2.path_policy import classify_and_authorize, load_policy, policy_sha256
+from tools.self_improvement_v2.path_policy import load_policy, policy_sha256
 from tools.self_improvement_v2.repair_policy import assert_repair_attempt_allowed, assert_repair_not_broadening
 from tools.self_improvement_v2.review_gate import assert_no_conflicting_review, assert_review_bound
+from tools.self_improvement_v2.risk_authority import authorize_execution, enforce_authorization
 from tools.self_improvement_v2.schema_loader import ensure_schema_version, load_json, validate_instance
 
 
@@ -31,7 +32,8 @@ def validate_proposal_cmd(root: Path, proposal_path: Path) -> int:
     proposal = ensure_schema_version(load_json(proposal_path))
     validate_instance("proposal", proposal, root=root)
     assert_repair_attempt_allowed(int(proposal.get("repair_attempt") or 0))
-    classify_and_authorize(proposal, policy)
+    auth = authorize_execution(proposal, policy, policy_sha256=policy_sha256(root))
+    enforce_authorization(auth)
     digest = content_sha256(proposal)
     print(
         json.dumps(
@@ -40,6 +42,8 @@ def validate_proposal_cmd(root: Path, proposal_path: Path) -> int:
                 "proposal_id": proposal["proposal_id"],
                 "proposal_sha256": digest,
                 "policy_sha256": policy_sha256(root),
+                "worker_decision": auth.decision,
+                "effective_risk_pre": auth.effective_risk_pre,
             },
             sort_keys=True,
         )
@@ -86,6 +90,14 @@ def execute_cmd(root: Path, proposal_path: Path, state_db: Path, result_path: Pa
             "execution_result_sha256": "0" * 64,
             "final_state": final_state,
             "error_codes": errors,
+            "declared_risk": proposal.get("risk_level") or "LOW",
+            "computed_risk_pre": "LOW",
+            "effective_risk_pre": "LOW",
+            "computed_risk_post": "LOW",
+            "effective_risk_post": "LOW",
+            "risk_reason_codes_pre": [],
+            "risk_reason_codes_post": [],
+            "risk_classifier_version": "2.1.0",
         }
         _write_json(result_path, empty)
         print(json.dumps({"status": "FAIL", "error": exc.code, "final_state": final_state}, sort_keys=True))

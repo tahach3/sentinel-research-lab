@@ -68,6 +68,25 @@ def assert_review_bound(
             state="REVIEW_FAILED",
         )
 
+    risk_keys = (
+        "declared_risk",
+        "computed_risk_pre",
+        "effective_risk_pre",
+        "computed_risk_post",
+        "effective_risk_post",
+        "risk_reason_codes_pre",
+        "risk_reason_codes_post",
+        "policy_sha256",
+        "risk_classifier_version",
+    )
+    for key in risk_keys:
+        if review.get(key) != bundle.get(key):
+            raise WorkerError(
+                ERROR_CODES["SI2-REVIEW-RISK-BINDING"],
+                f"review risk binding mismatch: {key}",
+                state="REVIEW_FAILED",
+            )
+
     implementer = proposal.get("implementer_id") or review.get("implementer_id")
     reviewer = review.get("reviewer_id")
     if not reviewer:
