@@ -348,6 +348,14 @@ FAILED_FROZEN
 | Failure state | `FAILED_FROZEN` |
 | Retry behavior | none |
 
+## n8n design workflow routing
+
+`workflows/design/self_improvement_loop_v2.json` remains `active: false`.
+
+Failure and risk routing must be real graph edges (node IDs, types, connections, output indexes, `onError` behavior). Comments, sticky notes, and `jsCode` marker strings are not routes.
+
+Required structural routes include invalid candidate/proposal, MEDIUM/HIGH decision terminals, PROHIBITED policy rejection, worker/validation/review/finalization failure edges into `Failure Router`, and Failure Router outputs to terminal failure states including `CONTENT_BINDING_MISMATCH` → `FAILED_FROZEN`. Only LOW may reach `Detached Worker Execute`.
+
 ## Namespace
 
 ```text
