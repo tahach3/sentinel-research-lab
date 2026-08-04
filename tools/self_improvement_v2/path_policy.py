@@ -311,38 +311,22 @@ def assert_path_allowed(
 
 
 def classify_and_authorize(proposal: dict[str, Any], policy: dict[str, Any]) -> str:
-    risk = proposal.get("risk_level")
-    lane = policy["autonomous_lane"]
-    if risk not in lane.get("risk_levels", []):
-        raise WorkerError(ERROR_CODES["POLICY_REJECTED"], f"unknown risk: {risk}", state="POLICY_REJECTED")
+    """Legacy name — delegates to worker risk authority (content-derived).
 
-    for patch in proposal.get("patches") or []:
-        op = patch.get("operation")
-        path = patch.get("path", "")
-        if op == "DELETE":
-            raise WorkerError(
-                ERROR_CODES["DELETION_PROHIBITED"],
-                "deletion prohibited in autonomous lane",
-                state="POLICY_REJECTED",
-            )
-        assert_path_allowed(path, policy, proposal)
+    Returns AUTO_AUTHORIZED only when authorize_execution returns AUTHORIZED.
+    """
+    from tools.self_improvement_v2.risk_authority import (
+        DECISION_AUTHORIZED,
+        authorize_execution,
+        enforce_authorization,
+    )
 
-    if risk == "PROHIBITED":
+    result = authorize_execution(proposal, policy)
+    enforce_authorization(result)
+    if result.decision != DECISION_AUTHORIZED:
         raise WorkerError(
             ERROR_CODES["RISK_NOT_AUTO_AUTHORIZED"],
-            "risk PROHIBITED",
-            state="POLICY_REJECTED",
-        )
-    if risk in ("MEDIUM", "HIGH"):
-        raise WorkerError(
-            ERROR_CODES["RISK_NOT_AUTO_AUTHORIZED"],
-            f"risk {risk} not auto-authorized",
-            state="DECISION_REQUIRED",
-        )
-    if risk not in lane.get("auto_authorize_risk_levels", []):
-        raise WorkerError(
-            ERROR_CODES["RISK_NOT_AUTO_AUTHORIZED"],
-            f"risk {risk} not auto-authorized",
+            result.message,
             state="DECISION_REQUIRED",
         )
     return "AUTO_AUTHORIZED"
