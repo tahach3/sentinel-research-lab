@@ -34,7 +34,9 @@ def test_workflow_inactive_with_real_failure_graph():
     assert report["status"] == "PASS", report["errors"]
     assert data.get("active") is False
     assert "Failure Router" in report["nodes"]
+    assert "Worker Decision Router" in report["nodes"]
     assert report["graph"]["failure_router_outputs"]["3"] == "Terminal CONTENT_BINDING_MISMATCH"
+    assert report["graph"]["worker_decision_outputs"]["0"] == "Worker AUTHORIZED Continue"
 
 
 def test_mutation_remove_worker_failure_edge(tmp_path: Path):
@@ -59,11 +61,11 @@ def test_mutation_remove_review_failure_edge(tmp_path: Path):
     assert ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"] in _codes(report)
 
 
-def test_mutation_route_high_to_auto_authorized(tmp_path: Path):
+def test_mutation_route_decision_required_to_worker(tmp_path: Path):
     root, _path, data = _load()
     mutated = copy.deepcopy(data)
-    mutated["connections"]["Risk Classification"]["main"][2] = [
-        {"node": "LOW Auto-Authorize", "type": "main", "index": 0}
+    mutated["connections"]["Worker Decision Router"]["main"][1] = [
+        {"node": "Worker AUTHORIZED Continue", "type": "main", "index": 0}
     ]
     report = _validate_data(root, mutated, tmp_path)
     assert report["status"] == "FAIL"
@@ -74,21 +76,23 @@ def test_mutation_route_high_to_auto_authorized(tmp_path: Path):
     )
 
 
-def test_mutation_route_prohibited_to_worker(tmp_path: Path):
+def test_mutation_route_policy_rejected_to_worker(tmp_path: Path):
     root, _path, data = _load()
     mutated = copy.deepcopy(data)
-    mutated["connections"]["Risk Classification"]["main"][3] = [
+    mutated["connections"]["Worker Decision Router"]["main"][2] = [
         {"node": "Detached Worker Execute", "type": "main", "index": 0}
     ]
     report = _validate_data(root, mutated, tmp_path)
     assert report["status"] == "FAIL"
-    assert ERROR_CODES["SI2-WF-INVALID-RISK-ROUTE"] in _codes(report)
+    assert (
+        ERROR_CODES["SI2-WF-INVALID-RISK-ROUTE"] in _codes(report)
+        or ERROR_CODES["SI2-WF-AUTOAUTH-NONLOW"] in _codes(report)
+    )
 
 
 def test_mutation_remove_content_binding_route(tmp_path: Path):
     root, _path, data = _load()
     mutated = copy.deepcopy(data)
-    # Clear Failure Router output for CONTENT_BINDING_MISMATCH (index 3).
     mutated["connections"]["Failure Router"]["main"][3] = []
     report = _validate_data(root, mutated, tmp_path)
     assert report["status"] == "FAIL"
@@ -98,7 +102,6 @@ def test_mutation_remove_content_binding_route(tmp_path: Path):
 def test_mutation_marker_only_failure_router(tmp_path: Path):
     root, _path, data = _load()
     mutated = copy.deepcopy(data)
-    # Replace switch Failure Router with a code node that only has marker text — no edges.
     for node in mutated["nodes"]:
         if node.get("name") == "Failure Router":
             node["type"] = "n8n-nodes-base.code"

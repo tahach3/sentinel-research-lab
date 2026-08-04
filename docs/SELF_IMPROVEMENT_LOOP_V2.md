@@ -263,9 +263,11 @@ FAILED_FROZEN
 | Field | Value |
 | --- | --- |
 | Required immutable inputs | frozen proposal; policy |
-| Hashes verified | policy hash; path policy |
-| State written | risk classification event |
-| Next allowed operations | authorize |
+| Hashes verified | policy hash; worker content-derived risk |
+| Authority | `tools.self_improvement_v2.risk_authority.authorize_execution` only |
+| Classification inputs | parsed patch text, paths, ops, limits, validation profile adequacy, scopes |
+| State written | risk classification event (`declared` / `computed_pre` / `effective_pre`) |
+| Next allowed operations | authorize when `effective_risk_pre == LOW` |
 | Failure state | `POLICY_REJECTED` or `DECISION_REQUIRED` |
 | Retry behavior | none autonomous for MEDIUM/HIGH/PROHIBITED |
 
@@ -273,12 +275,14 @@ FAILED_FROZEN
 
 | Field | Value |
 | --- | --- |
-| Required immutable inputs | risk `LOW`; frozen proposal |
-| Hashes verified | risk level; repair anti-broadening |
-| State written | authorization event |
+| Required immutable inputs | worker decision `AUTHORIZED`; frozen proposal |
+| Hashes verified | effective risk `LOW`; repair anti-broadening; policy pin |
+| State written | authorization event (never from n8n / proposer metadata alone) |
 | Next allowed operations | prepare detached worktree |
 | Failure state | `DECISION_REQUIRED` / `POLICY_REJECTED` / `REPAIR_LIMIT_REACHED` |
 | Retry behavior | one repair max |
+
+Post-application: worker recomputes `computed_risk_post` / `effective_risk_post` from the actual diff. Any increase or non-LOW value yields `RISK_ESCALATED_POST_EXECUTION` → `DECISION_REQUIRED` (no review, commit, or branch). Finalizer rechecks risk bindings and current-policy tightening regardless of review verdict.
 
 #### AUTO_AUTHORIZED → DETACHED_WORKTREE_PREPARED
 
