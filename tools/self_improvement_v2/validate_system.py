@@ -353,6 +353,163 @@ class SystemValidator:
         if len(rejected) != len(NESTED_PATH_PROBES):
             self.fail("PATH_PROBES", "not all nested path probes rejected")
 
+    def probe_git_hooks_and_signing(self) -> None:
+        """Real malicious hook + inherited signing probes against create_local_commit."""
+        import stat
+        import subprocess
+
+        from tools.self_improvement_v2.git_worker import DetachedWorktree, create_local_commit
+
+        tmp = Path(tempfile.mkdtemp(prefix="si2-git-probe-"))
+        proofs: list[dict[str, Any]] = []
+        try:
+            repo = tmp / "repo"
+            baseline = _init_temp_repo(repo)
+            wt = DetachedWorktree(repo, baseline, "probehooks01abcdef")
+            worktree = wt.prepare()
+            marker = tmp / "hook-fired.txt"
+
+            def install_hook(hooks_dir: Path, name: str) -> None:
+                hooks_dir.mkdir(parents=True, exist_ok=True)
+                script = hooks_dir / name
+                script.write_text(
+                    "#!/bin/sh\n"
+                    f'echo hooked > "{marker.as_posix()}"\n'
+                    "exit 1\n",
+                    encoding="utf-8",
+                    newline="\n",
+                )
+                script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+            git_dir = subprocess.run(
+                ["git", "rev-parse", "--git-dir"],
+                cwd=str(worktree),
+                capture_output=True,
+                text=True,
+                check=True,
+                shell=False,
+            ).stdout.strip()
+            hooks_path = Path(git_dir)
+            if not hooks_path.is_absolute():
+                hooks_path = (worktree / hooks_path).resolve()
+            hooks_path = hooks_path / "hooks"
+            for name in ("pre-commit", "commit-msg", "post-commit"):
+                install_hook(hooks_path, name)
+
+            subprocess.run(
+                ["git", "config", "commit.gpgsign", "true"],
+                cwd=str(worktree),
+                check=True,
+                shell=False,
+            )
+            subprocess.run(
+                ["git", "config", "user.signingkey", "PROBEKEY"],
+                cwd=str(worktree),
+                check=True,
+                shell=False,
+            )
+            subprocess.run(
+                ["git", "config", "credential.helper", "store"],
+                cwd=str(worktree),
+                check=True,
+                shell=False,
+            )
+            before_local = subprocess.run(
+                ["git", "config", "--local", "--list"],
+                cwd=str(worktree),
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False,
+            ).stdout
+            before_global = subprocess.run(
+                ["git", "config", "--global", "--list"],
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False,
+            ).stdout
+
+            (worktree / "docs" / "GIT_PROBE.md").write_text("# probe\n", encoding="utf-8")
+            try:
+                sha = create_local_commit(worktree, "validator git probe")
+                hook_ok = not marker.exists() and bool(sha)
+                actual = None if hook_ok else ERROR_CODES["SI2-GIT-HOOKS-NOT-ISOLATED"]
+                proofs.append(
+                    _proof(
+                        probe_id="git-malicious-hooks",
+                        corruption_applied="pre-commit/commit-msg/post-commit exit 1 + marker",
+                        validation_stage_executed="create_local_commit",
+                        expected_error_code="HOOKS_NOT_EXECUTED",
+                        actual_error_code="HOOKS_NOT_EXECUTED" if hook_ok else actual,
+                        detected=hook_ok,
+                    )
+                )
+                if not hook_ok:
+                    self.fail(ERROR_CODES["SI2-GIT-HOOKS-NOT-ISOLATED"], "malicious hook executed or commit failed")
+            except WorkerError as exc:
+                proofs.append(
+                    _proof(
+                        probe_id="git-malicious-hooks",
+                        corruption_applied="pre-commit/commit-msg/post-commit exit 1 + marker",
+                        validation_stage_executed="create_local_commit",
+                        expected_error_code="HOOKS_NOT_EXECUTED",
+                        actual_error_code=exc.code,
+                        detected=False,
+                        unrelated_failure=True,
+                    )
+                )
+                self.fail(exc.code, f"commit failed under hook/signing probe: {exc.message}")
+
+            after_local = subprocess.run(
+                ["git", "config", "--local", "--list"],
+                cwd=str(worktree),
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False,
+            ).stdout
+            after_global = subprocess.run(
+                ["git", "config", "--global", "--list"],
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False,
+            ).stdout
+            config_ok = after_local == before_local and after_global == before_global
+            proofs.append(
+                _proof(
+                    probe_id="git-config-unchanged",
+                    corruption_applied="gpgsign=true; signingkey; credential.helper=store",
+                    validation_stage_executed="create_local_commit",
+                    expected_error_code="CONFIG_UNCHANGED",
+                    actual_error_code="CONFIG_UNCHANGED" if config_ok else ERROR_CODES["SI2-GIT-CONFIG-MUTATION"],
+                    detected=config_ok,
+                )
+            )
+            if not config_ok:
+                self.fail(ERROR_CODES["SI2-GIT-CONFIG-MUTATION"], "git config mutated")
+
+            signing_ok = "commit.gpgsign=true" in after_local and not marker.exists()
+            proofs.append(
+                _proof(
+                    probe_id="git-signing-disabled",
+                    corruption_applied="commit.gpgsign=true + signingkey",
+                    validation_stage_executed="create_local_commit",
+                    expected_error_code="SIGNING_NOT_INVOKED",
+                    actual_error_code="SIGNING_NOT_INVOKED" if signing_ok else ERROR_CODES["SI2-GIT-SIGNING-NOT-DISABLED"],
+                    detected=signing_ok,
+                )
+            )
+            if not signing_ok:
+                self.fail(ERROR_CODES["SI2-GIT-SIGNING-NOT-DISABLED"], "signing probe failed")
+            wt.cleanup()
+        except Exception as exc:  # pragma: no cover
+            self.fail("GIT_PROBE_ENV", str(exc)[:300])
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        self.probe_results["git_hooks_signing"] = proofs
+
     def probe_immutability_and_binding(self) -> None:
         tmp = Path(tempfile.mkdtemp(prefix="si2-validate-"))
         try:
@@ -474,6 +631,7 @@ class SystemValidator:
             self.check_workflow()
             self.probe_workflow_graph_mutations()
             self.probe_nested_paths()
+            self.probe_git_hooks_and_signing()
             self.probe_immutability_and_binding()
         status = "PASS" if not self.errors else "FAIL"
         return {

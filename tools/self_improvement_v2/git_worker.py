@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import secrets
 import shutil
 import subprocess
@@ -23,6 +24,26 @@ GIT_IDENTITY = [
 ]
 
 
+def _sanitized_git_env() -> dict[str, str]:
+    """Minimal env for Git — never os.environ.copy(); no credential helpers."""
+    env: dict[str, str] = {
+        "PATH": os.environ.get("PATH", ""),
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_ASKPASS": "",
+        "GCM_INTERACTIVE": "never",
+        "GC_IDENTIFICATION": "",
+    }
+    # Preserve Windows process essentials only.
+    for key in ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "TMP", "TEMP", "TMPDIR"):
+        val = os.environ.get(key)
+        if val:
+            env[key] = val
+    # Neutralize inherited credential / signing helpers.
+    env["GIT_CONFIG_COUNT"] = "0"
+    return env
+
+
 def run_git(
     args: list[str],
     *,
@@ -31,6 +52,8 @@ def run_git(
     timeout: int = 60,
     input_bytes: bytes | None = None,
     with_identity: bool = False,
+    extra_config: list[str] | None = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
     if not args:
         raise WorkerError(ERROR_CODES["COMMAND_INJECTION"], "empty git argv", state="FAILED_FROZEN")
@@ -42,7 +65,11 @@ def run_git(
             else (ERROR_CODES["MERGE_ATTEMPT"] if op == "merge" else ERROR_CODES["POLICY_REJECTED"])
         )
         raise WorkerError(code, f"forbidden git operation: {op}", state="POLICY_REJECTED")
-    prefix = ["git", *GIT_IDENTITY] if with_identity else ["git"]
+    prefix = ["git"]
+    if with_identity:
+        prefix.extend(GIT_IDENTITY)
+    if extra_config:
+        prefix.extend(extra_config)
     proc = subprocess.run(
         [*prefix, *args],
         cwd=str(cwd),
@@ -51,6 +78,7 @@ def run_git(
         timeout=timeout,
         check=False,
         shell=False,
+        env=env,
     )
     if check and proc.returncode != 0:
         detail = (proc.stderr or proc.stdout).decode("utf-8", errors="replace")[:500]
@@ -185,19 +213,109 @@ def remove_worktree(source_root: Path, worktree: Path) -> None:
         shutil.rmtree(parent, ignore_errors=True)
 
 
+def _empty_hooks_dir(worktree: Path) -> Path:
+    """Create an empty hooks directory inside the isolated runtime area (worktree parent)."""
+    parent = worktree.parent
+    if not parent.name.startswith("srl-si2-wt-"):
+        # Fallback: sibling under worktree when not using standard layout.
+        parent = worktree
+    hooks = parent / "isolated-hooks"
+    if hooks.exists():
+        shutil.rmtree(hooks, ignore_errors=True)
+    hooks.mkdir(parents=True, exist_ok=True)
+    # Ensure directory contains no executable files.
+    for child in hooks.iterdir():
+        child.unlink(missing_ok=True)
+    return hooks
+
+
+def _git_config_snapshot(cwd: Path, *, scope: str) -> str:
+    proc = subprocess.run(
+        ["git", "config", f"--{scope}", "--list"],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        check=False,
+        shell=False,
+        env=_sanitized_git_env(),
+    )
+    return proc.stdout or ""
+
+
 def create_local_commit(worktree: Path, objective: str) -> str:
-    run_git(["add", "-A"], cwd=worktree, check=True)
+    """Create a local candidate commit with isolated empty hooks and signing disabled.
+
+    Never mutates repository or global Git configuration. Uses a sanitized environment
+    (not os.environ.copy()).
+    """
+    worktree = worktree.resolve()
+    before_local = _git_config_snapshot(worktree, scope="local")
+    before_global = _git_config_snapshot(worktree, scope="global")
+
+    hooks = _empty_hooks_dir(worktree)
+    if any(hooks.iterdir()):
+        raise WorkerError(
+            ERROR_CODES["SI2-GIT-HOOKS-NOT-ISOLATED"],
+            "isolated hooks directory is not empty",
+            state="FAILED_FROZEN",
+        )
+
+    env = _sanitized_git_env()
+    # Command-local identity + hooks isolation + signing disable.
+    extra = [
+        "-c",
+        f"core.hooksPath={hooks}",
+        "-c",
+        "commit.gpgsign=false",
+        "-c",
+        "gpg.program=/nonexistent-si2-gpg",
+        "-c",
+        "credential.helper=",
+    ]
+
+    run_git(["add", "-A"], cwd=worktree, check=True, env=env)
     msg = f"Self-improvement: {objective}"
     proc = run_git(
-        ["commit", "-m", msg],
+        [
+            "commit",
+            "--no-verify",
+            "--no-gpg-sign",
+            "-m",
+            msg,
+        ],
         cwd=worktree,
         check=False,
         with_identity=True,
+        extra_config=extra,
+        env=env,
     )
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout).decode("utf-8", errors="replace")[:500]
+        lower = detail.lower()
+        if "gpg" in lower or "signing" in lower:
+            raise WorkerError(
+                ERROR_CODES["SI2-GIT-SIGNING-NOT-DISABLED"],
+                detail or "signing interfered with commit",
+                state="FAILED_FROZEN",
+            )
+        if "hook" in lower:
+            raise WorkerError(
+                ERROR_CODES["SI2-GIT-HOOKS-NOT-ISOLATED"],
+                detail or "hook interfered with commit",
+                state="FAILED_FROZEN",
+            )
         raise WorkerError(ERROR_CODES["FAILED_FROZEN"], detail or "commit failed")
-    sha = run_git(["rev-parse", "HEAD"], cwd=worktree, check=True)
+
+    after_local = _git_config_snapshot(worktree, scope="local")
+    after_global = _git_config_snapshot(worktree, scope="global")
+    if after_local != before_local or after_global != before_global:
+        raise WorkerError(
+            ERROR_CODES["SI2-GIT-CONFIG-MUTATION"],
+            "git configuration mutated during candidate commit",
+            state="FAILED_FROZEN",
+        )
+
+    sha = run_git(["rev-parse", "HEAD"], cwd=worktree, check=True, env=env)
     return sha.stdout.decode("utf-8").strip()
 
 
