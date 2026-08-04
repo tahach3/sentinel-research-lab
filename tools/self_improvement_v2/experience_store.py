@@ -108,6 +108,31 @@ class ExperienceStore:
                 );
                 """
             )
+            # Defense-in-depth: block UPDATE/DELETE on immutable content tables.
+            # Application API remains insert-only / idempotent-duplicate.
+            self._ensure_immutability_triggers()
+
+    def _ensure_immutability_triggers(self) -> None:
+        tables = (
+            "proposal_snapshots",
+            "execution_bundles",
+            "review_snapshots",
+            "finalization_results",
+        )
+        with self._connect() as conn:
+            for table in tables:
+                for op in ("UPDATE", "DELETE"):
+                    name = f"si2_deny_{op.lower()}_{table}"
+                    conn.execute(f"DROP TRIGGER IF EXISTS {name}")
+                    conn.execute(
+                        f"""
+                        CREATE TRIGGER {name}
+                        BEFORE {op} ON {table}
+                        BEGIN
+                          SELECT RAISE(ABORT, 'SI2-STORE-DATABASE-IMMUTABILITY');
+                        END;
+                        """
+                    )
 
     def _insert_immutable(
         self,
@@ -182,6 +207,8 @@ class ExperienceStore:
         *,
         worktree_path: str,
     ) -> str:
+        # Persist absolute worktree paths outside SQLite (redacted runtime token in DB).
+        token = self._store_runtime_worktree(bundle["execution_id"], worktree_path)
         return self._insert_immutable(
             "execution_bundles",
             "execution_id",
@@ -189,7 +216,7 @@ class ExperienceStore:
             {
                 "proposal_id": bundle["proposal_id"],
                 "proposal_sha256": bundle["proposal_sha256"],
-                "worktree_path": worktree_path,
+                "worktree_path": token,
             },
             bundle,
         )
@@ -286,14 +313,53 @@ class ExperienceStore:
             )
 
     def get_proposal(self, proposal_id: str) -> dict[str, Any]:
+        payload, _digest = self.get_proposal_snapshot(proposal_id)
+        return payload
+
+    def get_proposal_snapshot(self, proposal_id: str) -> tuple[dict[str, Any], str]:
+        """Return (payload, stored content_sha256) from the immutable proposal snapshot row."""
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT payload_json FROM proposal_snapshots WHERE proposal_id = ?",
+                "SELECT payload_json, content_sha256 FROM proposal_snapshots WHERE proposal_id = ?",
                 (proposal_id,),
             ).fetchone()
         if not row:
             raise WorkerError(ERROR_CODES["SI2-REVIEW-MISSING"], "proposal missing", state="REVIEW_FAILED")
-        return json.loads(row[0])
+        return json.loads(row[0]), str(row[1])
+
+    def _runtime_map_path(self) -> Path:
+        return Path(str(self.db_path) + ".runtime.json")
+
+    def _store_runtime_worktree(self, execution_id: str, abs_path: str) -> str:
+        """Persist absolute worktree only in a sidecar map; DB gets a redacted runtime token."""
+        token = f"runtime:{execution_id}"
+        path = self._runtime_map_path()
+        data: dict[str, str] = {}
+        if path.is_file():
+            data = json.loads(path.read_text(encoding="utf-8"))
+        data[execution_id] = abs_path
+        path.write_text(json.dumps(data, sort_keys=True) + "\n", encoding="utf-8")
+        return token
+
+    def _resolve_runtime_worktree(self, ref: str, execution_id: str) -> str:
+        if ref.startswith("runtime:"):
+            path = self._runtime_map_path()
+            if not path.is_file():
+                raise WorkerError(
+                    ERROR_CODES["CONTENT_BINDING_MISMATCH"],
+                    "runtime worktree map missing",
+                    state="CONTENT_BINDING_MISMATCH",
+                )
+            data = json.loads(path.read_text(encoding="utf-8"))
+            resolved = data.get(execution_id)
+            if not resolved:
+                raise WorkerError(
+                    ERROR_CODES["CONTENT_BINDING_MISMATCH"],
+                    "runtime worktree token unresolved",
+                    state="CONTENT_BINDING_MISMATCH",
+                )
+            return resolved
+        return ref
 
     def get_execution(self, execution_id: str) -> tuple[dict[str, Any], str]:
         with self._connect() as conn:
@@ -303,7 +369,8 @@ class ExperienceStore:
             ).fetchone()
         if not row:
             raise WorkerError(ERROR_CODES["SI2-REVIEW-MISSING"], "execution missing", state="REVIEW_FAILED")
-        return json.loads(row[0]), row[1]
+        ref = str(row[1])
+        return json.loads(row[0]), self._resolve_runtime_worktree(ref, execution_id)
 
     def get_review(self, review_id: str) -> dict[str, Any]:
         with self._connect() as conn:

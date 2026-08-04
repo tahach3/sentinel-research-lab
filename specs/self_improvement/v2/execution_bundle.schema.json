@@ -83,7 +83,52 @@
       "type": "array",
       "maxItems": 32,
       "items": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile",
+          "command_index",
+          "status",
+          "exit_code",
+          "error_code",
+          "output_truncated"
+        ],
+        "properties": {
+          "profile": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "command_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "TIMEOUT"
+            ]
+          },
+          "exit_code": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "output_truncated": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        }
       }
     },
     "validation_results_sha256": {

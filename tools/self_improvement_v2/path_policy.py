@@ -133,6 +133,45 @@ def match_patterns(path: str, patterns: list[str]) -> bool:
     return False
 
 
+_BIDI_OR_ZEROWIDTH = re.compile(
+    r"[\u200b\u200c\u200d\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]"
+)
+
+
+def _reject_spoofed_protected_name(path: str) -> None:
+    """Reject percent-encoded / bidi / zero-width spoofing of protected names.
+
+    Does not URL-decode and then execute; ambiguous representations are rejected.
+    """
+    if _BIDI_OR_ZEROWIDTH.search(path):
+        raise WorkerError(
+            ERROR_CODES["SI2-PATH-SPOOFED-PROTECTED-NAME"],
+            f"bidi/zero-width path spoofing: {path!r}",
+            state="PATCH_REJECTED",
+        )
+    lowered = path.lower().replace("\\", "/")
+    # Percent-encoded .env / .git patterns (including docs/%2e%65%6e%76 and docs/%2Eenv).
+    if re.search(r"%2e%65%6e%76", lowered) or re.search(r"%2eenv", lowered):
+        raise WorkerError(
+            ERROR_CODES["SI2-PATH-SPOOFED-PROTECTED-NAME"],
+            f"percent-encoded protected name: {path!r}",
+            state="PATCH_REJECTED",
+        )
+    if re.search(r"%2e%67%69%74", lowered) or re.search(r"%2egit", lowered):
+        raise WorkerError(
+            ERROR_CODES["SI2-PATH-SPOOFED-PROTECTED-NAME"],
+            f"percent-encoded protected name: {path!r}",
+            state="PATCH_REJECTED",
+        )
+    # Other Unicode path-control characters.
+    if any(ord(ch) < 32 and ch not in "\t" for ch in path):
+        raise WorkerError(
+            ERROR_CODES["SI2-PATH-SPOOFED-PROTECTED-NAME"],
+            f"control character in path: {path!r}",
+            state="PATCH_REJECTED",
+        )
+
+
 def assert_path_allowed(
     path: str,
     policy: dict[str, Any],
@@ -147,6 +186,7 @@ def assert_path_allowed(
             f"quoted-path ambiguity: {path}",
             state="PATCH_REJECTED",
         )
+    _reject_spoofed_protected_name(raw)
     if is_absolute_path(raw) or is_absolute_path(normalize_rel_path(raw) if "\x00" not in raw else raw):
         raise WorkerError(
             ERROR_CODES["SI2-PATH-ABSOLUTE"],

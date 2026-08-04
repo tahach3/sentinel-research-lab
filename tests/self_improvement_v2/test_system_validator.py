@@ -8,4 +8,15 @@ def test_system_validator_probes_pass():
     assert report["final_status"] == "PASS", report["errors"]
     assert len(report["probe_results"]["nested_paths"]) >= 7
     assert report["probe_results"]["proposal_immutability"] == "SI2-STORE-IMMUTABILITY"
-    assert report["probe_results"]["v1_pwned"] == "CONTENT_BINDING_MISMATCH"
+    v1 = report["probe_results"]["v1_pwned"]
+    if isinstance(v1, dict):
+        assert v1["detected"] is True
+        assert v1["actual_error_code"] == "CONTENT_BINDING_MISMATCH"
+    else:
+        assert v1 == "CONTENT_BINDING_MISMATCH"
+    assert report["probe_results"]["workflow_graph_mutations"]
+    assert all(p["detected"] for p in report["probe_results"]["workflow_graph_mutations"])
+    assert report["probe_results"]["git_hooks_signing"]
+    assert all(p["detected"] for p in report["probe_results"]["git_hooks_signing"])
+    assert report["probe_results"]["proposal_binding"]
+    assert all(p["detected"] for p in report["probe_results"]["proposal_binding"])

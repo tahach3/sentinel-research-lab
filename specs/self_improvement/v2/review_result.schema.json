@@ -135,5 +135,31 @@
         "maxLength": 1000
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "PASS"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "security_findings": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "architecture_findings": {
+            "type": "array",
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ]
 }
