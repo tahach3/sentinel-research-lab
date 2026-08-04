@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import copy
 import hashlib
 import json
 import shutil
@@ -22,6 +23,27 @@ from tools.self_improvement_v2.path_policy import assert_path_allowed, load_poli
 from tools.self_improvement_v2.review_gate import assert_review_bound
 from tools.self_improvement_v2.schema_loader import SCHEMA_FILES, load_schema, worker_package_root
 from tools.self_improvement_v2.workflow_validator import validate_workflow
+
+
+def _proof(
+    *,
+    probe_id: str,
+    corruption_applied: str,
+    validation_stage_executed: str,
+    expected_error_code: str,
+    actual_error_code: str | None,
+    detected: bool,
+    unrelated_failure: bool = False,
+) -> dict[str, Any]:
+    return {
+        "probe_id": probe_id,
+        "corruption_applied": corruption_applied,
+        "validation_stage_executed": validation_stage_executed,
+        "expected_error_code": expected_error_code,
+        "actual_error_code": actual_error_code,
+        "detected": detected,
+        "unrelated_failure": unrelated_failure,
+    }
 
 REQUIRED_FILES = [
     "docs/SELF_IMPROVEMENT_LOOP_V2.md",
@@ -227,6 +249,97 @@ class SystemValidator:
             for err in report["errors"]:
                 self.fail(err["code"], err["message"])
 
+    def probe_workflow_graph_mutations(self) -> None:
+        """Independent structural mutations — not source-text / marker searches."""
+        wf_path = self.path("workflows/design/self_improvement_loop_v2.json")
+        base = json.loads(wf_path.read_text(encoding="utf-8"))
+        proofs: list[dict[str, Any]] = []
+        tmp = Path(tempfile.mkdtemp(prefix="si2-wf-probe-"))
+        try:
+            mutations: list[tuple[str, str, str, Any]] = []
+
+            def add(probe_id: str, expected: str, corruption: str, mutator: Any) -> None:
+                mutations.append((probe_id, expected, corruption, mutator))
+
+            def m_worker(data: dict) -> None:
+                data["connections"]["Detached Worker Execute"]["main"] = [
+                    data["connections"]["Detached Worker Execute"]["main"][0]
+                ]
+
+            def m_review(data: dict) -> None:
+                data["connections"]["Independent Review Bind"]["main"] = [
+                    data["connections"]["Independent Review Bind"]["main"][0]
+                ]
+
+            def m_high(data: dict) -> None:
+                data["connections"]["Risk Classification"]["main"][2] = [
+                    {"node": "LOW Auto-Authorize", "type": "main", "index": 0}
+                ]
+
+            def m_prohibited(data: dict) -> None:
+                data["connections"]["Risk Classification"]["main"][3] = [
+                    {"node": "Detached Worker Execute", "type": "main", "index": 0}
+                ]
+
+            def m_binding(data: dict) -> None:
+                data["connections"]["Failure Router"]["main"][3] = []
+
+            def m_marker(data: dict) -> None:
+                for node in data["nodes"]:
+                    if node.get("name") == "Failure Router":
+                        node["type"] = "n8n-nodes-base.code"
+                        node["parameters"] = {
+                            "jsCode": (
+                                "// failure routes: POLICY_REJECTED VALIDATION_FAILED "
+                                "REVIEW_FAILED CONTENT_BINDING_MISMATCH\nreturn items;"
+                            )
+                        }
+                data["connections"]["Failure Router"] = {"main": [[]]}
+
+            add("wf-remove-worker-failure", ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "remove worker failure edge", m_worker)
+            add("wf-remove-review-failure", ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "remove review failure edge", m_review)
+            add("wf-high-autoauth", ERROR_CODES["SI2-WF-AUTOAUTH-NONLOW"], "route HIGH to AUTO_AUTHORIZED", m_high)
+            add("wf-prohibited-worker", ERROR_CODES["SI2-WF-INVALID-RISK-ROUTE"], "route PROHIBITED to worker", m_prohibited)
+            add(
+                "wf-remove-binding-route",
+                ERROR_CODES["SI2-WF-DISCONNECTED-FAILURE-STATE"],
+                "remove CONTENT_BINDING_MISMATCH route",
+                m_binding,
+            )
+            add(
+                "wf-marker-only-router",
+                ERROR_CODES["SI2-WF-MARKER-NOT-ROUTE"],
+                "replace Failure Router with disconnected marker text",
+                m_marker,
+            )
+
+            for probe_id, expected, corruption, mutator in mutations:
+                mutated = copy.deepcopy(base)
+                mutator(mutated)
+                probe_file = tmp / f"{probe_id}.json"
+                probe_file.write_text(json.dumps(mutated), encoding="utf-8")
+                report = validate_workflow(self.root, probe_file)
+                codes = [e["code"] for e in report.get("errors") or []]
+                actual = expected if expected in codes else (codes[0] if codes else None)
+                detected = expected in codes
+                unrelated = bool(codes) and not detected
+                proofs.append(
+                    _proof(
+                        probe_id=probe_id,
+                        corruption_applied=corruption,
+                        validation_stage_executed="workflow_validator",
+                        expected_error_code=expected,
+                        actual_error_code=actual,
+                        detected=detected,
+                        unrelated_failure=unrelated,
+                    )
+                )
+                if not detected:
+                    self.fail(expected, f"workflow probe {probe_id} not detected; codes={codes}")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        self.probe_results["workflow_graph_mutations"] = proofs
+
     def probe_nested_paths(self) -> None:
         policy = load_policy(self.root)
         rejected = []
@@ -359,6 +472,7 @@ class SystemValidator:
             self.check_schemas()
             self.check_worker_ast()
             self.check_workflow()
+            self.probe_workflow_graph_mutations()
             self.probe_nested_paths()
             self.probe_immutability_and_binding()
         status = "PASS" if not self.errors else "FAIL"
