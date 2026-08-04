@@ -50,7 +50,23 @@ def finalize(
 
     bundle, worktree_path = store.get_execution(execution_id)
     review = store.get_review(review_id)
-    proposal = store.get_proposal(bundle["proposal_id"])
+    proposal, stored_proposal_hash = store.get_proposal_snapshot(bundle["proposal_id"])
+
+    # Independently re-canonicalize the immutable proposal snapshot and recompute SHA-256.
+    # Do not trust proposal_id alone, stored hash alone, review hash alone, or bundle hash alone.
+    recomputed_proposal_hash = content_sha256(proposal)
+    if (
+        recomputed_proposal_hash != stored_proposal_hash
+        or recomputed_proposal_hash != bundle.get("proposal_sha256")
+        or recomputed_proposal_hash != review.get("proposal_sha256")
+        or stored_proposal_hash != bundle.get("proposal_sha256")
+        or stored_proposal_hash != review.get("proposal_sha256")
+    ):
+        raise WorkerError(
+            ERROR_CODES["SI2-FINALIZE-PROPOSAL-HASH"],
+            "canonical proposal hash mismatch at finalization",
+            state="FAILED_FROZEN",
+        )
 
     # Bind review to frozen bundle (not a mutable proposal file).
     assert_review_bound(review, proposal=proposal, bundle=bundle, root=repository_root)
@@ -182,8 +198,18 @@ def finalize_or_freeze(**kwargs: Any) -> dict[str, Any]:
     try:
         return finalize(**kwargs)
     except WorkerError as exc:
-        if exc.code == ERROR_CODES["CONTENT_BINDING_MISMATCH"] or exc.state == "CONTENT_BINDING_MISMATCH":
+        freeze_codes = {
+            ERROR_CODES["CONTENT_BINDING_MISMATCH"],
+            ERROR_CODES["SI2-FINALIZE-PROPOSAL-HASH"],
+            ERROR_CODES["FAILED_FROZEN"],
+        }
+        if exc.code in freeze_codes or exc.state in {"CONTENT_BINDING_MISMATCH", "FAILED_FROZEN"}:
             store = ExperienceStore(kwargs["state_db"])
+            primary = (
+                ERROR_CODES["SI2-FINALIZE-PROPOSAL-HASH"]
+                if exc.code == ERROR_CODES["SI2-FINALIZE-PROPOSAL-HASH"]
+                else ERROR_CODES["CONTENT_BINDING_MISMATCH"]
+            )
             result = {
                 "schema_version": SCHEMA_VERSION,
                 "execution_id": kwargs["execution_id"],
@@ -194,7 +220,9 @@ def finalize_or_freeze(**kwargs: Any) -> dict[str, Any]:
                 "committed_tree_sha": None,
                 "committed_diff_sha256": None,
                 "final_state": "FAILED_FROZEN",
-                "error_codes": [ERROR_CODES["CONTENT_BINDING_MISMATCH"], ERROR_CODES["FAILED_FROZEN"]],
+                "error_codes": [primary, ERROR_CODES["CONTENT_BINDING_MISMATCH"], ERROR_CODES["FAILED_FROZEN"]]
+                if primary == ERROR_CODES["SI2-FINALIZE-PROPOSAL-HASH"]
+                else [ERROR_CODES["CONTENT_BINDING_MISMATCH"], ERROR_CODES["FAILED_FROZEN"]],
                 "learning_record_id": None,
             }
             try:
@@ -204,12 +232,12 @@ def finalize_or_freeze(**kwargs: Any) -> dict[str, Any]:
                     kwargs["execution_id"],
                     None,
                     "FAILED_FROZEN",
-                    ERROR_CODES["CONTENT_BINDING_MISMATCH"],
+                    primary,
                 )
             except WorkerError:
                 pass
             raise WorkerError(
-                ERROR_CODES["CONTENT_BINDING_MISMATCH"],
+                primary,
                 exc.message,
                 state="FAILED_FROZEN",
             ) from exc

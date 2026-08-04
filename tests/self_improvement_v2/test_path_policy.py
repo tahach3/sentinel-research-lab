@@ -29,3 +29,18 @@ def test_path_rejections(path, code):
 
 def test_allowed_docs_ok():
     assert assert_path_allowed("docs/note.md", POLICY, PROP) == "docs/note.md"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "docs/%2e%65%6e%76",
+        "docs/%2Eenv",
+        "docs/\u202e.env",
+        "docs/\u200b.env",
+    ],
+)
+def test_spoofed_protected_names_rejected(path):
+    with pytest.raises(WorkerError) as ei:
+        assert_path_allowed(path, POLICY, PROP)
+    assert ei.value.code == "SI2-PATH-SPOOFED-PROTECTED-NAME"

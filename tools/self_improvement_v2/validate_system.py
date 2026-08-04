@@ -599,13 +599,21 @@ class SystemValidator:
                 )
                 self.fail("V1_PWNED_PROBE", "finalize accepted altered worktree")
             except WorkerError as exc:
-                if exc.code != ERROR_CODES["CONTENT_BINDING_MISMATCH"] and exc.state != "FAILED_FROZEN":
-                    # Accept CONTENT_BINDING_MISMATCH
-                    if ERROR_CODES["CONTENT_BINDING_MISMATCH"] not in (exc.code,):
-                        self.fail("V1_PWNED_PROBE", f"wrong failure {exc.code}/{exc.state}")
-                self.probe_results["v1_pwned"] = exc.code
+                detected = exc.code == ERROR_CODES["CONTENT_BINDING_MISMATCH"]
+                self.probe_results["v1_pwned"] = _proof(
+                    probe_id="v1-pwned-worktree",
+                    corruption_applied="write docs/PWNED.md in frozen worktree",
+                    validation_stage_executed="finalize",
+                    expected_error_code=ERROR_CODES["CONTENT_BINDING_MISMATCH"],
+                    actual_error_code=exc.code,
+                    detected=detected,
+                    unrelated_failure=not detected,
+                )
+                if not detected:
+                    self.fail("V1_PWNED_PROBE", f"wrong failure {exc.code}/{exc.state}")
 
             # Ensure no PWNED commit on a candidate branch
+            import sqlite3
             import subprocess
 
             branches = subprocess.run(
@@ -617,6 +625,228 @@ class SystemValidator:
             )
             if branches.stdout.strip():
                 self.fail("V1_PWNED_PROBE", "candidate branch created after exploit")
+
+            # Fresh execution for proposal DB tampering / hash mutation probes.
+            db2 = tmp / "state2.sqlite"
+            proposal2 = _build_proposal(baseline, doc_path="docs/SI2_NOTE2.md", body="# ok2\n")
+            proposal2["proposal_id"] = "prop-probe-2"
+            proposal2["candidate_id"] = "cand-probe-2"
+            bundle2 = execute_proposal(root=repo, proposal=proposal2, state_db=db2)
+            store2 = ExperienceStore(db2)
+            review2 = {
+                "schema_version": SCHEMA_VERSION,
+                "review_id": "rev-probe-2",
+                "reviewer_id": "srl-independent-reviewer-agent",
+                "implementer_id": "srl-implementer-agent",
+                "independent_from_implementer": True,
+                "proposal_id": bundle2["proposal_id"],
+                "proposal_sha256": bundle2["proposal_sha256"],
+                "execution_id": bundle2["execution_id"],
+                "execution_result_sha256": bundle2["execution_result_sha256"],
+                "actual_diff_sha256": bundle2["actual_diff_sha256"],
+                "worktree_tree_sha": bundle2["worktree_tree_sha"],
+                "validation_results_sha256": bundle2["validation_results_sha256"],
+                "contract_alignment": "PASS",
+                "allowed_path_compliance": "PASS",
+                "acceptance_results": "PASS",
+                "security_findings": [],
+                "architecture_findings": [],
+                "verdict": "PASS",
+                "repair_instructions": [],
+            }
+            store2.insert_review(review2)
+
+            def _drop_triggers(path: Path) -> None:
+                conn = sqlite3.connect(str(path))
+                try:
+                    for (name,) in conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'si2_deny_%'"
+                    ):
+                        conn.execute(f"DROP TRIGGER IF EXISTS {name}")
+                    conn.commit()
+                finally:
+                    conn.close()
+
+            binding_proofs: list[dict[str, Any]] = []
+
+            # Proposal payload tampering
+            _drop_triggers(db2)
+            conn = sqlite3.connect(str(db2))
+            try:
+                row = conn.execute(
+                    "SELECT payload_json FROM proposal_snapshots WHERE proposal_id = ?",
+                    (bundle2["proposal_id"],),
+                ).fetchone()
+                payload = json.loads(row[0])
+                payload["objective"] = "TAMPERED"
+                conn.execute(
+                    "UPDATE proposal_snapshots SET payload_json = ? WHERE proposal_id = ?",
+                    (json.dumps(payload, sort_keys=True), bundle2["proposal_id"]),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            try:
+                finalize(
+                    execution_id=bundle2["execution_id"],
+                    review_id=review2["review_id"],
+                    state_db=db2,
+                    repository_root=repo,
+                )
+                self.fail("PROPOSAL_TAMPER_PROBE", "finalize accepted tampered proposal payload")
+                actual = None
+                detected = False
+            except WorkerError as exc:
+                detected = exc.code == ERROR_CODES["SI2-FINALIZE-PROPOSAL-HASH"] and exc.state == "FAILED_FROZEN"
+                actual = exc.code
+                if not detected:
+                    self.fail("PROPOSAL_TAMPER_PROBE", f"wrong failure {exc.code}/{exc.state}")
+            binding_proofs.append(
+                _proof(
+                    probe_id="proposal-payload-tamper",
+                    corruption_applied="SQLite UPDATE proposal_snapshots.payload_json",
+                    validation_stage_executed="finalize.proposal_hash_recompute",
+                    expected_error_code=ERROR_CODES["SI2-FINALIZE-PROPOSAL-HASH"],
+                    actual_error_code=actual,
+                    detected=detected,
+                    unrelated_failure=bool(actual) and not detected,
+                )
+            )
+
+            # Stored-hash mutation probe (fresh DB)
+            db3 = tmp / "state3.sqlite"
+            proposal3 = _build_proposal(baseline, doc_path="docs/SI2_NOTE3.md", body="# ok3\n")
+            proposal3["proposal_id"] = "prop-probe-3"
+            proposal3["candidate_id"] = "cand-probe-3"
+            bundle3 = execute_proposal(root=repo, proposal=proposal3, state_db=db3)
+            store3 = ExperienceStore(db3)
+            review3 = dict(review2)
+            review3.update(
+                {
+                    "review_id": "rev-probe-3",
+                    "proposal_id": bundle3["proposal_id"],
+                    "proposal_sha256": bundle3["proposal_sha256"],
+                    "execution_id": bundle3["execution_id"],
+                    "execution_result_sha256": bundle3["execution_result_sha256"],
+                    "actual_diff_sha256": bundle3["actual_diff_sha256"],
+                    "worktree_tree_sha": bundle3["worktree_tree_sha"],
+                    "validation_results_sha256": bundle3["validation_results_sha256"],
+                }
+            )
+            store3.insert_review(review3)
+            _drop_triggers(db3)
+            conn = sqlite3.connect(str(db3))
+            try:
+                conn.execute(
+                    "UPDATE proposal_snapshots SET content_sha256 = ? WHERE proposal_id = ?",
+                    ("d" * 64, bundle3["proposal_id"]),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            try:
+                finalize(
+                    execution_id=bundle3["execution_id"],
+                    review_id=review3["review_id"],
+                    state_db=db3,
+                    repository_root=repo,
+                )
+                self.fail("STORED_HASH_PROBE", "finalize accepted mutated stored hash")
+                actual = None
+                detected = False
+            except WorkerError as exc:
+                detected = exc.code == ERROR_CODES["SI2-FINALIZE-PROPOSAL-HASH"]
+                actual = exc.code
+                if not detected:
+                    self.fail("STORED_HASH_PROBE", f"wrong failure {exc.code}/{exc.state}")
+            binding_proofs.append(
+                _proof(
+                    probe_id="stored-hash-mutation",
+                    corruption_applied="SQLite UPDATE proposal_snapshots.content_sha256",
+                    validation_stage_executed="finalize.proposal_hash_recompute",
+                    expected_error_code=ERROR_CODES["SI2-FINALIZE-PROPOSAL-HASH"],
+                    actual_error_code=actual,
+                    detected=detected,
+                    unrelated_failure=bool(actual) and not detected,
+                )
+            )
+
+            # Review-hash mismatch probe
+            db4 = tmp / "state4.sqlite"
+            proposal4 = _build_proposal(baseline, doc_path="docs/SI2_NOTE4.md", body="# ok4\n")
+            proposal4["proposal_id"] = "prop-probe-4"
+            proposal4["candidate_id"] = "cand-probe-4"
+            bundle4 = execute_proposal(root=repo, proposal=proposal4, state_db=db4)
+            store4 = ExperienceStore(db4)
+            review4 = dict(review2)
+            review4.update(
+                {
+                    "review_id": "rev-probe-4",
+                    "proposal_id": bundle4["proposal_id"],
+                    "proposal_sha256": bundle4["proposal_sha256"],
+                    "execution_id": bundle4["execution_id"],
+                    "execution_result_sha256": bundle4["execution_result_sha256"],
+                    "actual_diff_sha256": bundle4["actual_diff_sha256"],
+                    "worktree_tree_sha": bundle4["worktree_tree_sha"],
+                    "validation_results_sha256": bundle4["validation_results_sha256"],
+                }
+            )
+            store4.insert_review(review4)
+            _drop_triggers(db4)
+            conn = sqlite3.connect(str(db4))
+            try:
+                row = conn.execute(
+                    "SELECT payload_json FROM review_snapshots WHERE review_id = ?",
+                    (review4["review_id"],),
+                ).fetchone()
+                payload = json.loads(row[0])
+                payload["proposal_sha256"] = "e" * 64
+                conn.execute(
+                    "UPDATE review_snapshots SET payload_json = ? WHERE review_id = ?",
+                    (json.dumps(payload, sort_keys=True), review4["review_id"]),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            try:
+                finalize(
+                    execution_id=bundle4["execution_id"],
+                    review_id=review4["review_id"],
+                    state_db=db4,
+                    repository_root=repo,
+                )
+                self.fail("REVIEW_HASH_PROBE", "finalize accepted mutated review hash")
+                actual = None
+                detected = False
+            except WorkerError as exc:
+                detected = exc.code == ERROR_CODES["SI2-FINALIZE-PROPOSAL-HASH"]
+                actual = exc.code
+                if not detected:
+                    self.fail("REVIEW_HASH_PROBE", f"wrong failure {exc.code}/{exc.state}")
+            binding_proofs.append(
+                _proof(
+                    probe_id="review-hash-mismatch",
+                    corruption_applied="SQLite UPDATE review_snapshots.payload_json proposal_sha256",
+                    validation_stage_executed="finalize.proposal_hash_recompute",
+                    expected_error_code=ERROR_CODES["SI2-FINALIZE-PROPOSAL-HASH"],
+                    actual_error_code=actual,
+                    detected=detected,
+                    unrelated_failure=bool(actual) and not detected,
+                )
+            )
+
+            # Confirm no candidate branches from tamper probes
+            branches2 = subprocess.run(
+                ["git", "branch", "--list", "self-improvement-v2/*"],
+                cwd=str(repo),
+                capture_output=True,
+                text=True,
+                shell=False,
+            )
+            if branches2.stdout.strip():
+                self.fail("PROPOSAL_TAMPER_PROBE", "candidate branch created after hash tamper")
+
+            self.probe_results["proposal_binding"] = binding_proofs
             self.probe_results["oracle_independence"] = "literal_codes"
         except Exception as exc:  # pragma: no cover - environment
             self.fail("PROBE_ENV", str(exc)[:300])

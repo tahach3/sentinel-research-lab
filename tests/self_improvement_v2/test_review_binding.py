@@ -61,7 +61,8 @@ def test_pass_with_architecture_findings(tmp_path: Path):
     review["architecture_findings"] = ["layering issue"]
     with pytest.raises(WorkerError) as ei:
         assert_review_bound(review, proposal=proposal, bundle=bundle)
-    assert ei.value.code == "SI2-REVIEW-FINDINGS"
+    # Draft 2020-12 conditional schema rejects PASS with non-empty findings.
+    assert ei.value.code in {"SI2-REVIEW-FINDINGS", "SCHEMA_INVALID"}
 
 
 def test_self_review(tmp_path: Path):

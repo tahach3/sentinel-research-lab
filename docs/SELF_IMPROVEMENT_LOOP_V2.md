@@ -87,7 +87,19 @@ Finalization must not reload patch content from a mutable proposal row and reapp
 
 Finalization must use the already executed, frozen worktree and immutable execution bundle.
 
-Before committing, it must recompute:
+Before committing, it must load the immutable proposal snapshot, independently re-canonicalize it, recompute its SHA-256, and require:
+
+```text
+stored canonical proposal hash
+=
+recomputed proposal snapshot hash
+=
+execution proposal hash
+=
+review proposal hash
+```
+
+It must also recompute:
 
 ```text
 worktree_tree_sha
@@ -97,7 +109,15 @@ changed_paths_sha256
 
 and compare them with the execution bundle and review binding.
 
-Any mismatch returns:
+Any proposal-hash mismatch returns:
+
+```text
+SI2-FINALIZE-PROPOSAL-HASH
+CONTENT_BINDING_MISMATCH
+→ FAILED_FROZEN
+```
+
+Any worktree/diff binding mismatch returns:
 
 ```text
 CONTENT_BINDING_MISMATCH
