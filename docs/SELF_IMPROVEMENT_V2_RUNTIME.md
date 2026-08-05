@@ -55,7 +55,7 @@ Non-secret meta references (no credential values):
 - `meta.workerHeaderAuthCredentialName` — named Header Auth credential reference for the worker bearer token
 - `meta.implementerAgentCredentialReference` / `meta.reviewerAgentCredentialReference` — distinct n8n credential **names**
 - `meta.implementerModel` / `meta.reviewerModel` — pinned non-secret model IDs
-- `meta.agentRuntimePhase` / `meta.agentRuntimeWiringStatus` — Phase 1A contract surface (`1A` / `CONTRACT_ONLY` until Phase 1B wires AI/HTTP nodes)
+- `meta.agentRuntimePhase` / `meta.agentRuntimeWiringStatus` — Phase 1B inactive wiring surface (`1B` / `WORKFLOW_WIRED`; workflow remains `active: false`)
 
 Normative agent-runtime contract: `docs/SELF_IMPROVEMENT_V2_AGENT_RUNTIME_CONTRACT.md` and `specs/self_improvement/v2/agent_runtime_contract.schema.json`.
 

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sentinel-research-lab.local/self_improvement/v2/agent_runtime_contract.schema.json",
   "title": "Self-Improvement V2 Agent Runtime Contract",
-  "description": "Phase 1A non-secret bindings for implementer/reviewer agent runtime. No API keys or worker tokens.",
+  "description": "Phase 1B non-secret bindings for implementer/reviewer agent runtime wiring. No API keys or worker tokens.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -26,12 +26,13 @@
     },
     "phase": {
       "type": "string",
-      "const": "1A"
+      "enum": ["1A", "1B"],
+      "description": "1A=contract-only; 1B=inactive workflow AI/HTTP wiring."
     },
     "wiring_status": {
       "type": "string",
       "enum": ["CONTRACT_ONLY", "WORKFLOW_WIRED"],
-      "description": "CONTRACT_ONLY until Phase 1B replaces Code stubs with AI/HTTP nodes."
+      "description": "WORKFLOW_WIRED when Phase 1B wires AI/HTTP nodes (workflow remains inactive)."
     },
     "inactive_by_design": {
       "type": "boolean",

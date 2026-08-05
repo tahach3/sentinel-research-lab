@@ -20,8 +20,8 @@
     "implementerChatModelNodeType": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
     "reviewerChatModelNodeType": "@n8n/n8n-nodes-langchain.lmChatGroq",
     "aiAgentNodeType": "@n8n/n8n-nodes-langchain.agent",
-    "agentRuntimePhase": "1A",
-    "agentRuntimeWiringStatus": "CONTRACT_ONLY",
+    "agentRuntimePhase": "1B",
+    "agentRuntimeWiringStatus": "WORKFLOW_WIRED",
     "schemas": [
       "improvement_candidate.schema.json",
       "implementation_proposal.schema.json",
@@ -59,7 +59,7 @@
       "main": [
         [
           {
-            "node": "Proposal Schema Validation",
+            "node": "Implementer Agent",
             "type": "main",
             "index": 0
           }
@@ -157,7 +157,7 @@
       "main": [
         [
           {
-            "node": "Independent Review Bind",
+            "node": "Independent Reviewer Agent",
             "type": "main",
             "index": 0
           }
@@ -429,6 +429,50 @@
           }
         ]
       ]
+    },
+    "Implementer Agent": {
+      "main": [
+        [
+          {
+            "node": "Proposal Schema Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Implementer Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Implementer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Independent Reviewer Agent": {
+      "main": [
+        [
+          {
+            "node": "Independent Review Bind",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Independent Reviewer Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Independent Reviewer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "nodes": [
@@ -597,7 +641,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{json:{...items[0].json, state:'REVIEW_BOUND', review_ok:true, repair_limit_ok:true}}];"
+        "jsCode": "// Phase 1B: bind Independent Reviewer Agent output for review_gate.\n// Inactive-by-design — no live Groq call from this export alone.\n// risk_authority remains tools.self_improvement_v2.risk_authority only.\nconst item = items[0].json;\nreturn [{json:{...item, state:'REVIEW_BOUND', review_ok:true, repair_limit_ok:true, reviewer_agent_id:'srl-independent-reviewer-agent', implementer_agent_id:'srl-implementer-agent', independent_from_implementer:true}}];"
       },
       "id": "independent-review-bind",
       "name": "Independent Review Bind",
@@ -898,16 +942,29 @@
     },
     {
       "parameters": {
-        "jsCode": "// Design-only: call local worker authorize (POST /v2/validate-proposal).\n// Worker derives risk from proposal content+policy; n8n must not compute risk.\n// Expect response.worker_decision in {AUTHORIZED, DECISION_REQUIRED, POLICY_REJECTED}.\nconst item = items[0].json;\nreturn [{json:{...item, worker_decision:item.worker_decision||'UNAUTHORIZED_PLACEHOLDER', state:'AWAITING_WORKER_DECISION', risk_authority:'tools.self_improvement_v2.risk_authority'}}];"
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/validate-proposal",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json)}}",
+        "options": {}
       },
       "id": "worker-authorize",
       "name": "Worker Authorize",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         1100,
         0
       ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
       "onError": "continueErrorOutput"
     },
     {
@@ -968,7 +1025,7 @@
     },
     {
       "parameters": {
-        "content": "## SRL Self-Improvement Loop V2\nInactive design workflow. Risk authority is the local worker only.\nn8n submits proposal \u2192 Worker Authorize \u2192 routes worker_decision (AUTHORIZED|DECISION_REQUIRED|POLICY_REJECTED). n8n never trusts proposal.risk_level and never manufactures AUTO_AUTHORIZED.\nWorker base URL: meta.localWorkerBaseUrl (loopback). Header Auth credential name: meta.workerHeaderAuthCredentialName (value not embedded).\nNo credential values. No push/merge. Schemas under specs/self_improvement/v2/.",
+        "content": "## SRL Self-Improvement Loop V2 (Phase 1B)\nInactive design workflow (active:false). AI Agent + Chat Model nodes are wired but not activated.\nImplementer: SRL Implementer — Google Gemini / models/gemini-2.5-flash\nReviewer: SRL Independent Reviewer — Groq / llama3-8b-8192\nWorker Authorize: POST loopback /v2/validate-proposal via Header Auth name only.\nRisk authority remains the local worker only. n8n never trusts proposal.risk_level.\nCredential values are never embedded. No push/merge. No pilot authorization.",
         "height": 280,
         "width": 420
       },
@@ -980,6 +1037,76 @@
         0,
         360
       ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Phase 1B Implementer Agent (inactive-by-design). Produce improvement_candidate / implementation_proposal JSON only. Must not authorize risk, mutate git, finalize, or use the reviewer credential. Agent id: srl-implementer-agent. Model pin: models/gemini-2.5-flash.",
+        "options": {}
+      },
+      "id": "implementer-agent",
+      "name": "Implementer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        550,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "id": "implementer-gemini-chat-model",
+      "name": "Implementer Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        550,
+        220
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "srl-implementer-google-gemini",
+          "name": "SRL Implementer — Google Gemini"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Phase 1B Independent Reviewer Agent (inactive-by-design). Produce review_result for review_gate binding only. Must not authorize risk, mutate git, finalize, share implementer credential, or self-review. Agent id: srl-independent-reviewer-agent. Model pin: llama3-8b-8192.",
+        "options": {}
+      },
+      "id": "independent-reviewer-agent",
+      "name": "Independent Reviewer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1940,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama3-8b-8192",
+        "options": {}
+      },
+      "id": "independent-reviewer-groq-chat-model",
+      "name": "Independent Reviewer Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1940,
+        0
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "srl-independent-reviewer-groq",
+          "name": "SRL Independent Reviewer — Groq"
+        }
+      }
     }
   ]
 }

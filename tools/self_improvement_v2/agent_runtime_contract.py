@@ -1,16 +1,18 @@
-"""Phase 1A agent-runtime contract: pinned non-secret bindings (no live AI calls)."""
+"""Phase 1B agent-runtime contract: pinned non-secret bindings + inactive workflow wiring checks."""
 
 from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
 from tools.self_improvement_v2.models import ERROR_CODES, SCHEMA_VERSION, WorkerError
 from tools.self_improvement_v2.schema_loader import validate_instance, worker_package_root
 
-PHASE = "1A"
+PHASE = "1B"
+PHASE_CONTRACT_ONLY = "1A"
 WIRING_STATUS_CONTRACT_ONLY = "CONTRACT_ONLY"
 WIRING_STATUS_WORKFLOW_WIRED = "WORKFLOW_WIRED"
 
@@ -29,10 +31,19 @@ REVIEWER_MODEL = "llama3-8b-8192"
 IMPLEMENTER_CHAT_MODEL_NODE_TYPE = "@n8n/n8n-nodes-langchain.lmChatGoogleGemini"
 REVIEWER_CHAT_MODEL_NODE_TYPE = "@n8n/n8n-nodes-langchain.lmChatGroq"
 AI_AGENT_NODE_TYPE = "@n8n/n8n-nodes-langchain.agent"
+HTTP_REQUEST_NODE_TYPE = "n8n-nodes-base.httpRequest"
 
 IMPLEMENTER_NODE_NAME = "Implementer Agent"
 REVIEWER_NODE_NAME = "Independent Reviewer Agent"
+IMPLEMENTER_CHAT_MODEL_NODE_NAME = "Implementer Gemini Chat Model"
+REVIEWER_CHAT_MODEL_NODE_NAME = "Independent Reviewer Groq Chat Model"
+WORKER_AUTHORIZE_NODE_NAME = "Worker Authorize"
+
 CHAT_MODEL_ATTACHMENT = "ai_languageModel"
+
+IMPLEMENTER_CREDENTIAL_TYPE = "googlePalmApi"
+REVIEWER_CREDENTIAL_TYPE = "groqApi"
+WORKER_HEADER_AUTH_CREDENTIAL_TYPE = "httpHeaderAuth"
 
 WORKER_BASE_URL_META_KEY = "localWorkerBaseUrl"
 WORKER_HEADER_AUTH_CREDENTIAL_NAME = "srl-v2-worker-header-auth"
@@ -60,6 +71,9 @@ _SECRET_LITERAL_RE = re.compile(
 )
 _OPERATOR_PLACEHOLDER = "OPERATOR_REQUIRED"
 
+# Credential-name inequality alone does NOT prove runtime identity independence.
+RUNTIME_IDENTITY_INDEPENDENCE_CLAIM = False
+
 
 class AgentRuntimeContractError(WorkerError):
     """Agent-runtime contract rejected before any mutation or live call."""
@@ -73,11 +87,11 @@ class AgentRuntimeContractError(WorkerError):
 
 
 def pinned_agent_runtime_contract() -> dict[str, Any]:
-    """Return the canonical Phase 1A contract instance (non-secret)."""
+    """Return the canonical Phase 1B contract instance (non-secret)."""
     return {
         "schema_version": SCHEMA_VERSION,
         "phase": PHASE,
-        "wiring_status": WIRING_STATUS_CONTRACT_ONLY,
+        "wiring_status": WIRING_STATUS_WORKFLOW_WIRED,
         "inactive_by_design": True,
         "implementer": {
             "agent_id": IMPLEMENTER_AGENT_ID,
@@ -150,12 +164,12 @@ def pinned_agent_runtime_contract() -> dict[str, Any]:
             "failure_before_mutation": True,
         },
         "secrets_policy": {
-        "forbid_in_repo": [
-            "api_keys",
-            "worker_token_values",
-            "credential_secret_data",
-            "bearer_token_literals",
-        ],
+            "forbid_in_repo": [
+                "api_keys",
+                "worker_token_values",
+                "credential_secret_data",
+                "bearer_token_literals",
+            ],
             "allow_in_repo": [
                 "credential_reference_names",
                 "model_ids",
@@ -176,7 +190,7 @@ def validate_agent_runtime_contract(
     *,
     root: Path | None = None,
 ) -> dict[str, Any]:
-    """Validate a contract instance; defaults to the pinned Phase 1A contract.
+    """Validate a contract instance; defaults to the pinned Phase 1B contract.
 
     Semantic separation and secret-literal checks run before schema validation so
     mutated instances fail closed with contract codes (failure before mutation).
@@ -186,8 +200,7 @@ def validate_agent_runtime_contract(
         raise AgentRuntimeContractError("agent runtime contract must be an object")
     _assert_no_secret_literals(payload)
     _assert_identity_separation(payload)
-    if payload.get("wiring_status") == WIRING_STATUS_CONTRACT_ONLY and payload.get("phase") != PHASE:
-        raise AgentRuntimeContractError("CONTRACT_ONLY wiring requires phase 1A")
+    _assert_phase_wiring_coupling(payload)
     validate_instance("agent_runtime_contract", payload, root=root)
     return payload
 
@@ -195,6 +208,36 @@ def validate_agent_runtime_contract(
 def assert_identity_separation(contract: dict[str, Any] | None = None) -> None:
     payload = contract if contract is not None else pinned_agent_runtime_contract()
     _assert_identity_separation(payload)
+
+
+def credential_references_equivalent(left: str, right: str) -> bool:
+    """Exact credential-reference equality only (no case/whitespace/Unicode folding).
+
+    Distinct names are necessary but not sufficient for runtime identity independence.
+    """
+    if not isinstance(left, str) or not isinstance(right, str):
+        return False
+    return left == right
+
+
+def reject_nonexact_credential_reference(candidate: str, pinned: str) -> None:
+    """Fail closed when candidate is not the exact pinned credential reference."""
+    if not isinstance(candidate, str):
+        raise AgentRuntimeContractError("credential reference must be a string")
+    if credential_references_equivalent(candidate, pinned):
+        return
+    raise AgentRuntimeContractError("credential reference mismatch (exact pin required)")
+
+
+def _assert_phase_wiring_coupling(payload: dict[str, Any]) -> None:
+    phase = payload.get("phase")
+    wiring = payload.get("wiring_status")
+    if wiring == WIRING_STATUS_CONTRACT_ONLY and phase != PHASE_CONTRACT_ONLY:
+        raise AgentRuntimeContractError("CONTRACT_ONLY wiring requires phase 1A")
+    if wiring == WIRING_STATUS_WORKFLOW_WIRED and phase != PHASE:
+        raise AgentRuntimeContractError("WORKFLOW_WIRED wiring requires phase 1B")
+    if phase == PHASE and wiring != WIRING_STATUS_WORKFLOW_WIRED:
+        raise AgentRuntimeContractError("phase 1B requires WORKFLOW_WIRED wiring status")
 
 
 def _assert_identity_separation(payload: dict[str, Any]) -> None:
@@ -220,6 +263,15 @@ def _assert_identity_separation(payload: dict[str, Any]) -> None:
             "implementer and reviewer models must differ",
             code=ERROR_CODES["SI2-REVIEW-SELF"],
         )
+    # Strict provider/role/model binding to pinned constants when present.
+    if implementer.get("provider") not in (None, IMPLEMENTER_PROVIDER):
+        raise AgentRuntimeContractError("implementer provider binding mismatch")
+    if reviewer.get("provider") not in (None, REVIEWER_PROVIDER):
+        raise AgentRuntimeContractError("reviewer provider binding mismatch")
+    if implementer.get("model") not in (None, IMPLEMENTER_MODEL):
+        raise AgentRuntimeContractError("implementer model binding mismatch")
+    if reviewer.get("model") not in (None, REVIEWER_MODEL):
+        raise AgentRuntimeContractError("reviewer model binding mismatch")
 
 
 def _assert_no_secret_literals(payload: dict[str, Any]) -> None:
@@ -250,7 +302,7 @@ def assert_workflow_meta_bindings(
     root: Path | None = None,
     require_pinned_models: bool = True,
 ) -> dict[str, Any]:
-    """Fail before mutation if workflow meta does not match the Phase 1A contract pins."""
+    """Fail before mutation if workflow meta does not match the Phase 1B contract pins."""
     data = workflow if workflow is not None else load_design_workflow(root)
     meta = data.get("meta")
     if not isinstance(meta, dict):
@@ -263,6 +315,11 @@ def assert_workflow_meta_bindings(
         )
     if meta.get("srlInactiveByDesign") is not True:
         raise AgentRuntimeContractError("meta.srlInactiveByDesign must be true")
+
+    if meta.get("agentRuntimePhase") != PHASE:
+        raise AgentRuntimeContractError("meta.agentRuntimePhase must be 1B")
+    if meta.get("agentRuntimeWiringStatus") != WIRING_STATUS_WORKFLOW_WIRED:
+        raise AgentRuntimeContractError("meta.agentRuntimeWiringStatus must be WORKFLOW_WIRED")
 
     if meta.get("implementerAgentId") != IMPLEMENTER_AGENT_ID:
         raise AgentRuntimeContractError("meta.implementerAgentId mismatch")
@@ -285,10 +342,8 @@ def assert_workflow_meta_bindings(
             "credential references must remain distinct",
             code=ERROR_CODES["SI2-REVIEW-SELF"],
         )
-    if impl_cred != IMPLEMENTER_AGENT_CREDENTIAL_REFERENCE:
-        raise AgentRuntimeContractError("implementerAgentCredentialReference mismatch")
-    if rev_cred != REVIEWER_AGENT_CREDENTIAL_REFERENCE:
-        raise AgentRuntimeContractError("reviewerAgentCredentialReference mismatch")
+    reject_nonexact_credential_reference(str(impl_cred), IMPLEMENTER_AGENT_CREDENTIAL_REFERENCE)
+    reject_nonexact_credential_reference(str(rev_cred), REVIEWER_AGENT_CREDENTIAL_REFERENCE)
 
     if require_pinned_models:
         if meta.get("implementerModel") != IMPLEMENTER_MODEL:
@@ -313,8 +368,187 @@ def assert_workflow_meta_bindings(
     return meta
 
 
-def assert_phase_1a_contract_surface(*, root: Path | None = None) -> dict[str, Any]:
-    """Validate pinned contract + design workflow meta bindings (no live provider calls)."""
+def _nodes_by_name(workflow: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for node in workflow.get("nodes") or []:
+        if isinstance(node, dict) and isinstance(node.get("name"), str):
+            out[node["name"]] = node
+    return out
+
+
+def _credential_name(node: dict[str, Any], cred_type: str) -> str | None:
+    creds = node.get("credentials")
+    if not isinstance(creds, dict):
+        return None
+    block = creds.get(cred_type)
+    if not isinstance(block, dict):
+        return None
+    name = block.get("name")
+    return name if isinstance(name, str) else None
+
+
+def _has_ai_language_model_edge(
+    connections: dict[str, Any], source: str, dest: str
+) -> bool:
+    block = connections.get(source) or {}
+    outputs = block.get(CHAT_MODEL_ATTACHMENT) or []
+    for group in outputs:
+        if not group:
+            continue
+        for link in group:
+            if isinstance(link, dict) and link.get("node") == dest:
+                if link.get("type") == CHAT_MODEL_ATTACHMENT:
+                    return True
+    return False
+
+
+def _has_main_edge(connections: dict[str, Any], source: str, dest: str) -> bool:
+    block = connections.get(source) or {}
+    mains = block.get("main") or []
+    for group in mains:
+        if not group:
+            continue
+        for link in group:
+            if isinstance(link, dict) and link.get("node") == dest and link.get("type") == "main":
+                return True
+    return False
+
+
+def assert_workflow_agent_wiring(
+    workflow: dict[str, Any] | None = None,
+    *,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    """Assert Phase 1B inactive AI/HTTP wiring (credential names + models only; no live calls)."""
+    data = workflow if workflow is not None else load_design_workflow(root)
+    by_name = _nodes_by_name(data)
+    connections = data.get("connections") or {}
+    if not isinstance(connections, dict):
+        raise AgentRuntimeContractError("workflow connections missing")
+
+    implementer = by_name.get(IMPLEMENTER_NODE_NAME)
+    reviewer = by_name.get(REVIEWER_NODE_NAME)
+    impl_model = by_name.get(IMPLEMENTER_CHAT_MODEL_NODE_NAME)
+    rev_model = by_name.get(REVIEWER_CHAT_MODEL_NODE_NAME)
+    authorize = by_name.get(WORKER_AUTHORIZE_NODE_NAME)
+
+    for label, node in (
+        (IMPLEMENTER_NODE_NAME, implementer),
+        (REVIEWER_NODE_NAME, reviewer),
+        (IMPLEMENTER_CHAT_MODEL_NODE_NAME, impl_model),
+        (REVIEWER_CHAT_MODEL_NODE_NAME, rev_model),
+        (WORKER_AUTHORIZE_NODE_NAME, authorize),
+    ):
+        if node is None:
+            raise AgentRuntimeContractError(f"missing wired node: {label}")
+
+    if implementer.get("type") != AI_AGENT_NODE_TYPE:
+        raise AgentRuntimeContractError("Implementer Agent node type mismatch")
+    if reviewer.get("type") != AI_AGENT_NODE_TYPE:
+        raise AgentRuntimeContractError("Independent Reviewer Agent node type mismatch")
+    if impl_model.get("type") != IMPLEMENTER_CHAT_MODEL_NODE_TYPE:
+        raise AgentRuntimeContractError("Implementer chat model node type mismatch")
+    if rev_model.get("type") != REVIEWER_CHAT_MODEL_NODE_TYPE:
+        raise AgentRuntimeContractError("Reviewer chat model node type mismatch")
+    if authorize.get("type") != HTTP_REQUEST_NODE_TYPE:
+        raise AgentRuntimeContractError("Worker Authorize must be HTTP Request for Phase 1B")
+
+    impl_model_name = (impl_model.get("parameters") or {}).get("modelName") or (
+        impl_model.get("parameters") or {}
+    ).get("model")
+    rev_model_name = (rev_model.get("parameters") or {}).get("model") or (
+        rev_model.get("parameters") or {}
+    ).get("modelName")
+    if impl_model_name != IMPLEMENTER_MODEL:
+        raise AgentRuntimeContractError("Implementer chat model pin mismatch")
+    if rev_model_name != REVIEWER_MODEL:
+        raise AgentRuntimeContractError("Reviewer chat model pin mismatch")
+
+    impl_cred = _credential_name(impl_model, IMPLEMENTER_CREDENTIAL_TYPE)
+    rev_cred = _credential_name(rev_model, REVIEWER_CREDENTIAL_TYPE)
+    reject_nonexact_credential_reference(
+        str(impl_cred or ""), IMPLEMENTER_AGENT_CREDENTIAL_REFERENCE
+    )
+    reject_nonexact_credential_reference(
+        str(rev_cred or ""), REVIEWER_AGENT_CREDENTIAL_REFERENCE
+    )
+    if impl_cred == rev_cred:
+        raise AgentRuntimeContractError(
+            "chat model credential references must differ",
+            code=ERROR_CODES["SI2-REVIEW-SELF"],
+        )
+
+    worker_cred = _credential_name(authorize, WORKER_HEADER_AUTH_CREDENTIAL_TYPE)
+    if worker_cred != WORKER_HEADER_AUTH_CREDENTIAL_NAME:
+        raise AgentRuntimeContractError("Worker Authorize header auth credential name mismatch")
+
+    auth_params = authorize.get("parameters") or {}
+    url = str(auth_params.get("url") or "")
+    method = str(auth_params.get("method") or "GET").upper()
+    if method != "POST":
+        raise AgentRuntimeContractError("Worker Authorize must POST")
+    if AUTHORIZE_PATH not in url:
+        raise AgentRuntimeContractError("Worker Authorize URL must target validate-proposal")
+    if "127.0.0.1" not in url and "localhost" not in url.lower():
+        raise AgentRuntimeContractError("Worker Authorize URL must remain loopback")
+
+    if not _has_ai_language_model_edge(
+        connections, IMPLEMENTER_CHAT_MODEL_NODE_NAME, IMPLEMENTER_NODE_NAME
+    ):
+        raise AgentRuntimeContractError("Implementer chat model must attach via ai_languageModel")
+    if not _has_ai_language_model_edge(
+        connections, REVIEWER_CHAT_MODEL_NODE_NAME, REVIEWER_NODE_NAME
+    ):
+        raise AgentRuntimeContractError("Reviewer chat model must attach via ai_languageModel")
+
+    if not _has_main_edge(connections, "Candidate Schema Validation", IMPLEMENTER_NODE_NAME):
+        raise AgentRuntimeContractError("Implementer Agent must follow Candidate Schema Validation")
+    if not _has_main_edge(connections, IMPLEMENTER_NODE_NAME, "Proposal Schema Validation"):
+        raise AgentRuntimeContractError("Implementer Agent must feed Proposal Schema Validation")
+    if not _has_main_edge(connections, "Execution Result Validation", REVIEWER_NODE_NAME):
+        raise AgentRuntimeContractError(
+            "Independent Reviewer Agent must follow Execution Result Validation"
+        )
+    if not _has_main_edge(connections, REVIEWER_NODE_NAME, "Independent Review Bind"):
+        raise AgentRuntimeContractError(
+            "Independent Reviewer Agent must feed Independent Review Bind"
+        )
+
+    # Secret-like values must not appear in workflow nodes/meta/fixtures surface.
+    _assert_no_secret_literals({"workflow": {"meta": data.get("meta"), "nodes": data.get("nodes")}})
+    return {
+        "implementer_node": IMPLEMENTER_NODE_NAME,
+        "reviewer_node": REVIEWER_NODE_NAME,
+        "worker_authorize": WORKER_AUTHORIZE_NODE_NAME,
+        "runtime_identity_independence_proven": RUNTIME_IDENTITY_INDEPENDENCE_CLAIM,
+    }
+
+
+def assert_phase_1b_contract_surface(*, root: Path | None = None) -> dict[str, Any]:
+    """Validate pinned Phase 1B contract + inactive workflow AI/HTTP wiring (offline)."""
     contract = validate_agent_runtime_contract(root=root)
     meta = assert_workflow_meta_bindings(root=root, require_pinned_models=True)
-    return {"contract": contract, "workflow_meta": meta}
+    wiring = assert_workflow_agent_wiring(root=root)
+    return {"contract": contract, "workflow_meta": meta, "workflow_wiring": wiring}
+
+
+def assert_phase_1a_contract_surface(*, root: Path | None = None) -> dict[str, Any]:
+    """Compatibility alias — Phase 1B supersedes the Phase 1A contract-only surface."""
+    return assert_phase_1b_contract_surface(root=root)
+
+
+def lookalike_credential_reference_cases(pinned: str) -> list[str]:
+    """Case, whitespace, and Unicode-adjacent variants that must not match the pin."""
+    en_dash = pinned.replace("\u2014", "\u2013")
+    hyphen = pinned.replace("\u2014", "-")
+    nfd = unicodedata.normalize("NFD", pinned)
+    return [
+        pinned.upper(),
+        pinned.lower(),
+        f" {pinned}",
+        f"{pinned} ",
+        f"  {pinned}  ",
+        en_dash,
+        hyphen,
+        nfd if nfd != pinned else pinned + "\u200b",
+    ]

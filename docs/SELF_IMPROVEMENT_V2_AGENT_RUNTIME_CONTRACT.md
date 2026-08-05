@@ -1,6 +1,6 @@
-# Self-Improvement V2 — Agent Runtime Contract (Phase 1A)
+# Self-Improvement V2 — Agent Runtime Contract (Phase 1B)
 
-Phase 1A pins the **non-secret** agent-runtime contract for the Self-Improvement Loop V2. It does **not** wire live AI Agent nodes into the design workflow (that is Phase 1B) and does **not** authorize a pilot.
+Phase 1B wires **inactive** AI Agent + Chat Model nodes and worker authorize HTTP into the design workflow using credential **names** and pinned models only. It does **not** activate the workflow, authorize a pilot, or prove runtime credential identity independence from name inequality alone.
 
 Normative machine-readable sources:
 
@@ -8,7 +8,7 @@ Normative machine-readable sources:
 | --- | --- |
 | JSON Schema | `specs/self_improvement/v2/agent_runtime_contract.schema.json` |
 | Python pins + validators | `tools/self_improvement_v2/agent_runtime_contract.py` |
-| Inactive design export | `workflows/design/self_improvement_loop_v2.json` (`meta` bindings) |
+| Inactive design export | `workflows/design/self_improvement_loop_v2.json` |
 
 ## Agent identities
 
@@ -19,19 +19,21 @@ Normative machine-readable sources:
 
 Rules:
 
-- Agent IDs, credential references, providers, and models must remain distinct.
+- Agent IDs, credential references, providers, and models must remain distinct (exact string pins).
+- Case, whitespace, and Unicode-adjacent credential lookalikes are rejected; they are not treated as equivalent.
+- Distinct credential **names** are necessary but **not sufficient** to claim runtime identity independence (n8n-resolved secret uniqueness is out of scope for Phase 1B offline checks).
 - Implementer produces candidate/proposal payloads only; it must not authorize risk, mutate git, finalize, or share the reviewer credential.
 - Independent reviewer produces `review_result` for `review_gate` binding; it must not authorize risk, mutate git, finalize, share the implementer credential, or self-review.
 
-## How n8n will invoke agents (Phase 1B target)
-
-Phase 1A records the intended invocation shape; Phase 1B performs the JSON wiring:
+## How n8n invokes agents (Phase 1B wiring)
 
 1. **Implementer Agent** — `@n8n/n8n-nodes-langchain.agent` with Chat Model sub-node `@n8n/n8n-nodes-langchain.lmChatGoogleGemini` (`ai_languageModel`), credential name + model pinned above.
 2. **Independent Reviewer Agent** — separate `@n8n/n8n-nodes-langchain.agent` with `@n8n/n8n-nodes-langchain.lmChatGroq`, distinct credential name + model.
-3. Design export remains `active: false` / `meta.srlInactiveByDesign: true`. Credential **values** never appear in repo JSON.
+3. **Worker Authorize** — `n8n-nodes-base.httpRequest` `POST` to loopback `/v2/validate-proposal` using Header Auth credential **name** `srl-v2-worker-header-auth` (token value never in repo).
+4. Design export remains `active: false` / `meta.srlInactiveByDesign: true`.
+5. Meta pins: `agentRuntimePhase=1B`, `agentRuntimeWiringStatus=WORKFLOW_WIRED`.
 
-Until Phase 1B, proposal generation and Independent Review Bind may remain Code stubs. Meta already carries Phase 1A pins (`agentRuntimePhase=1A`, `agentRuntimeWiringStatus=CONTRACT_ONLY`).
+`Independent Review Bind` remains a Code binder after the Independent Reviewer Agent for `review_gate` fields. Risk authority is unchanged: sole authorizer is `tools.self_improvement_v2.risk_authority`.
 
 ## Worker HTTP boundary
 
@@ -84,12 +86,12 @@ Allowed non-secret pins:
 | `MAXIMUM_AGENT_CALLS` | 6 |
 | `PILOT_TIMEOUT` | 30 minutes |
 
-## Explicit non-goals (Phase 1A)
+## Explicit non-goals (Phase 1B)
 
-- Phase 1B AI/HTTP node wiring in workflow JSON
 - Phase 3 preflight
 - Workflow activation / Execute Workflow
 - Live Gemini/Groq calls in unit tests
+- Runtime proof that distinct credential names resolve to distinct secret material
 - Push, merge, or pilot start
 
 ## Validation (offline)
@@ -98,4 +100,4 @@ Allowed non-secret pins:
 python -m pytest tests/self_improvement_v2/test_agent_runtime_contract.py -q
 ```
 
-`assert_phase_1a_contract_surface()` validates the pinned schema instance and design-workflow meta bindings without network calls.
+`assert_phase_1b_contract_surface()` validates the pinned schema instance, design-workflow meta bindings, and inactive AI/HTTP wiring without network calls.
