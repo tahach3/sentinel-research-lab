@@ -53,8 +53,13 @@ Non-secret meta references (no credential values):
 
 - `meta.localWorkerBaseUrl` — configurable worker base URL (loopback or operator-selected Docker host mapping)
 - `meta.workerHeaderAuthCredentialName` — named Header Auth credential reference for the worker bearer token
+- `meta.implementerAgentCredentialReference` / `meta.reviewerAgentCredentialReference` — distinct n8n credential **names**
+- `meta.implementerModel` / `meta.reviewerModel` — pinned non-secret model IDs
+- `meta.agentRuntimePhase` / `meta.agentRuntimeWiringStatus` — Phase 1A contract surface (`1A` / `CONTRACT_ONLY` until Phase 1B wires AI/HTTP nodes)
 
-Implementer and reviewer agent credential references remain operator-managed and must stay distinct.
+Normative agent-runtime contract: `docs/SELF_IMPROVEMENT_V2_AGENT_RUNTIME_CONTRACT.md` and `specs/self_improvement/v2/agent_runtime_contract.schema.json`.
+
+Implementer and reviewer agent credential references must stay distinct.
 
 ## Pilot limits (recommended handoff)
 

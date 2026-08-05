@@ -21,6 +21,7 @@ SCHEMA_FILES = {
     "review_result": "review_result.schema.json",
     "finalization_result": "finalization_result.schema.json",
     "learning_record": "learning_record.schema.json",
+    "agent_runtime_contract": "agent_runtime_contract.schema.json",
 }
 
 
