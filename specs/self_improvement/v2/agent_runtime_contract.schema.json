@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentinel-research-lab.local/self_improvement/v2/agent_runtime_contract.schema.json",
+  "title": "Self-Improvement V2 Agent Runtime Contract",
+  "description": "Phase 1A non-secret bindings for implementer/reviewer agent runtime. No API keys or worker tokens.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "phase",
+    "wiring_status",
+    "inactive_by_design",
+    "implementer",
+    "independent_reviewer",
+    "n8n_invocation",
+    "worker_http",
+    "risk_authority",
+    "review_gate",
+    "secrets_policy",
+    "pilot_limits"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0.0"
+    },
+    "phase": {
+      "type": "string",
+      "const": "1A"
+    },
+    "wiring_status": {
+      "type": "string",
+      "enum": ["CONTRACT_ONLY", "WORKFLOW_WIRED"],
+      "description": "CONTRACT_ONLY until Phase 1B replaces Code stubs with AI/HTTP nodes."
+    },
+    "inactive_by_design": {
+      "type": "boolean",
+      "const": true
+    },
+    "implementer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "credential_reference",
+        "provider",
+        "chat_model_node_type",
+        "model",
+        "produces",
+        "must_not"
+      ],
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "const": "srl-implementer-agent"
+        },
+        "credential_reference": {
+          "type": "string",
+          "const": "SRL Implementer — Google Gemini"
+        },
+        "provider": {
+          "type": "string",
+          "const": "google_gemini"
+        },
+        "chat_model_node_type": {
+          "type": "string",
+          "const": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini"
+        },
+        "model": {
+          "type": "string",
+          "const": "models/gemini-2.5-flash"
+        },
+        "produces": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["improvement_candidate", "implementation_proposal"]
+          }
+        },
+        "must_not": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "authorize_risk",
+              "mutate_git",
+              "finalize",
+              "override_worker_decision",
+              "share_reviewer_credential"
+            ]
+          }
+        }
+      }
+    },
+    "independent_reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "credential_reference",
+        "provider",
+        "chat_model_node_type",
+        "model",
+        "produces",
+        "must_not"
+      ],
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "const": "srl-independent-reviewer-agent"
+        },
+        "credential_reference": {
+          "type": "string",
+          "const": "SRL Independent Reviewer — Groq"
+        },
+        "provider": {
+          "type": "string",
+          "const": "groq"
+        },
+        "chat_model_node_type": {
+          "type": "string",
+          "const": "@n8n/n8n-nodes-langchain.lmChatGroq"
+        },
+        "model": {
+          "type": "string",
+          "const": "llama3-8b-8192"
+        },
+        "produces": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "const": "review_result"
+          }
+        },
+        "must_not": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "authorize_risk",
+              "mutate_git",
+              "finalize",
+              "share_implementer_credential",
+              "self_review"
+            ]
+          }
+        }
+      }
+    },
+    "n8n_invocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ai_agent_node_type",
+        "implementer_node_name",
+        "reviewer_node_name",
+        "chat_model_attachment",
+        "credential_binding",
+        "export_rules"
+      ],
+      "properties": {
+        "ai_agent_node_type": {
+          "type": "string",
+          "const": "@n8n/n8n-nodes-langchain.agent"
+        },
+        "implementer_node_name": {
+          "type": "string",
+          "const": "Implementer Agent"
+        },
+        "reviewer_node_name": {
+          "type": "string",
+          "const": "Independent Reviewer Agent"
+        },
+        "chat_model_attachment": {
+          "type": "string",
+          "const": "ai_languageModel"
+        },
+        "credential_binding": {
+          "type": "string",
+          "const": "n8n_credential_name_reference_only"
+        },
+        "export_rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "active_false",
+              "no_secret_values",
+              "credential_names_only",
+              "model_ids_non_secret"
+            ]
+          }
+        }
+      }
+    },
+    "worker_http": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_url_meta_key",
+        "header_auth_credential_name",
+        "authorize_path",
+        "execute_path",
+        "finalize_path",
+        "health_path",
+        "bind_policy"
+      ],
+      "properties": {
+        "base_url_meta_key": {
+          "type": "string",
+          "const": "localWorkerBaseUrl"
+        },
+        "header_auth_credential_name": {
+          "type": "string",
+          "const": "srl-v2-worker-header-auth"
+        },
+        "authorize_path": {
+          "type": "string",
+          "const": "/v2/validate-proposal"
+        },
+        "execute_path": {
+          "type": "string",
+          "const": "/v2/execute"
+        },
+        "finalize_path": {
+          "type": "string",
+          "const": "/v2/finalize"
+        },
+        "health_path": {
+          "type": "string",
+          "const": "/health"
+        },
+        "bind_policy": {
+          "type": "string",
+          "const": "loopback_only"
+        }
+      }
+    },
+    "risk_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module",
+        "sole_authorizer",
+        "n8n_may_route_only",
+        "n8n_must_not",
+        "worker_decisions"
+      ],
+      "properties": {
+        "module": {
+          "type": "string",
+          "const": "tools.self_improvement_v2.risk_authority"
+        },
+        "sole_authorizer": {
+          "type": "boolean",
+          "const": true
+        },
+        "n8n_may_route_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "n8n_must_not": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "compute_risk",
+              "override_worker_decision",
+              "manufacture_AUTO_AUTHORIZED",
+              "trust_proposal_risk_level"
+            ]
+          }
+        },
+        "worker_decisions": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "enum": ["AUTHORIZED", "DECISION_REQUIRED", "POLICY_REJECTED"]
+          }
+        }
+      }
+    },
+    "review_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module",
+        "requires_independent_from_implementer",
+        "reject_same_agent_ids",
+        "failure_before_mutation"
+      ],
+      "properties": {
+        "module": {
+          "type": "string",
+          "const": "tools.self_improvement_v2.review_gate"
+        },
+        "requires_independent_from_implementer": {
+          "type": "boolean",
+          "const": true
+        },
+        "reject_same_agent_ids": {
+          "type": "boolean",
+          "const": true
+        },
+        "failure_before_mutation": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "secrets_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "forbid_in_repo",
+        "allow_in_repo"
+      ],
+      "properties": {
+        "forbid_in_repo": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "api_keys",
+              "worker_token_values",
+              "credential_secret_data",
+              "bearer_token_literals"
+            ]
+          }
+        },
+        "allow_in_repo": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "credential_reference_names",
+              "model_ids",
+              "worker_base_url",
+              "header_auth_credential_name"
+            ]
+          }
+        }
+      }
+    },
+    "pilot_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "MAXIMUM_PILOT_COST_USD",
+        "MAXIMUM_AGENT_CALLS",
+        "PILOT_TIMEOUT_MINUTES"
+      ],
+      "properties": {
+        "MAXIMUM_PILOT_COST_USD": {
+          "type": "number",
+          "const": 5
+        },
+        "MAXIMUM_AGENT_CALLS": {
+          "type": "integer",
+          "const": 6
+        },
+        "PILOT_TIMEOUT_MINUTES": {
+          "type": "integer",
+          "const": 30
+        }
+      }
+    }
+  }
+}

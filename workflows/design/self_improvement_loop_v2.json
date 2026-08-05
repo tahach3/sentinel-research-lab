@@ -13,15 +13,23 @@
     "reviewerAgentId": "srl-independent-reviewer-agent",
     "localWorkerBaseUrl": "http://127.0.0.1:8765",
     "workerHeaderAuthCredentialName": "srl-v2-worker-header-auth",
-    "implementerAgentCredentialReference": "OPERATOR_REQUIRED",
-    "reviewerAgentCredentialReference": "OPERATOR_REQUIRED",
+    "implementerAgentCredentialReference": "SRL Implementer — Google Gemini",
+    "reviewerAgentCredentialReference": "SRL Independent Reviewer — Groq",
+    "implementerModel": "models/gemini-2.5-flash",
+    "reviewerModel": "llama3-8b-8192",
+    "implementerChatModelNodeType": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+    "reviewerChatModelNodeType": "@n8n/n8n-nodes-langchain.lmChatGroq",
+    "aiAgentNodeType": "@n8n/n8n-nodes-langchain.agent",
+    "agentRuntimePhase": "1A",
+    "agentRuntimeWiringStatus": "CONTRACT_ONLY",
     "schemas": [
       "improvement_candidate.schema.json",
       "implementation_proposal.schema.json",
       "execution_bundle.schema.json",
       "review_result.schema.json",
       "finalization_result.schema.json",
-      "learning_record.schema.json"
+      "learning_record.schema.json",
+      "agent_runtime_contract.schema.json"
     ]
   },
   "connections": {
