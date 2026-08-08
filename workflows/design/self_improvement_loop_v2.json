@@ -15,7 +15,7 @@
     "workerHeaderAuthCredentialName": "srl-v2-worker-header-auth",
     "implementerAgentCredentialReference": "SRL Implementer — Google Gemini",
     "reviewerAgentCredentialReference": "SRL Independent Reviewer — Groq",
-    "implementerModel": "models/gemini-2.5-flash",
+    "implementerModel": "models/gemini-3.6-flash",
     "reviewerModel": "llama3-8b-8192",
     "implementerChatModelNodeType": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
     "reviewerChatModelNodeType": "@n8n/n8n-nodes-langchain.lmChatGroq",
@@ -1055,7 +1055,7 @@
     },
     {
       "parameters": {
-        "modelName": "models/gemini-2.5-flash",
+        "modelName": "models/gemini-3.6-flash",
         "options": {}
       },
       "id": "implementer-gemini-chat-model",
