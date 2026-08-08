@@ -25,7 +25,7 @@ REVIEWER_AGENT_CREDENTIAL_REFERENCE = "SRL Independent Reviewer — Groq"
 IMPLEMENTER_PROVIDER = "google_gemini"
 REVIEWER_PROVIDER = "groq"
 
-IMPLEMENTER_MODEL = "models/gemini-2.5-flash"
+IMPLEMENTER_MODEL = "models/gemini-3.6-flash"
 REVIEWER_MODEL = "llama3-8b-8192"
 
 IMPLEMENTER_CHAT_MODEL_NODE_TYPE = "@n8n/n8n-nodes-langchain.lmChatGoogleGemini"
