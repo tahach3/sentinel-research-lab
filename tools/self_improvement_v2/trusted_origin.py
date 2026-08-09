@@ -58,6 +58,15 @@ def _module_relpath(module_name: str) -> str:
     return str(Path(*module_name.split(".")).with_suffix(".py")).replace("\\", "/")
 
 
+def _canonical_bytes(data: bytes) -> bytes:
+    """Normalize text to LF so Windows working-tree CRLF matches git blob digests."""
+    return data.replace(b"\r\n", b"\n")
+
+
+def _sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(_canonical_bytes(data)).hexdigest()
+
+
 def _git_head(root: Path) -> str:
     return run_git(["rev-parse", "HEAD"], cwd=root, check=True).stdout.decode("utf-8").strip()
 
@@ -67,7 +76,7 @@ def _git_blob_digest(root: Path, reviewed_head: str, rel: str) -> str:
     proc = run_git(["show", f"{reviewed_head}:{rel}"], cwd=root, check=False)
     if proc.returncode != 0:
         raise TrustedOriginError(f"reviewed git blob missing: {reviewed_head}:{rel}")
-    return hashlib.sha256(proc.stdout).hexdigest()
+    return _sha256_bytes(proc.stdout)
 
 
 def resolve_reviewed_install_root(explicit: Path | None = None) -> Path:
@@ -110,7 +119,7 @@ def trusted_modules_tree_digest(install_root: Path | None = None) -> tuple[str, 
         path = root / rel
         if not path.is_file():
             raise TrustedOriginError(f"trusted module missing from install: {rel}")
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        digest = _sha256_bytes(path.read_bytes())
         per[name] = digest
         h.update(rel.encode("utf-8"))
         h.update(b"\0")
@@ -277,7 +286,7 @@ def assert_trusted_code_origin(
         if pin_modules.get(name) != digest:
             raise TrustedOriginError(f"trusted module digest mismatch for {name}")
         # Loaded file bytes must match pin.
-        file_digest = hashlib.sha256(Path(origins[name]).read_bytes()).hexdigest()
+        file_digest = _sha256_bytes(Path(origins[name]).read_bytes())
         if file_digest != digest:
             raise TrustedOriginError(f"loaded module bytes mismatch pin for {name}")
 
