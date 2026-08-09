@@ -409,3 +409,50 @@ def test_state_db_inside_repo_rejected(tmp_path: Path):
             worker_host="127.0.0.1",
             worker_port=8765,
         )
+
+
+def test_provider_call_permit_refuses_seventh_call(bridge_env):
+    """Live-path adversarial proof: bridge refuses the 7th provider-call permit."""
+    status, opened = _request(
+        bridge_env["base"],
+        "POST",
+        "/v2/budget/open",
+        payload={"session_id": "bridge-budget-1"},
+    )
+    assert status == 200
+    assert opened["status"] == "PASS"
+    assert opened["max_calls"] == 6
+    assert opened["worst_case_usd"] < 5.0
+    sid = opened["session_id"]
+    for _ in range(6):
+        st, body = _request(
+            bridge_env["base"],
+            "POST",
+            "/v2/provider-call-permit",
+            payload={"session_id": sid},
+        )
+        assert st == 200
+        assert body["permit"]["status"] == "GRANTED"
+        assert body["permit"]["provider_call_params"]["max_output_tokens"] >= 1
+    st, body = _request(
+        bridge_env["base"],
+        "POST",
+        "/v2/provider-call-permit",
+        payload={"session_id": sid},
+    )
+    assert st == 400
+    assert body["error"] == "PILOT_CALL_LIMIT"
+
+
+def test_wall_capture_and_assert_via_bridge(bridge_env):
+    status, captured = _request(bridge_env["base"], "POST", "/v2/wall/capture", payload={})
+    assert status == 200
+    snap = captured["snapshot"]
+    status, asserted = _request(
+        bridge_env["base"],
+        "POST",
+        "/v2/wall/assert",
+        payload={"before": snap},
+    )
+    assert status == 200
+    assert asserted["status"] == "PASS"

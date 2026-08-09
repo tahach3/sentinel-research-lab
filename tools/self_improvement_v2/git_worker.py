@@ -371,6 +371,18 @@ def source_tree_fingerprint(root: Path) -> str:
     return h.hexdigest()
 
 
+def index_fingerprint(root: Path) -> str:
+    """Fingerprint the Git index (staged + tracked modes/hashes via ls-files -s)."""
+    listing = run_git(["ls-files", "-s"], cwd=root, check=True).stdout
+    return hashlib.sha256(listing).hexdigest()
+
+
+def worktree_list_fingerprint(root: Path) -> str:
+    """Fingerprint `git worktree list --porcelain` for Wall reassertion."""
+    proc = run_git(["worktree", "list", "--porcelain"], cwd=root, check=True)
+    return hashlib.sha256(proc.stdout).hexdigest()
+
+
 def assert_source_unchanged(root: Path, before: str) -> None:
     after = source_tree_fingerprint(root)
     if after != before:

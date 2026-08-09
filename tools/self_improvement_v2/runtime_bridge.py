@@ -19,6 +19,17 @@ from tools.self_improvement_v2.experience_store import ExperienceStore
 from tools.self_improvement_v2.finalizer import finalize_or_freeze
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 from tools.self_improvement_v2.path_policy import load_policy, policy_sha256
+from tools.self_improvement_v2.pilot_budget import (
+    DEFAULT_MAX_INPUT_TOKENS,
+    DEFAULT_MAX_OUTPUT_TOKENS,
+    DEFAULT_PRICE_PER_INPUT_TOKEN_USD,
+    DEFAULT_PRICE_PER_OUTPUT_TOKEN_USD,
+    MAXIMUM_AGENT_CALLS,
+    MAXIMUM_PILOT_COST_USD,
+    PILOT_TIMEOUT_SECONDS,
+    PilotBudgetRegistry,
+    default_registry,
+)
 from tools.self_improvement_v2.repair_policy import assert_repair_attempt_allowed
 from tools.self_improvement_v2.review_gate import assert_no_conflicting_review, assert_review_bound
 from tools.self_improvement_v2.risk_authority import (
@@ -33,6 +44,11 @@ from tools.self_improvement_v2.runtime_config import (
     redact_log_text,
 )
 from tools.self_improvement_v2.schema_loader import ensure_schema_version, validate_instance
+from tools.self_improvement_v2.trusted_origin import assert_trusted_code_origin
+from tools.self_improvement_v2.wall_reassert import (
+    assert_wall_artifacts_unchanged,
+    capture_wall_artifact_snapshot,
+)
 
 LOGGER = logging.getLogger("self_improvement_v2.runtime_bridge")
 
@@ -46,6 +62,9 @@ HEALTH_BODY = {
         "execute",
         "finalize",
         "execution-status",
+        "budget-open",
+        "provider-call-permit",
+        "wall-reassert",
     ],
 }
 
@@ -53,6 +72,29 @@ _EXECUTION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 _VALIDATE_FIELDS = frozenset({"proposal"})
 _EXECUTE_FIELDS = frozenset({"proposal", "candidate"})
 _FINALIZE_FIELDS = frozenset({"execution_id", "review_id", "review"})
+_BUDGET_OPEN_FIELDS = frozenset(
+    {
+        "session_id",
+        "max_input_tokens",
+        "max_output_tokens",
+        "price_per_input_token_usd",
+        "price_per_output_token_usd",
+        "max_calls",
+        "max_cost_usd",
+        "timeout_seconds",
+        "meta",
+    }
+)
+_PERMIT_FIELDS = frozenset(
+    {
+        "session_id",
+        "max_input_tokens",
+        "max_output_tokens",
+        "call_params",
+    }
+)
+_WALL_CAPTURE_FIELDS = frozenset({"workflow_fingerprint"})
+_WALL_ASSERT_FIELDS = frozenset({"before", "workflow_fingerprint"})
 
 
 class _RedactingFormatter(logging.Formatter):
@@ -105,6 +147,8 @@ def _reject_unknown_and_forbidden(payload: dict[str, Any], allowed: frozenset[st
 
 
 def validate_proposal_operation(config: RuntimeConfig, proposal: dict[str, Any]) -> dict[str, Any]:
+    # Code origin is the worker install (__file__), not the git repository_root.
+    assert_trusted_code_origin()
     policy = load_policy(config.repository_root)
     proposal = ensure_schema_version(proposal)
     validate_instance("proposal", proposal, root=config.repository_root)
@@ -125,6 +169,7 @@ def validate_proposal_operation(config: RuntimeConfig, proposal: dict[str, Any])
 
 
 def execute_operation(config: RuntimeConfig, proposal: dict[str, Any], candidate: dict[str, Any] | None) -> dict[str, Any]:
+    assert_trusted_code_origin()
     proposal = ensure_schema_version(proposal)
     validate_instance("proposal", proposal, root=config.repository_root)
     # Authorization is recomputed inside execute_proposal; never trust proposer risk_level alone.
@@ -153,6 +198,7 @@ def finalize_operation(
     review_id: str,
     review: dict[str, Any] | None,
 ) -> dict[str, Any]:
+    assert_trusted_code_origin()
     store = ExperienceStore(config.state_db)
     bundle, _worktree = store.get_execution(execution_id)
     if review is not None:
@@ -205,9 +251,88 @@ def execution_status_operation(config: RuntimeConfig, execution_id: str) -> dict
     }
 
 
+def open_budget_operation(registry: PilotBudgetRegistry, payload: dict[str, Any]) -> dict[str, Any]:
+    _reject_unknown_and_forbidden(payload, _BUDGET_OPEN_FIELDS)
+    session = registry.open_session(
+        session_id=payload.get("session_id"),
+        max_input_tokens=int(payload.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS),
+        max_output_tokens=int(payload.get("max_output_tokens") or DEFAULT_MAX_OUTPUT_TOKENS),
+        price_per_input_token_usd=float(
+            payload.get("price_per_input_token_usd")
+            if payload.get("price_per_input_token_usd") is not None
+            else DEFAULT_PRICE_PER_INPUT_TOKEN_USD
+        ),
+        price_per_output_token_usd=float(
+            payload.get("price_per_output_token_usd")
+            if payload.get("price_per_output_token_usd") is not None
+            else DEFAULT_PRICE_PER_OUTPUT_TOKEN_USD
+        ),
+        max_calls=int(payload.get("max_calls") or MAXIMUM_AGENT_CALLS),
+        max_cost_usd=float(payload.get("max_cost_usd") or MAXIMUM_PILOT_COST_USD),
+        timeout_seconds=int(payload.get("timeout_seconds") or PILOT_TIMEOUT_SECONDS),
+        meta=payload.get("meta") if isinstance(payload.get("meta"), dict) else None,
+    )
+    return {
+        "status": "PASS",
+        "session_id": session.session_id,
+        "max_calls": session.max_calls,
+        "max_cost_usd": session.max_cost_usd,
+        "timeout_seconds": session.timeout_seconds,
+        "max_input_tokens": session.max_input_tokens,
+        "max_output_tokens": session.max_output_tokens,
+        "worst_case_usd": session.worst_case_usd,
+        "cost_enforcement": "by_construction",
+    }
+
+
+def provider_call_permit_operation(registry: PilotBudgetRegistry, payload: dict[str, Any]) -> dict[str, Any]:
+    _reject_unknown_and_forbidden(payload, _PERMIT_FIELDS)
+    session_id = payload.get("session_id")
+    if not isinstance(session_id, str) or not session_id:
+        raise WorkerError(ERROR_CODES["PILOT_BUDGET_INVALID"], "session_id required", state="POLICY_REJECTED")
+    call_params = payload.get("call_params")
+    if call_params is not None and not isinstance(call_params, dict):
+        raise WorkerError(ERROR_CODES["SCHEMA_INVALID"], "call_params must be an object", state="POLICY_REJECTED")
+    permit = registry.request_call_permit(
+        session_id,
+        max_input_tokens=int(payload["max_input_tokens"]) if payload.get("max_input_tokens") is not None else None,
+        max_output_tokens=int(payload["max_output_tokens"]) if payload.get("max_output_tokens") is not None else None,
+        call_params=call_params,
+    )
+    return {"status": "PASS", "permit": permit}
+
+
+def wall_capture_operation(config: RuntimeConfig, payload: dict[str, Any]) -> dict[str, Any]:
+    _reject_unknown_and_forbidden(payload, _WALL_CAPTURE_FIELDS)
+    wf = payload.get("workflow_fingerprint")
+    if wf is not None and not isinstance(wf, str):
+        raise WorkerError(ERROR_CODES["SCHEMA_INVALID"], "workflow_fingerprint must be a string")
+    snap = capture_wall_artifact_snapshot(config.repository_root, workflow_fingerprint=wf)
+    return {"status": "PASS", "snapshot": snap}
+
+
+def wall_assert_operation(config: RuntimeConfig, payload: dict[str, Any]) -> dict[str, Any]:
+    _reject_unknown_and_forbidden(payload, _WALL_ASSERT_FIELDS)
+    before = payload.get("before")
+    if not isinstance(before, dict) or not before:
+        raise WorkerError(ERROR_CODES["SCHEMA_INVALID"], "before snapshot object required")
+    before_str = {str(k): str(v) for k, v in before.items()}
+    wf = payload.get("workflow_fingerprint")
+    wf_fn = (lambda: str(wf)) if isinstance(wf, str) else None
+    result = assert_wall_artifacts_unchanged(
+        config.repository_root,
+        before_str,
+        workflow_fingerprint_fn=wf_fn,
+    )
+    return result
+
+
 class WorkerBridge:
-    def __init__(self, config: RuntimeConfig) -> None:
+    def __init__(self, config: RuntimeConfig, *, budget_registry: PilotBudgetRegistry | None = None) -> None:
         self.config = config
+        self.budget_registry = budget_registry or default_registry()
+        # Fail closed at process construction if trusted modules are not from this install.
+        assert_trusted_code_origin()
 
     def authenticate(self, authorization_header: str | None) -> None:
         if not authorization_header:
@@ -239,7 +364,15 @@ class WorkerBridge:
                 execution_id = unquote(path[len("/v2/executions/") :])
                 return _json_bytes(execution_status_operation(self.config, execution_id))
 
-            if method == "POST" and path in {"/v2/validate-proposal", "/v2/execute", "/v2/finalize"}:
+            if method == "POST" and path in {
+                "/v2/validate-proposal",
+                "/v2/execute",
+                "/v2/finalize",
+                "/v2/budget/open",
+                "/v2/provider-call-permit",
+                "/v2/wall/capture",
+                "/v2/wall/assert",
+            }:
                 if raw_body == b"__OVERSIZE__" or len(raw_body) > self.config.max_request_bytes:
                     return _error(ERROR_CODES["POLICY_REJECTED"], "request exceeds 256KB limit", status=413)
                 if not raw_body:
@@ -265,6 +398,18 @@ class WorkerBridge:
                     if candidate is not None and not isinstance(candidate, dict):
                         return _error(ERROR_CODES["SCHEMA_INVALID"], "candidate must be an object")
                     return _json_bytes(execute_operation(self.config, payload["proposal"], candidate))
+
+                if path == "/v2/budget/open":
+                    return _json_bytes(open_budget_operation(self.budget_registry, payload))
+
+                if path == "/v2/provider-call-permit":
+                    return _json_bytes(provider_call_permit_operation(self.budget_registry, payload))
+
+                if path == "/v2/wall/capture":
+                    return _json_bytes(wall_capture_operation(self.config, payload))
+
+                if path == "/v2/wall/assert":
+                    return _json_bytes(wall_assert_operation(self.config, payload))
 
                 # finalize
                 _reject_unknown_and_forbidden(payload, _FINALIZE_FIELDS)
@@ -353,11 +498,16 @@ def make_handler(bridge: WorkerBridge) -> type[BaseHTTPRequestHandler]:
 
 
 class LoopbackServer:
-    def __init__(self, config: RuntimeConfig) -> None:
+    def __init__(
+        self,
+        config: RuntimeConfig,
+        *,
+        budget_registry: PilotBudgetRegistry | None = None,
+    ) -> None:
         if config.worker_host != "127.0.0.1":
             raise WorkerError(ERROR_CODES["POLICY_REJECTED"], "refusing non-loopback bind")
         self.config = config
-        self.bridge = WorkerBridge(config)
+        self.bridge = WorkerBridge(config, budget_registry=budget_registry or PilotBudgetRegistry())
         self._httpd = ThreadingHTTPServer((config.worker_host, config.worker_port), make_handler(self.bridge))
         self._thread: threading.Thread | None = None
 
