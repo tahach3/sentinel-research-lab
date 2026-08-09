@@ -22,6 +22,8 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Manual Trigger": "n8n-nodes-base.manualTrigger",
     "Candidate Intake": "n8n-nodes-base.code",
     "Candidate Schema Validation": "n8n-nodes-base.if",
+    "Open Pilot Budget": "n8n-nodes-base.httpRequest",
+    "Provider Call Permit (Implementer)": "n8n-nodes-base.httpRequest",
     "Proposal Schema Validation": "n8n-nodes-base.if",
     "Proposal Freeze": "n8n-nodes-base.code",
     "Implementer Agent": "@n8n/n8n-nodes-langchain.agent",
@@ -31,6 +33,7 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Annotate Authorize Failure": "n8n-nodes-base.code",
     "Detached Worker Execute": "n8n-nodes-base.code",
     "Execution Result Validation": "n8n-nodes-base.if",
+    "Provider Call Permit (Reviewer)": "n8n-nodes-base.httpRequest",
     "Independent Reviewer Agent": "@n8n/n8n-nodes-langchain.agent",
     "Independent Review Bind": "n8n-nodes-base.code",
     "Review Result Validation": "n8n-nodes-base.if",
@@ -40,6 +43,7 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Failure Router": "n8n-nodes-base.switch",
     "Invalid Candidate": "n8n-nodes-base.code",
     "Invalid Proposal": "n8n-nodes-base.code",
+    "Annotate Budget Denied": "n8n-nodes-base.code",
     "Annotate Worker Failure": "n8n-nodes-base.code",
     "Annotate Validation Failure": "n8n-nodes-base.code",
     "Annotate Review Failure": "n8n-nodes-base.code",
@@ -82,6 +86,10 @@ FAILURE_ROUTER_TARGETS = {
 REQUIRED_EDGES: list[tuple[str, int, str]] = [
     ("Candidate Schema Validation", 1, "Invalid Candidate"),
     ("Invalid Candidate", 0, "Failure Router"),
+    ("Open Pilot Budget", 1, "Annotate Budget Denied"),
+    ("Provider Call Permit (Implementer)", 1, "Annotate Budget Denied"),
+    ("Provider Call Permit (Reviewer)", 1, "Annotate Budget Denied"),
+    ("Annotate Budget Denied", 0, "Failure Router"),
     ("Proposal Schema Validation", 1, "Invalid Proposal"),
     ("Invalid Proposal", 0, "Failure Router"),
     ("Worker Authorize", 1, "Annotate Authorize Failure"),
@@ -102,6 +110,9 @@ REQUIRED_EDGES: list[tuple[str, int, str]] = [
 ]
 
 ERROR_OUTPUT_NODES = (
+    "Open Pilot Budget",
+    "Provider Call Permit (Implementer)",
+    "Provider Call Permit (Reviewer)",
     "Worker Authorize",
     "Detached Worker Execute",
     "Independent Review Bind",
@@ -331,16 +342,19 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 )
             )
 
-    # Success-path edges for operational nodes.
+    # Success-path edges for operational nodes (budget/permit gates before providers).
     success_edges = [
-        ("Candidate Schema Validation", 0, "Implementer Agent"),
+        ("Candidate Schema Validation", 0, "Open Pilot Budget"),
+        ("Open Pilot Budget", 0, "Provider Call Permit (Implementer)"),
+        ("Provider Call Permit (Implementer)", 0, "Implementer Agent"),
         ("Implementer Agent", 0, "Proposal Schema Validation"),
         ("Proposal Schema Validation", 0, "Proposal Freeze"),
         ("Proposal Freeze", 0, "Worker Authorize"),
         ("Worker Authorize", 0, "Worker Decision Router"),
         ("Worker AUTHORIZED Continue", 0, "Detached Worker Execute"),
         ("Detached Worker Execute", 0, "Execution Result Validation"),
-        ("Execution Result Validation", 0, "Independent Reviewer Agent"),
+        ("Execution Result Validation", 0, "Provider Call Permit (Reviewer)"),
+        ("Provider Call Permit (Reviewer)", 0, "Independent Reviewer Agent"),
         ("Independent Reviewer Agent", 0, "Independent Review Bind"),
         ("Independent Review Bind", 0, "Review Result Validation"),
         ("Review Result Validation", 0, "Finalization"),
