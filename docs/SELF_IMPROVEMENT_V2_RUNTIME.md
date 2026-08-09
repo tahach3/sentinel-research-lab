@@ -13,8 +13,23 @@ n8n (when configured) calls this bridge for deterministic local operations:
 | `POST` | `/v2/execute` | LOW-only detached worktree execution |
 | `POST` | `/v2/finalize` | Bound review + candidate commit (no push/merge) |
 | `GET` | `/v2/executions/<execution_id>` | Execution status (paths redacted) |
+| `POST` | `/v2/budget/open` | Open a pilot budget session (cost-by-construction assert) |
+| `POST` | `/v2/provider-call-permit` | Grant one provider-call permit (refuses 7th call / wall-clock) |
+| `POST` | `/v2/wall/capture` | Capture tracked-tree / index / worktree-list fingerprints |
+| `POST` | `/v2/wall/assert` | Reassert Wall fingerprints unchanged |
 
 The bridge **wraps** existing modules under `tools/self_improvement_v2/`. It does not reimplement proposal validation, policy classification, Git worktrees, review binding, finalization, or the experience store.
+
+## Pilot budget enforcement (executable)
+
+Callers (n8n) must open a budget session and request a **provider-call permit** before each provider invocation:
+
+1. `POST /v2/budget/open` — asserts worst-case cost `(max_input+max_output)×price×MAX_CALLS < 5 USD` before any call.
+2. `POST /v2/provider-call-permit` — decrements the call counter, checks the 30-minute wall clock, requires `max_output_tokens`, refuses the 7th call.
+
+Repair-attempt limits remain in the worker (`repair_policy`); risk authorization remains solely in `risk_authority`.
+
+Trusted security modules must load from the worker install. Worktree-derived `sys.path` entries are rejected (`trusted_origin`).
 
 ## Configuration (environment)
 
@@ -61,15 +76,16 @@ Normative agent-runtime contract: `docs/SELF_IMPROVEMENT_V2_AGENT_RUNTIME_CONTRA
 
 Implementer and reviewer agent credential references must stay distinct.
 
-## Pilot limits (recommended handoff)
+## Pilot limits (enforced)
 
-| Field | Value |
-| --- | --- |
-| `MAXIMUM_PILOT_COST` | 5 USD |
-| `MAXIMUM_AGENT_CALLS` | 6 |
-| `PILOT_TIMEOUT` | 30 minutes |
+| Field | Value | Enforcer |
+| --- | --- | --- |
+| `MAXIMUM_PILOT_COST` | 5 USD | `pilot_budget.assert_cost_by_construction` / permit path |
+| `MAXIMUM_AGENT_CALLS` | 6 | `pilot_budget.PilotBudgetRegistry.request_call_permit` |
+| `PILOT_TIMEOUT` | 30 minutes | same permit path (wall clock) |
+| max repair attempts | 1 (second refused) | `repair_policy.assert_repair_attempt_allowed` |
 
-Do not raise these automatically.
+Do not raise these automatically. Cost is **by construction** (pre-call token ceilings × prices), not an after-the-fact estimate.
 
 ## Risk authority
 

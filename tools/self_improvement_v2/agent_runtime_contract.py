@@ -182,6 +182,8 @@ def pinned_agent_runtime_contract() -> dict[str, Any]:
             "MAXIMUM_AGENT_CALLS": 6,
             "PILOT_TIMEOUT_MINUTES": 30,
         },
+        # Executable enforcers (not schema fields): pilot_budget.PilotBudgetRegistry
+        # for calls/cost/wall-clock; repair_policy.assert_repair_attempt_allowed for repairs.
     }
 
 
