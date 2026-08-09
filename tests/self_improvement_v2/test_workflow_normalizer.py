@@ -73,7 +73,7 @@ def test_neg_edge_redirect_fails(design_workflow: dict) -> None:
     mutated = copy.deepcopy(design_workflow)
     # Redirect Candidate Schema Validation success edge to a failure terminal.
     edges = mutated["connections"]["Candidate Schema Validation"]["main"]
-    assert edges[0][0]["node"] == "Implementer Agent"
+    assert edges[0][0]["node"] == "Open Pilot Budget"
     edges[0][0]["node"] = "Terminal FAILED_FROZEN"
     assert not workflows_materially_equivalent(design_workflow, mutated)
 
