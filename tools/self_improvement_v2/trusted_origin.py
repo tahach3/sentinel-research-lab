@@ -142,8 +142,11 @@ def trusted_modules_git_head_digest(install_root: Path | None = None) -> str:
     """HEAD-bound digest anchoring trusted modules to the reviewed commit."""
     root = resolve_reviewed_install_root(install_root)
     content, _ = trusted_modules_tree_digest(root)
-    head = _git_head(root)
-    return head_content_binding_digest(head, content)
+    pin = load_trusted_origin_pin(root)
+    reviewed_head = pin.get("reviewed_git_head")
+    if not isinstance(reviewed_head, str) or len(reviewed_head) < 40:
+        raise TrustedOriginError("trusted origin pin missing reviewed_git_head")
+    return head_content_binding_digest(reviewed_head, content)
 
 
 def load_trusted_origin_pin(install_root: Path | None = None) -> dict[str, Any]:
