@@ -22,11 +22,12 @@ from tools.self_improvement_v2.path_policy import load_policy, policy_sha256
 from tools.self_improvement_v2.pilot_budget import (
     DEFAULT_MAX_INPUT_TOKENS,
     DEFAULT_MAX_OUTPUT_TOKENS,
-    DEFAULT_PRICE_PER_INPUT_TOKEN_USD,
-    DEFAULT_PRICE_PER_OUTPUT_TOKEN_USD,
     MAXIMUM_AGENT_CALLS,
     MAXIMUM_PILOT_COST_USD,
     PILOT_TIMEOUT_SECONDS,
+    SERVER_OWNED_PRICE_PER_INPUT_TOKEN_USD,
+    SERVER_OWNED_PRICE_PER_OUTPUT_TOKEN_USD,
+    BudgetError,
     PilotBudgetRegistry,
     default_registry,
     open_budget_hard_caps,
@@ -290,22 +291,53 @@ def execution_status_operation(config: RuntimeConfig, execution_id: str) -> dict
     }
 
 
+def _budget_int_field(payload: dict[str, Any], field: str, default: int) -> int:
+    """Distinguish absent vs explicit zero — never treat 0 as missing via `or`."""
+    if field not in payload or payload[field] is None:
+        return default
+    try:
+        value = int(payload[field])
+    except (TypeError, ValueError) as exc:
+        raise BudgetError(
+            f"{field} must be an integer",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        ) from exc
+    return value
+
+
+def _budget_float_field(payload: dict[str, Any], field: str, default: float) -> float:
+    if field not in payload or payload[field] is None:
+        return default
+    try:
+        value = float(payload[field])
+    except (TypeError, ValueError) as exc:
+        raise BudgetError(
+            f"{field} must be a number",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        ) from exc
+    return value
+
+
 def open_budget_operation(registry: PilotBudgetRegistry, payload: dict[str, Any]) -> dict[str, Any]:
     _reject_unknown_and_forbidden(payload, _BUDGET_OPEN_FIELDS)
-    max_calls = int(payload.get("max_calls") or MAXIMUM_AGENT_CALLS)
-    max_cost_usd = float(payload.get("max_cost_usd") or MAXIMUM_PILOT_COST_USD)
-    timeout_seconds = int(payload.get("timeout_seconds") or PILOT_TIMEOUT_SECONDS)
-    price_in = float(
-        payload.get("price_per_input_token_usd")
-        if payload.get("price_per_input_token_usd") is not None
-        else DEFAULT_PRICE_PER_INPUT_TOKEN_USD
+    max_calls = _budget_int_field(payload, "max_calls", MAXIMUM_AGENT_CALLS)
+    max_cost_usd = _budget_float_field(payload, "max_cost_usd", MAXIMUM_PILOT_COST_USD)
+    timeout_seconds = _budget_int_field(payload, "timeout_seconds", PILOT_TIMEOUT_SECONDS)
+    max_input_tokens = _budget_int_field(payload, "max_input_tokens", DEFAULT_MAX_INPUT_TOKENS)
+    max_output_tokens = _budget_int_field(payload, "max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
+    # Caller may supply prices only for finiteness validation; authority is server-owned.
+    caller_price_in = (
+        _budget_float_field(payload, "price_per_input_token_usd", SERVER_OWNED_PRICE_PER_INPUT_TOKEN_USD)
+        if "price_per_input_token_usd" in payload and payload.get("price_per_input_token_usd") is not None
+        else None
     )
-    price_out = float(
-        payload.get("price_per_output_token_usd")
-        if payload.get("price_per_output_token_usd") is not None
-        else DEFAULT_PRICE_PER_OUTPUT_TOKEN_USD
+    caller_price_out = (
+        _budget_float_field(payload, "price_per_output_token_usd", SERVER_OWNED_PRICE_PER_OUTPUT_TOKEN_USD)
+        if "price_per_output_token_usd" in payload and payload.get("price_per_output_token_usd") is not None
+        else None
     )
-    # Explicit pre-check so bridge rejects inflated maxima before session construction.
+    price_in = SERVER_OWNED_PRICE_PER_INPUT_TOKEN_USD
+    price_out = SERVER_OWNED_PRICE_PER_OUTPUT_TOKEN_USD
     open_budget_hard_caps(
         max_calls=max_calls,
         max_cost_usd=max_cost_usd,
@@ -315,10 +347,10 @@ def open_budget_operation(registry: PilotBudgetRegistry, payload: dict[str, Any]
     )
     session = registry.open_session(
         session_id=payload.get("session_id"),
-        max_input_tokens=int(payload.get("max_input_tokens") or DEFAULT_MAX_INPUT_TOKENS),
-        max_output_tokens=int(payload.get("max_output_tokens") or DEFAULT_MAX_OUTPUT_TOKENS),
-        price_per_input_token_usd=price_in,
-        price_per_output_token_usd=price_out,
+        max_input_tokens=max_input_tokens,
+        max_output_tokens=max_output_tokens,
+        price_per_input_token_usd=caller_price_in,
+        price_per_output_token_usd=caller_price_out,
         max_calls=max_calls,
         max_cost_usd=max_cost_usd,
         timeout_seconds=timeout_seconds,
@@ -332,12 +364,16 @@ def open_budget_operation(registry: PilotBudgetRegistry, payload: dict[str, Any]
         "timeout_seconds": session.timeout_seconds,
         "max_input_tokens": session.max_input_tokens,
         "max_output_tokens": session.max_output_tokens,
+        "price_per_input_token_usd": session.price_per_input_token_usd,
+        "price_per_output_token_usd": session.price_per_output_token_usd,
         "worst_case_usd": session.worst_case_usd,
         "cost_enforcement": "by_construction",
         "hard_caps": {
             "max_calls": MAXIMUM_AGENT_CALLS,
             "max_cost_usd": MAXIMUM_PILOT_COST_USD,
             "timeout_seconds": PILOT_TIMEOUT_SECONDS,
+            "price_per_input_token_usd": SERVER_OWNED_PRICE_PER_INPUT_TOKEN_USD,
+            "price_per_output_token_usd": SERVER_OWNED_PRICE_PER_OUTPUT_TOKEN_USD,
         },
     }
 

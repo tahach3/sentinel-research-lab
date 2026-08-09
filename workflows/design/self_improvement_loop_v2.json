@@ -13,8 +13,8 @@
     "reviewerAgentId": "srl-independent-reviewer-agent",
     "localWorkerBaseUrl": "http://127.0.0.1:8765",
     "workerHeaderAuthCredentialName": "srl-v2-worker-header-auth",
-    "implementerAgentCredentialReference": "SRL Implementer — Google Gemini",
-    "reviewerAgentCredentialReference": "SRL Independent Reviewer — Groq",
+    "implementerAgentCredentialReference": "SRL Implementer \u2014 Google Gemini",
+    "reviewerAgentCredentialReference": "SRL Independent Reviewer \u2014 Groq",
     "implementerModel": "models/gemini-3.6-flash",
     "reviewerModel": "llama3-8b-8192",
     "implementerChatModelNodeType": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
@@ -496,7 +496,7 @@
       "main": [
         [
           {
-            "node": "Implementer Agent",
+            "node": "Provider Call Consume (Implementer)",
             "type": "main",
             "index": 0
           }
@@ -514,7 +514,7 @@
       "main": [
         [
           {
-            "node": "Independent Reviewer Agent",
+            "node": "Provider Call Consume (Reviewer)",
             "type": "main",
             "index": 0
           }
@@ -533,6 +533,42 @@
         [
           {
             "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider Call Consume (Implementer)": {
+      "main": [
+        [
+          {
+            "node": "Implementer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider Call Consume (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Independent Reviewer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
             "type": "main",
             "index": 0
           }
@@ -1103,7 +1139,7 @@
     },
     {
       "parameters": {
-        "content": "## SRL Self-Improvement Loop V2 (Phase 1B)\nInactive design workflow (active:false). AI Agent + Chat Model nodes are wired but not activated.\nBudget gate: POST /v2/budget/open then /v2/provider-call-permit before each provider agent; deny routes terminal POLICY_REJECTED.\nImplementer: SRL Implementer — Google Gemini / models/gemini-3.6-flash\nReviewer: SRL Independent Reviewer — Groq / llama3-8b-8192\nWorker Authorize: POST loopback /v2/validate-proposal via Header Auth name only.\nRisk authority remains the local worker only. n8n never trusts proposal.risk_level.\nCredential values are never embedded. No push/merge. No pilot authorization.",
+        "content": "## SRL Self-Improvement Loop V2 (Phase 1B)\nInactive design workflow (active:false). AI Agent + Chat Model nodes are wired but not activated.\nBudget gate: POST /v2/budget/open then /v2/provider-call-permit before each provider agent; deny routes terminal POLICY_REJECTED.\nImplementer: SRL Implementer \u2014 Google Gemini / models/gemini-3.6-flash\nReviewer: SRL Independent Reviewer \u2014 Groq / llama3-8b-8192\nWorker Authorize: POST loopback /v2/validate-proposal via Header Auth name only.\nRisk authority remains the local worker only. n8n never trusts proposal.risk_level.\nCredential values are never embedded. No push/merge. No pilot authorization.",
         "height": 280,
         "width": 420
       },
@@ -1173,6 +1209,33 @@
     {
       "parameters": {
         "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/provider-call-consume",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'implementer', permit_nonce: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).permit_nonce })}}",
+        "options": {}
+      },
+      "id": "provider-call-consume-implementer",
+      "name": "Provider Call Consume (Implementer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        535,
+        -120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "http://127.0.0.1:8765/v2/provider-call-permit",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -1187,6 +1250,33 @@
       "typeVersion": 4.2,
       "position": [
         1880,
+        -360
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/provider-call-consume",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'reviewer', permit_nonce: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).permit_nonce })}}",
+        "options": {}
+      },
+      "id": "provider-call-consume-reviewer",
+      "name": "Provider Call Consume (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1910,
         -360
       ],
       "credentials": {
@@ -1214,7 +1304,9 @@
       "parameters": {
         "promptType": "define",
         "text": "=Phase 1B Implementer Agent (inactive-by-design). Produce improvement_candidate / implementation_proposal JSON only. Must not authorize risk, mutate git, finalize, or use the reviewer credential. Agent id: srl-implementer-agent. Model pin: models/gemini-3.6-flash.",
-        "options": {}
+        "options": {
+          "maxIterations": 1
+        }
       },
       "id": "implementer-agent",
       "name": "Implementer Agent",
@@ -1223,7 +1315,8 @@
       "position": [
         550,
         0
-      ]
+      ],
+      "retryOnFail": false
     },
     {
       "parameters": {
@@ -1243,7 +1336,7 @@
       "credentials": {
         "googlePalmApi": {
           "id": "srl-implementer-google-gemini",
-          "name": "SRL Implementer — Google Gemini"
+          "name": "SRL Implementer \u2014 Google Gemini"
         }
       }
     },
@@ -1251,7 +1344,9 @@
       "parameters": {
         "promptType": "define",
         "text": "=Phase 1B Independent Reviewer Agent (inactive-by-design). Produce review_result for review_gate binding only. Must not authorize risk, mutate git, finalize, share implementer credential, or self-review. Agent id: srl-independent-reviewer-agent. Model pin: llama3-8b-8192.",
-        "options": {}
+        "options": {
+          "maxIterations": 1
+        }
       },
       "id": "independent-reviewer-agent",
       "name": "Independent Reviewer Agent",
@@ -1260,7 +1355,8 @@
       "position": [
         1940,
         -240
-      ]
+      ],
+      "retryOnFail": false
     },
     {
       "parameters": {
@@ -1280,7 +1376,7 @@
       "credentials": {
         "groqApi": {
           "id": "srl-independent-reviewer-groq",
-          "name": "SRL Independent Reviewer — Groq"
+          "name": "SRL Independent Reviewer \u2014 Groq"
         }
       }
     }
