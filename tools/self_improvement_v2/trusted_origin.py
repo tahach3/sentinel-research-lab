@@ -224,15 +224,26 @@ def assert_trusted_code_origin(
 
     live_head = _git_head(root)
     env_head = os.environ.get(ENV_REVIEWED_HEAD, "").strip()
-    if env_head:
-        if env_head != reviewed_head or env_head != live_head:
+    if env_head and env_head != reviewed_head:
+        raise TrustedOriginError(
+            "reviewed HEAD identity mismatch (SRL_REVIEWED_HEAD vs pin.reviewed_git_head)"
+        )
+    if live_head != reviewed_head:
+        # Allow pin-only / unrelated commits after the reviewed HEAD, but never trusted-module drift.
+        rels = [_module_relpath(name) for name in TRUSTED_MODULE_NAMES]
+        drifted = run_git(
+            ["diff", "--quiet", reviewed_head, live_head, "--", *rels],
+            cwd=root,
+            check=False,
+        )
+        if drifted.returncode != 0:
+            raise TrustedOriginError(
+                f"git HEAD {live_head} drifted trusted modules vs reviewed_git_head {reviewed_head}"
+            )
+        if env_head and env_head != live_head and env_head != reviewed_head:
             raise TrustedOriginError(
                 "reviewed HEAD identity mismatch (SRL_REVIEWED_HEAD / pin / git)"
             )
-    elif live_head != reviewed_head:
-        raise TrustedOriginError(
-            f"git HEAD {live_head} != pin.reviewed_git_head {reviewed_head}"
-        )
 
     origins: dict[str, str] = {}
     for name in module_names:
