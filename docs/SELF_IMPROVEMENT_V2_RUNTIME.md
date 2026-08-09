@@ -109,6 +109,12 @@ Policy snapshot is content-addressed (`policy_sha256`) and pinned in the executi
 
 Linked Git worktrees share the source repository object database. Rejected or halted post-application executions may leave unreferenced Git objects until normal garbage collection. This is an accepted local implementation property and is why pre-authorization classifies patch text without applying the patch or creating content objects. No automatic aggressive garbage collection is authorized.
 
+## Zone P probe harness (offline)
+
+`tools/self_improvement_v2/zone_p_harness.py` builds synthetic negative-control packages that are path/patch valid and correctly hash-bound so they reach the Independent Reviewer boundary. Records must use throwaway state DBs (`%TEMP%\srl-zone-p-<id>.sqlite`) and tag `synthetic_control` / `probe_id`. Live Gemini/Groq resolution uses `model_resolution_probe` with an injected transport (no secrets in-repo).
+
+Workflow material comparison (A14): `workflow_normalizer` with explicit `MATERIAL_FIELDS` / `IGNORED_FIELDS` (unknown → fail).
+
 ## Explicit non-goals
 
 - Live pilot execution
