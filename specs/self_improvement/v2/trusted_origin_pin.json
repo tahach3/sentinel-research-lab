@@ -1,9 +1,9 @@
 {
   "schema_version": "2.0.0",
   "description": "Reviewed content digests bound to reviewed_git_head for trusted Self-Improvement V2 modules.",
-  "reviewed_git_head": "0000000000000000000000000000000000000000",
+  "reviewed_git_head": "28eb33fd94f2ce8d9c1818f685fbae1c12258ca1",
   "combined": "eb81a4510fda49b5ac42a6b29bdaf3c56c997352a6bbba7342ae3bc6e0a21306",
-  "head_content_binding": "197de68b9e5c63a4b4a4a2146eb839b234942908300d9dcca378faf8715837b3",
+  "head_content_binding": "088906fd6cb672e7990ab397c7ff5b3ca796bf57f89ecdf0a67afff24f9e7e9b",
   "modules": {
     "tools.self_improvement_v2.trusted_origin": "64da5f578f5b1597ca1515cfcabc6955e81dd04175a2c8247bfc0bca61d4457f",
     "tools.self_improvement_v2.risk_authority": "e71030d3f1461d7b570f5cf24c0c6c1e7999655ff9f6958805d76f1024d93ae3",
