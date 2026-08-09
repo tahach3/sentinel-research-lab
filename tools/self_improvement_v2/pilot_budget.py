@@ -2,8 +2,15 @@
 
 n8n (or any caller) must request a provider-call permit from the worker before each
 provider invocation. Permits are single-use nonces bound to session, role, provider,
-credential, model, and token ceilings. Consume-then-authorize is one-shot: after
-assert_provider_call_authorized succeeds once, the nonce cannot authorize again.
+credential, model, and token ceilings.
+
+Transport atomicity: consume_call_permit is the production gate — it validates
+role-bound provider/model/credential identity and marks the nonce consumed in one
+step. assert_provider_call_authorized remains a one-shot post-consume check for
+callers that separate consume from invoke.
+
+n8n Chat Model nodes cannot be intercepted in-process; workflows must still place
+provider-call-consume immediately before each Agent and keep maxIterations=1.
 """
 
 from __future__ import annotations
@@ -463,7 +470,7 @@ class PilotBudgetRegistry:
         credential_reference: str | None = None,
         model: str | None = None,
     ) -> dict[str, Any]:
-        """Consume a single-use permit nonce. Required before a provider call proceeds."""
+        """Atomically validate identity binding and consume a single-use permit nonce."""
         if role not in PERMIT_ROLES:
             raise BudgetError(
                 f"permit role must be one of {sorted(PERMIT_ROLES)}",
@@ -506,7 +513,11 @@ class PilotBudgetRegistry:
                         f"permit {label} mismatch vs server-owned role identity",
                         code=ERROR_CODES["PILOT_PERMIT_INVALID"],
                     )
-            if issued.provider != identity["provider"] or issued.model != identity["model"]:
+            if (
+                issued.provider != identity["provider"]
+                or issued.credential_reference != identity["credential_reference"]
+                or issued.model != identity["model"]
+            ):
                 raise BudgetError(
                     "permit identity binding mismatch",
                     code=ERROR_CODES["PILOT_PERMIT_INVALID"],
@@ -516,6 +527,7 @@ class PilotBudgetRegistry:
                     "permit_nonce already consumed (single-use)",
                     code=ERROR_CODES["PILOT_PERMIT_CONSUMED"],
                 )
+            # Single gate: identity validated under lock, then mark consumed.
             issued.consumed = True
             return {
                 "status": "CONSUMED",

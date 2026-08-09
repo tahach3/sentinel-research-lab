@@ -1,16 +1,17 @@
 {
   "schema_version": "2.0.0",
   "description": "Reviewed content digests bound to reviewed_git_head for trusted Self-Improvement V2 modules.",
-  "reviewed_git_head": "77def2a9bdcebbede3e550832c2cf93efcc8e5a2",
-  "combined": "d376e6454f8abd8ff44fd01f8dd259c7a7029d15725a82a2ca392d6becfbfee2",
-  "head_content_binding": "22cf3fe8f9252a7cac4db8fd6aa5558e5f68cfea2fee456565c30b4648f4738f",
+  "reviewed_git_head": "0000000000000000000000000000000000000000",
+  "combined": "eb81a4510fda49b5ac42a6b29bdaf3c56c997352a6bbba7342ae3bc6e0a21306",
+  "head_content_binding": "197de68b9e5c63a4b4a4a2146eb839b234942908300d9dcca378faf8715837b3",
   "modules": {
+    "tools.self_improvement_v2.trusted_origin": "64da5f578f5b1597ca1515cfcabc6955e81dd04175a2c8247bfc0bca61d4457f",
     "tools.self_improvement_v2.risk_authority": "e71030d3f1461d7b570f5cf24c0c6c1e7999655ff9f6958805d76f1024d93ae3",
     "tools.self_improvement_v2.review_gate": "50518cc7988ef2dc8bcc117380a1722a30dff6fa287c31834cf8d432577fab42",
     "tools.self_improvement_v2.patch_validator": "91f821683d976c0e32c997d34276a631b176a38e2bd993c8dd45c31715c9bbc0",
     "tools.self_improvement_v2.finalizer": "bf80dd9dd1879a1a9e8bb7bff0573658133fc94b34a73ea3a94551da5dc2492b",
-    "tools.self_improvement_v2.workflow_validator": "598a39c84788430755cb1d2518f6663e340a99412a6cb024dba17ced5bb106e5",
+    "tools.self_improvement_v2.workflow_validator": "ec094cb85072fbdb9570df7a22ef13f18adbe50b15648416e39c86ef4c60558f",
     "tools.self_improvement_v2.path_policy": "558bab192216c5c32fcde032bc8d2e8349a66f07616b905d0ae2d9cfa6a54390",
-    "tools.self_improvement_v2.pilot_budget": "31f68d82003ec1d660eb2b855fb06dcc5baa1a63e9b2f8d96dc003125d4f30c1"
+    "tools.self_improvement_v2.pilot_budget": "cb95adeed9dee0957031b0c5d36e7fdcc79bf48d7da6601bac92a1bf516037b2"
   }
 }

@@ -32,7 +32,6 @@ from tools.self_improvement_v2.trusted_origin import (
     TRUSTED_MODULE_NAMES,
     TrustedOriginError,
     assert_trusted_code_origin,
-    trusted_modules_tree_digest,
 )
 from tools.self_improvement_v2.wall_reassert import (
     REQUIRED_WALL_KEYS,
@@ -216,9 +215,12 @@ def test_r5_shadow_checkout_recomputed_pin_must_fail(
     )
     # Recompute pin from shadow working tree (self-pinning attack).
     from tools.self_improvement_v2.git_worker import run_git
-    from tools.self_improvement_v2.trusted_origin import head_content_binding_digest
+    from tools.self_improvement_v2.trusted_origin import (
+        head_content_binding_digest,
+        module_tree_digest_at,
+    )
 
-    combined, per = trusted_modules_tree_digest(shadow)
+    combined, per = module_tree_digest_at(shadow)
     head = run_git(["rev-parse", "HEAD"], cwd=shadow, check=True).stdout.decode("utf-8").strip()
     pin = {
         "schema_version": "2.0.0",

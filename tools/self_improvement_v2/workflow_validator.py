@@ -394,21 +394,19 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 )
             )
             continue
-        try:
-            max_iter = int(raw)
-        except (TypeError, ValueError):
+        if not isinstance(raw, int) or isinstance(raw, bool):
             errors.append(
                 _err(
                     ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
-                    f"{agent_name} maxIterations must be an integer",
+                    f"{agent_name} maxIterations must be an integer (boolean rejected)",
                 )
             )
             continue
-        if max_iter != REQUIRED_AGENT_MAX_ITERATIONS:
+        if raw != REQUIRED_AGENT_MAX_ITERATIONS:
             errors.append(
                 _err(
                     ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
-                    f"{agent_name} maxIterations must be {REQUIRED_AGENT_MAX_ITERATIONS} (got {max_iter})",
+                    f"{agent_name} maxIterations must be {REQUIRED_AGENT_MAX_ITERATIONS} (got {raw})",
                 )
             )
 
