@@ -17,6 +17,7 @@ from tools.self_improvement_v2.git_worker import (
     worktree_list_fingerprint,
 )
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
+from tools.self_improvement_v2.workflow_normalizer import material_fingerprint
 
 
 class WallReassertError(WorkerError):
@@ -28,6 +29,7 @@ def capture_wall_artifact_snapshot(
     root: Path,
     *,
     workflow_fingerprint: str | None = None,
+    workflow: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     """Capture fingerprints for Wall reassertion."""
     snap = {
@@ -35,7 +37,9 @@ def capture_wall_artifact_snapshot(
         "index_fingerprint": index_fingerprint(root),
         "worktree_list_fingerprint": worktree_list_fingerprint(root),
     }
-    if workflow_fingerprint is not None:
+    if workflow is not None:
+        snap["workflow_normalized_fingerprint"] = material_fingerprint(workflow)
+    elif workflow_fingerprint is not None:
         snap["workflow_normalized_fingerprint"] = workflow_fingerprint
     return snap
 
