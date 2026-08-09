@@ -104,6 +104,9 @@ _CONSUME_FIELDS = frozenset(
         "session_id",
         "role",
         "permit_nonce",
+        "provider",
+        "credential_reference",
+        "model",
     }
 )
 _BIND_REVIEW_FIELDS = frozenset({"review"})
@@ -295,8 +298,14 @@ def _budget_int_field(payload: dict[str, Any], field: str, default: int) -> int:
     """Distinguish absent vs explicit zero — never treat 0 as missing via `or`."""
     if field not in payload or payload[field] is None:
         return default
+    raw = payload[field]
+    if isinstance(raw, bool):
+        raise BudgetError(
+            f"{field} must be an integer (boolean rejected)",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        )
     try:
-        value = int(payload[field])
+        value = int(raw)
     except (TypeError, ValueError) as exc:
         raise BudgetError(
             f"{field} must be an integer",
@@ -308,8 +317,14 @@ def _budget_int_field(payload: dict[str, Any], field: str, default: int) -> int:
 def _budget_float_field(payload: dict[str, Any], field: str, default: float) -> float:
     if field not in payload or payload[field] is None:
         return default
+    raw = payload[field]
+    if isinstance(raw, bool):
+        raise BudgetError(
+            f"{field} must be a number (boolean rejected)",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        )
     try:
-        value = float(payload[field])
+        value = float(raw)
     except (TypeError, ValueError) as exc:
         raise BudgetError(
             f"{field} must be a number",
@@ -400,6 +415,11 @@ def provider_call_permit_operation(registry: PilotBudgetRegistry, payload: dict[
 
 
 def provider_call_consume_operation(registry: PilotBudgetRegistry, payload: dict[str, Any]) -> dict[str, Any]:
+    """Atomic consume gate: validate role identity binding, then mark permit consumed.
+
+    n8n Chat Model nodes cannot be intercepted in-process; workflow must still place
+    this consume node immediately before each Agent with maxIterations=1.
+    """
     _reject_unknown_and_forbidden(payload, _CONSUME_FIELDS)
     session_id = payload.get("session_id")
     role = payload.get("role")
@@ -410,7 +430,28 @@ def provider_call_consume_operation(registry: PilotBudgetRegistry, payload: dict
         raise WorkerError(ERROR_CODES["PILOT_BUDGET_INVALID"], "role required", state="POLICY_REJECTED")
     if not isinstance(permit_nonce, str) or not permit_nonce:
         raise WorkerError(ERROR_CODES["PILOT_PERMIT_INVALID"], "permit_nonce required", state="POLICY_REJECTED")
-    consumed = registry.consume_call_permit(session_id, permit_nonce=permit_nonce, role=role)
+    provider = payload.get("provider")
+    credential_reference = payload.get("credential_reference")
+    model = payload.get("model")
+    for label, value in (
+        ("provider", provider),
+        ("credential_reference", credential_reference),
+        ("model", model),
+    ):
+        if value is not None and not isinstance(value, str):
+            raise WorkerError(
+                ERROR_CODES["PILOT_PERMIT_INVALID"],
+                f"{label} must be a string",
+                state="POLICY_REJECTED",
+            )
+    consumed = registry.consume_call_permit(
+        session_id,
+        permit_nonce=permit_nonce,
+        role=role,
+        provider=provider if isinstance(provider, str) else None,
+        credential_reference=credential_reference if isinstance(credential_reference, str) else None,
+        model=model if isinstance(model, str) else None,
+    )
     return {"status": "PASS", "consume": consumed}
 
 

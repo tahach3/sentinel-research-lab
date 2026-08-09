@@ -478,13 +478,11 @@ def _assert_agent_max_iterations(node: dict[str, Any], label: str) -> None:
     raw = options.get("maxIterations", params.get("maxIterations"))
     if raw is None:
         raise AgentRuntimeContractError(f"{label} must set maxIterations={REQUIRED_AGENT_MAX_ITERATIONS}")
-    try:
-        value = int(raw)
-    except (TypeError, ValueError) as exc:
-        raise AgentRuntimeContractError(f"{label} maxIterations must be an integer") from exc
-    if value != REQUIRED_AGENT_MAX_ITERATIONS:
+    if not isinstance(raw, int) or isinstance(raw, bool):
+        raise AgentRuntimeContractError(f"{label} maxIterations must be an integer (boolean rejected)")
+    if raw != REQUIRED_AGENT_MAX_ITERATIONS:
         raise AgentRuntimeContractError(
-            f"{label} maxIterations must be {REQUIRED_AGENT_MAX_ITERATIONS} (got {value})"
+            f"{label} maxIterations must be {REQUIRED_AGENT_MAX_ITERATIONS} (got {raw})"
         )
     if node.get("retryOnFail") is True:
         raise AgentRuntimeContractError(f"{label} retryOnFail must be false when agent is present")
