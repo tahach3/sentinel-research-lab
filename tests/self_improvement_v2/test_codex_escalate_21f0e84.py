@@ -279,8 +279,8 @@ def test_f4_wall_assert_rejects_partial_caller_keys_omitted_only(tmp_path: Path)
         wall_assert_operation(cfg, {"before": partial})
 
 
-def test_control_hard_caps_constants() -> None:
-    """Control (not a defect probe): hard-cap constants remain pinned."""
+def test_control_green_to_green_hard_caps_constants() -> None:
+    """Green→green control (not a defect probe): hard-cap constants remain pinned."""
     from tools.self_improvement_v2.pilot_budget import (
         MAXIMUM_AGENT_CALLS,
         MAXIMUM_PILOT_COST_USD,
