@@ -1,12 +1,15 @@
 """Executable pilot budget enforcement: call permits, cost-by-construction, wall clock.
 
 n8n (or any caller) must request a provider-call permit from the worker before each
-provider invocation. The worker owns the counters and refuses the 7th call.
-Repair limits remain in repair_policy — this module does not authorize risk.
+provider invocation. Permits are single-use nonces bound to a role and must be
+consumed before a provider call may proceed. The worker owns the counters and
+refuses the 7th call. Repair limits remain in repair_policy — this module does
+not authorize risk.
 """
 
 from __future__ import annotations
 
+import secrets
 import threading
 import time
 import uuid
@@ -28,10 +31,44 @@ DEFAULT_PRICE_PER_OUTPUT_TOKEN_USD = 1.5e-5  # $15 / 1M tokens
 DEFAULT_MAX_INPUT_TOKENS = 8_000
 DEFAULT_MAX_OUTPUT_TOKENS = 2_000
 
+PERMIT_ROLES = frozenset({"implementer", "reviewer"})
+TOKEN_ALIASES = ("max_output_tokens", "maxOutputTokens", "max_tokens")
+
 
 class BudgetError(WorkerError):
     def __init__(self, message: str, *, code: str | None = None, state: str = "POLICY_REJECTED") -> None:
         super().__init__(code or ERROR_CODES["PILOT_BUDGET_EXCEEDED"], message, state=state)
+
+
+def open_budget_hard_caps(
+    *,
+    max_calls: int,
+    max_cost_usd: float,
+    timeout_seconds: int,
+    price_per_input_token_usd: float,
+    price_per_output_token_usd: float,
+) -> None:
+    """Server-side hard caps — callers may only tighten, never inflate above pilot limits."""
+    if max_calls > MAXIMUM_AGENT_CALLS or max_calls < 1:
+        raise BudgetError(
+            f"max_calls must be 1..{MAXIMUM_AGENT_CALLS} (server hard cap)",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        )
+    if max_cost_usd > MAXIMUM_PILOT_COST_USD or max_cost_usd <= 0:
+        raise BudgetError(
+            f"max_cost_usd must be > 0 and <= {MAXIMUM_PILOT_COST_USD} (server hard cap)",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        )
+    if timeout_seconds > PILOT_TIMEOUT_SECONDS or timeout_seconds < 1:
+        raise BudgetError(
+            f"timeout_seconds must be 1..{PILOT_TIMEOUT_SECONDS} (server hard cap)",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        )
+    if price_per_input_token_usd <= 0 or price_per_output_token_usd <= 0:
+        raise BudgetError(
+            "prices must be > 0 (zero/absurd prices that make worst_case $0 are rejected)",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        )
 
 
 def worst_case_cost_usd(
@@ -46,8 +83,11 @@ def worst_case_cost_usd(
         raise BudgetError("token ceilings must be non-negative", code=ERROR_CODES["PILOT_BUDGET_INVALID"])
     if max_calls < 1:
         raise BudgetError("max_calls must be >= 1", code=ERROR_CODES["PILOT_BUDGET_INVALID"])
-    if price_per_input_token_usd < 0 or price_per_output_token_usd < 0:
-        raise BudgetError("prices must be non-negative", code=ERROR_CODES["PILOT_BUDGET_INVALID"])
+    if price_per_input_token_usd <= 0 or price_per_output_token_usd <= 0:
+        raise BudgetError(
+            "prices must be > 0 (zero/absurd prices that make worst_case $0 are rejected)",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        )
     per_call = (
         max_input_tokens * price_per_input_token_usd
         + max_output_tokens * price_per_output_token_usd
@@ -77,6 +117,11 @@ def assert_cost_by_construction(
         price_per_output_token_usd=price_per_output_token_usd,
         max_calls=max_calls,
     )
+    if worst <= 0:
+        raise BudgetError(
+            "cost-by-construction worst_case must be > 0",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        )
     if worst >= max_cost_usd:
         raise BudgetError(
             f"cost-by-construction {worst:.6f} USD >= cap {max_cost_usd} USD",
@@ -90,18 +135,40 @@ def provider_call_params_with_token_ceiling(
     *,
     max_output_tokens: int,
 ) -> dict[str, Any]:
-    """Ensure max_output_tokens is present on provider call parameters where applicable."""
+    """Ensure token ceilings are present and consistent across provider aliases."""
     if max_output_tokens < 1:
         raise BudgetError(
             "max_output_tokens required on provider calls",
             code=ERROR_CODES["PILOT_BUDGET_INVALID"],
         )
     out = dict(params or {})
-    out["max_output_tokens"] = int(max_output_tokens)
-    # Common provider aliases — set only when absent so callers can pin one name.
-    out.setdefault("maxOutputTokens", int(max_output_tokens))
-    out.setdefault("max_tokens", int(max_output_tokens))
+    ceiling = int(max_output_tokens)
+    conflicts = [
+        key
+        for key in TOKEN_ALIASES
+        if key in out and int(out[key]) != ceiling
+    ]
+    if conflicts:
+        raise BudgetError(
+            f"token alias conflict for {', '.join(conflicts)} vs max_output_tokens={ceiling}",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        )
+    # Overwrite all aliases to the authoritative ceiling (no silent divergence).
+    for key in TOKEN_ALIASES:
+        out[key] = ceiling
     return out
+
+
+@dataclass
+class IssuedPermit:
+    permit_nonce: str
+    session_id: str
+    role: str
+    max_input_tokens: int
+    max_output_tokens: int
+    provider_call_params: dict[str, Any]
+    permit_number: int
+    consumed: bool = False
 
 
 @dataclass
@@ -131,6 +198,7 @@ class PilotBudgetRegistry:
     def __init__(self, *, clock: Callable[[], float] | None = None) -> None:
         self._lock = threading.Lock()
         self._sessions: dict[str, PilotBudgetSession] = {}
+        self._permits: dict[str, IssuedPermit] = {}
         self._clock = clock or time.monotonic
 
     def open_session(
@@ -146,6 +214,13 @@ class PilotBudgetRegistry:
         session_id: str | None = None,
         meta: dict[str, Any] | None = None,
     ) -> PilotBudgetSession:
+        open_budget_hard_caps(
+            max_calls=max_calls,
+            max_cost_usd=max_cost_usd,
+            timeout_seconds=timeout_seconds,
+            price_per_input_token_usd=price_per_input_token_usd,
+            price_per_output_token_usd=price_per_output_token_usd,
+        )
         worst = assert_cost_by_construction(
             max_input_tokens=max_input_tokens,
             max_output_tokens=max_output_tokens,
@@ -185,11 +260,17 @@ class PilotBudgetRegistry:
         self,
         session_id: str,
         *,
+        role: str,
         max_output_tokens: int | None = None,
         max_input_tokens: int | None = None,
         call_params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Grant one provider-call permit or refuse (7th call, clock, closed session)."""
+        """Issue one single-use permit nonce bound to role (not yet consumed)."""
+        if role not in PERMIT_ROLES:
+            raise BudgetError(
+                f"permit role must be one of {sorted(PERMIT_ROLES)}",
+                code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+            )
         with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
@@ -218,8 +299,6 @@ class PilotBudgetRegistry:
                     "call token ceiling exceeds session construction bounds",
                     code=ERROR_CODES["PILOT_COST_BOUND"],
                 )
-            # Re-check construction for this call's ceilings against remaining budget.
-            remaining_calls = session.max_calls - session.calls_granted
             remaining_budget = session.max_cost_usd - (
                 session.calls_granted
                 * (
@@ -236,15 +315,30 @@ class PilotBudgetRegistry:
                     "call refused: constructed cost exceeds remaining pilot budget",
                     code=ERROR_CODES["PILOT_COST_BOUND"],
                 )
-            _ = remaining_calls  # clarity for reviewers; counter is authoritative
 
             session.calls_granted += 1
             permit_number = session.calls_granted
             bounded_params = provider_call_params_with_token_ceiling(call_params, max_output_tokens=out_tokens)
+            bounded_params["role"] = role
+            nonce = secrets.token_urlsafe(24)
+            issued = IssuedPermit(
+                permit_nonce=nonce,
+                session_id=session.session_id,
+                role=role,
+                max_input_tokens=in_tokens,
+                max_output_tokens=out_tokens,
+                provider_call_params=bounded_params,
+                permit_number=permit_number,
+                consumed=False,
+            )
+            self._permits[nonce] = issued
             return {
                 "status": "GRANTED",
                 "session_id": session.session_id,
                 "permit_number": permit_number,
+                "permit_nonce": nonce,
+                "role": role,
+                "consumed": False,
                 "calls_granted": session.calls_granted,
                 "calls_remaining": session.calls_remaining,
                 "max_calls": session.max_calls,
@@ -254,6 +348,98 @@ class PilotBudgetRegistry:
                 "provider_call_params": bounded_params,
                 "worst_case_session_usd": session.worst_case_usd,
             }
+
+    def consume_call_permit(
+        self,
+        session_id: str,
+        *,
+        permit_nonce: str,
+        role: str,
+    ) -> dict[str, Any]:
+        """Consume a single-use permit nonce. Required before a provider call proceeds."""
+        if role not in PERMIT_ROLES:
+            raise BudgetError(
+                f"permit role must be one of {sorted(PERMIT_ROLES)}",
+                code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+            )
+        if not isinstance(permit_nonce, str) or not permit_nonce:
+            raise BudgetError("permit_nonce required", code=ERROR_CODES["PILOT_BUDGET_INVALID"])
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if session is None:
+                raise BudgetError("unknown budget session", code=ERROR_CODES["PILOT_BUDGET_INVALID"])
+            if session.closed:
+                raise BudgetError("budget session closed", code=ERROR_CODES["PILOT_BUDGET_EXCEEDED"])
+            elapsed = self._clock() - session.started_at_monotonic
+            if elapsed > session.timeout_seconds:
+                session.closed = True
+                raise BudgetError(
+                    f"pilot wall-clock exceeded ({session.timeout_seconds}s)",
+                    code=ERROR_CODES["PILOT_WALL_CLOCK"],
+                )
+            issued = self._permits.get(permit_nonce)
+            if issued is None or issued.session_id != session_id:
+                raise BudgetError(
+                    "unknown or unbound permit_nonce",
+                    code=ERROR_CODES["PILOT_PERMIT_INVALID"],
+                )
+            if issued.role != role:
+                raise BudgetError(
+                    "permit role mismatch",
+                    code=ERROR_CODES["PILOT_PERMIT_INVALID"],
+                )
+            if issued.consumed:
+                raise BudgetError(
+                    "permit_nonce already consumed (single-use)",
+                    code=ERROR_CODES["PILOT_PERMIT_CONSUMED"],
+                )
+            issued.consumed = True
+            return {
+                "status": "CONSUMED",
+                "session_id": session_id,
+                "permit_nonce": permit_nonce,
+                "role": role,
+                "permit_number": issued.permit_number,
+                "provider_call_params": dict(issued.provider_call_params),
+            }
+
+    def assert_provider_call_authorized(
+        self,
+        session_id: str,
+        *,
+        role: str,
+        permit_nonce: str | None = None,
+    ) -> None:
+        """Fail closed unless a matching permit nonce was consumed for this role."""
+        if role not in PERMIT_ROLES:
+            raise BudgetError(
+                f"permit role must be one of {sorted(PERMIT_ROLES)}",
+                code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+            )
+        with self._lock:
+            if session_id not in self._sessions:
+                raise BudgetError("unknown budget session", code=ERROR_CODES["PILOT_BUDGET_INVALID"])
+            if permit_nonce:
+                issued = self._permits.get(permit_nonce)
+                if (
+                    issued is None
+                    or issued.session_id != session_id
+                    or issued.role != role
+                    or not issued.consumed
+                ):
+                    raise BudgetError(
+                        "provider call refused: valid consumed permit_nonce required",
+                        code=ERROR_CODES["PILOT_PERMIT_NOT_CONSUMED"],
+                    )
+                return
+            # Without nonce: any consumed permit for this session+role authorizes once-check.
+            for issued in self._permits.values():
+                if issued.session_id == session_id and issued.role == role and issued.consumed:
+                    return
+            raise BudgetError(
+                "provider call refused: permit not consumed for role",
+                code=ERROR_CODES["PILOT_PERMIT_NOT_CONSUMED"],
+            )
 
     def close(self, session_id: str) -> None:
         with self._lock:

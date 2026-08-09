@@ -429,16 +429,17 @@ def test_provider_call_permit_refuses_seventh_call(bridge_env):
             bridge_env["base"],
             "POST",
             "/v2/provider-call-permit",
-            payload={"session_id": sid},
+            payload={"session_id": sid, "role": "implementer"},
         )
         assert st == 200
         assert body["permit"]["status"] == "GRANTED"
         assert body["permit"]["provider_call_params"]["max_output_tokens"] >= 1
+        assert body["permit"]["permit_nonce"]
     st, body = _request(
         bridge_env["base"],
         "POST",
         "/v2/provider-call-permit",
-        payload={"session_id": sid},
+        payload={"session_id": sid, "role": "implementer"},
     )
     assert st == 400
     assert body["error"] == "PILOT_CALL_LIMIT"

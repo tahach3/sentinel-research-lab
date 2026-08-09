@@ -159,5 +159,8 @@ def scriptable_interface_help() -> dict[str, str]:
             "Supply a transport that performs the minimal provider call with "
             "request.call_params (includes max_output_tokens). Do not substitute model IDs."
         ),
-        "budget": "Obtain a /v2/provider-call-permit before the live transport call",
+        "budget": (
+            "Obtain a /v2/provider-call-permit (role-bound nonce), then "
+            "/v2/provider-call-consume before the live transport call"
+        ),
     }

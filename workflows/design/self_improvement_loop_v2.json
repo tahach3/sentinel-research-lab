@@ -13,8 +13,8 @@
     "reviewerAgentId": "srl-independent-reviewer-agent",
     "localWorkerBaseUrl": "http://127.0.0.1:8765",
     "workerHeaderAuthCredentialName": "srl-v2-worker-header-auth",
-    "implementerAgentCredentialReference": "SRL Implementer \u2014 Google Gemini",
-    "reviewerAgentCredentialReference": "SRL Independent Reviewer \u2014 Groq",
+    "implementerAgentCredentialReference": "SRL Implementer — Google Gemini",
+    "reviewerAgentCredentialReference": "SRL Independent Reviewer — Groq",
     "implementerModel": "models/gemini-3.6-flash",
     "reviewerModel": "llama3-8b-8192",
     "implementerChatModelNodeType": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
@@ -706,16 +706,29 @@
     },
     {
       "parameters": {
-        "jsCode": "// Phase 1B: bind Independent Reviewer Agent output for review_gate.\n// Inactive-by-design \u2014 no live Groq call from this export alone.\n// risk_authority remains tools.self_improvement_v2.risk_authority only.\nconst item = items[0].json;\nreturn [{json:{...item, state:'REVIEW_BOUND', review_ok:true, repair_limit_ok:true, reviewer_agent_id:'srl-independent-reviewer-agent', implementer_agent_id:'srl-implementer-agent', independent_from_implementer:true}}];"
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/bind-review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ review: ($json.review || $json) })}}",
+        "options": {}
       },
       "id": "independent-review-bind",
       "name": "Independent Review Bind",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         2060,
         -240
       ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
       "onError": "continueErrorOutput"
     },
     {
@@ -736,7 +749,7 @@
         "conditions": {
           "boolean": [
             {
-              "value1": "={{$json.review_ok && $json.repair_limit_ok}}",
+              "value1": "={{$json.status === 'PASS' && $json.review_ok === true && $json.repair_limit_ok === true}}",
               "value2": true
             }
           ]
@@ -1090,7 +1103,7 @@
     },
     {
       "parameters": {
-        "content": "## SRL Self-Improvement Loop V2 (Phase 1B)\nInactive design workflow (active:false). AI Agent + Chat Model nodes are wired but not activated.\nBudget gate: POST /v2/budget/open then /v2/provider-call-permit before each provider agent; deny routes terminal POLICY_REJECTED.\nImplementer: SRL Implementer \u2014 Google Gemini / models/gemini-3.6-flash\nReviewer: SRL Independent Reviewer \u2014 Groq / llama3-8b-8192\nWorker Authorize: POST loopback /v2/validate-proposal via Header Auth name only.\nRisk authority remains the local worker only. n8n never trusts proposal.risk_level.\nCredential values are never embedded. No push/merge. No pilot authorization.",
+        "content": "## SRL Self-Improvement Loop V2 (Phase 1B)\nInactive design workflow (active:false). AI Agent + Chat Model nodes are wired but not activated.\nBudget gate: POST /v2/budget/open then /v2/provider-call-permit before each provider agent; deny routes terminal POLICY_REJECTED.\nImplementer: SRL Implementer — Google Gemini / models/gemini-3.6-flash\nReviewer: SRL Independent Reviewer — Groq / llama3-8b-8192\nWorker Authorize: POST loopback /v2/validate-proposal via Header Auth name only.\nRisk authority remains the local worker only. n8n never trusts proposal.risk_level.\nCredential values are never embedded. No push/merge. No pilot authorization.",
         "height": 280,
         "width": 420
       },
@@ -1138,7 +1151,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, max_output_tokens: 2000, call_params: { role: 'implementer' } })}}",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'implementer', max_output_tokens: 2000, call_params: { role: 'implementer' } })}}",
         "options": {}
       },
       "id": "provider-call-permit-implementer",
@@ -1165,7 +1178,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, max_output_tokens: 2000, call_params: { role: 'reviewer' } })}}",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'reviewer', max_output_tokens: 2000, call_params: { role: 'reviewer' } })}}",
         "options": {}
       },
       "id": "provider-call-permit-reviewer",
@@ -1200,7 +1213,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Phase 1B Implementer Agent (inactive-by-design). Produce improvement_candidate / implementation_proposal JSON only. Must not authorize risk, mutate git, finalize, or use the reviewer credential. Agent id: srl-implementer-agent. Model pin: models/gemini-2.5-flash.",
+        "text": "=Phase 1B Implementer Agent (inactive-by-design). Produce improvement_candidate / implementation_proposal JSON only. Must not authorize risk, mutate git, finalize, or use the reviewer credential. Agent id: srl-implementer-agent. Model pin: models/gemini-3.6-flash.",
         "options": {}
       },
       "id": "implementer-agent",
@@ -1215,7 +1228,9 @@
     {
       "parameters": {
         "modelName": "models/gemini-3.6-flash",
-        "options": {}
+        "options": {
+          "maxOutputTokens": "={{Number(($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).provider_call_params.max_output_tokens)}}"
+        }
       },
       "id": "implementer-gemini-chat-model",
       "name": "Implementer Gemini Chat Model",
@@ -1228,7 +1243,7 @@
       "credentials": {
         "googlePalmApi": {
           "id": "srl-implementer-google-gemini",
-          "name": "SRL Implementer \u2014 Google Gemini"
+          "name": "SRL Implementer — Google Gemini"
         }
       }
     },
@@ -1250,7 +1265,9 @@
     {
       "parameters": {
         "model": "llama3-8b-8192",
-        "options": {}
+        "options": {
+          "maxTokens": "={{Number(($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).provider_call_params.max_output_tokens)}}"
+        }
       },
       "id": "independent-reviewer-groq-chat-model",
       "name": "Independent Reviewer Groq Chat Model",
@@ -1263,7 +1280,7 @@
       "credentials": {
         "groqApi": {
           "id": "srl-independent-reviewer-groq",
-          "name": "SRL Independent Reviewer \u2014 Groq"
+          "name": "SRL Independent Reviewer — Groq"
         }
       }
     }

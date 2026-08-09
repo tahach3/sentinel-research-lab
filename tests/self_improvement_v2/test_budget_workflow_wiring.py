@@ -108,14 +108,16 @@ def test_permit_path_1_to_6_granted_7th_refused_cannot_reach_provider() -> None:
     session = reg.open_session(session_id="workflow-budget-wiring-1")
     granted = []
     for i in range(MAXIMUM_AGENT_CALLS):
-        permit = reg.request_call_permit(session.session_id, max_output_tokens=2000)
+        permit = reg.request_call_permit(
+            session.session_id, role="implementer", max_output_tokens=2000
+        )
         assert permit["status"] == "GRANTED"
         granted.append(permit["permit_number"])
         # Workflow only routes to provider agents on grant — simulate that gate.
         assert permit["permit_number"] <= MAXIMUM_AGENT_CALLS
     assert granted == list(range(1, MAXIMUM_AGENT_CALLS + 1))
     with pytest.raises(BudgetError) as exc:
-        reg.request_call_permit(session.session_id, max_output_tokens=2000)
+        reg.request_call_permit(session.session_id, role="implementer", max_output_tokens=2000)
     assert exc.value.code == ERROR_CODES["PILOT_CALL_LIMIT"]
     # No 7th grant exists; provider path must not proceed.
     assert session.calls_granted == MAXIMUM_AGENT_CALLS
