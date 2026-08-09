@@ -14,7 +14,7 @@ Normative machine-readable sources:
 
 | Role | Agent ID | Credential reference (name only) | Provider | Model |
 | --- | --- | --- | --- | --- |
-| Implementer | `srl-implementer-agent` | `SRL Implementer — Google Gemini` | Google Gemini | `models/gemini-2.5-flash` |
+| Implementer | `srl-implementer-agent` | `SRL Implementer — Google Gemini` | Google Gemini | `models/gemini-3.6-flash` |
 | Independent reviewer | `srl-independent-reviewer-agent` | `SRL Independent Reviewer — Groq` | Groq | `llama3-8b-8192` |
 
 Rules:
@@ -33,7 +33,7 @@ Rules:
 4. Design export remains `active: false` / `meta.srlInactiveByDesign: true`.
 5. Meta pins: `agentRuntimePhase=1B`, `agentRuntimeWiringStatus=WORKFLOW_WIRED`.
 
-`Independent Review Bind` remains a Code binder after the Independent Reviewer Agent for `review_gate` fields. Risk authority is unchanged: sole authorizer is `tools.self_improvement_v2.risk_authority`.
+`Independent Review Bind` is an HTTP Request to loopback `POST /v2/bind-review`, which invokes `tools.self_improvement_v2.review_gate` — the reviewer verdict must matter (no hardcoded `review_ok:true`). Risk authority is unchanged: sole authorizer is `tools.self_improvement_v2.risk_authority`.
 
 ## Worker HTTP boundary
 

@@ -51,12 +51,13 @@ def test_seventh_provider_call_refused() -> None:
     session = reg.open_session(session_id="pilot-budget-adv-1")
     assert session.max_calls == MAXIMUM_AGENT_CALLS
     for i in range(MAXIMUM_AGENT_CALLS):
-        permit = reg.request_call_permit(session.session_id)
+        permit = reg.request_call_permit(session.session_id, role="implementer")
         assert permit["status"] == "GRANTED"
         assert permit["permit_number"] == i + 1
         assert permit["provider_call_params"]["max_output_tokens"] >= 1
+        assert permit["permit_nonce"]
     with pytest.raises(BudgetError) as exc:
-        reg.request_call_permit(session.session_id)
+        reg.request_call_permit(session.session_id, role="implementer")
     assert exc.value.code == ERROR_CODES["PILOT_CALL_LIMIT"]
     assert "max calls" in exc.value.message.lower() or "refused" in exc.value.message.lower()
 
@@ -69,10 +70,10 @@ def test_wall_clock_refuses_after_timeout() -> None:
 
     reg = PilotBudgetRegistry(clock=now)
     session = reg.open_session(session_id="pilot-budget-clock", timeout_seconds=30)
-    reg.request_call_permit(session.session_id)
+    reg.request_call_permit(session.session_id, role="implementer")
     clock["t"] = 31.0
     with pytest.raises(BudgetError) as exc:
-        reg.request_call_permit(session.session_id)
+        reg.request_call_permit(session.session_id, role="implementer")
     assert exc.value.code == ERROR_CODES["PILOT_WALL_CLOCK"]
 
 

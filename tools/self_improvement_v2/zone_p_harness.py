@@ -342,6 +342,23 @@ def tag_review_result(
     return out
 
 
+def assert_zone_p_ledger_isolation(
+    *,
+    state_db: Path | str,
+    synthetic_control: bool,
+    probe_id: str,
+) -> Path:
+    """Fail closed if Zone P would touch the durable ledger or omit required tags."""
+    if not synthetic_control:
+        raise ZonePHarnessError("Zone P requires synthetic_control=true")
+    if not isinstance(probe_id, str) or not probe_id.strip():
+        raise ZonePHarnessError("Zone P requires non-empty probe_id")
+    path = assert_throwaway_zone_p_state_db(state_db)
+    if path.name == DURABLE_STATE_DB_BASENAME:
+        raise ZonePHarnessError("Zone P must not contaminate durable ledger")
+    return path
+
+
 def zone_p_isolation_notes() -> dict[str, str]:
     return {
         "state_db": f"%TEMP%\\{ZONE_P_DB_PREFIX}<unique-id>.sqlite",
@@ -349,4 +366,5 @@ def zone_p_isolation_notes() -> dict[str, str]:
         "tag_fields": "synthetic_control=true, probe_id=<id>",
         "ledger_rule": "durable ledger rows added/modified must remain 0 after Zone P",
         "live_calls": "P1–P4 require operator credentials; harness is offline-enforceable",
+        "schema_coupling": "synthetic_control=true requires probe_id on review_result/execution_bundle",
     }

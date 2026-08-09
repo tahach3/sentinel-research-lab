@@ -35,7 +35,7 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Execution Result Validation": "n8n-nodes-base.if",
     "Provider Call Permit (Reviewer)": "n8n-nodes-base.httpRequest",
     "Independent Reviewer Agent": "@n8n/n8n-nodes-langchain.agent",
-    "Independent Review Bind": "n8n-nodes-base.code",
+    "Independent Review Bind": "n8n-nodes-base.httpRequest",
     "Review Result Validation": "n8n-nodes-base.if",
     "Finalization": "n8n-nodes-base.code",
     "Learning Persistence": "n8n-nodes-base.code",
@@ -129,8 +129,26 @@ def _nodes_by_name(nodes: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     for node in nodes:
         name = str(node.get("name") or "")
         if name:
+            if name in out:
+                # Duplicate names are rejected by validate_workflow; keep first for diagnostics.
+                continue
             out[name] = node
     return out
+
+
+def _all_main_edges(connections: dict[str, Any]) -> list[tuple[str, int, str]]:
+    edges: list[tuple[str, int, str]] = []
+    for source, block in connections.items():
+        if not isinstance(block, dict):
+            continue
+        mains = block.get("main") or []
+        for idx, outputs in enumerate(mains):
+            if not outputs:
+                continue
+            for link in outputs:
+                if isinstance(link, dict) and isinstance(link.get("node"), str) and link["node"]:
+                    edges.append((source, idx, link["node"]))
+    return edges
 
 
 def _outgoing(
@@ -210,6 +228,12 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
     if not isinstance(nodes, list):
         errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "nodes must be list"))
         return {"status": "FAIL", "errors": errors, "nodes": []}
+
+    names = [str(n.get("name") or "") for n in nodes]
+    if any(not n for n in names):
+        errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "node names must be non-empty"))
+    if len(names) != len(set(names)):
+        errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "duplicate node names rejected (closed-world)"))
 
     by_name = _nodes_by_name(nodes)
     ids = [str(n.get("id") or "") for n in nodes]
@@ -344,6 +368,8 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
 
     # Success-path edges for operational nodes (budget/permit gates before providers).
     success_edges = [
+        ("Manual Trigger", 0, "Candidate Intake"),
+        ("Candidate Intake", 0, "Candidate Schema Validation"),
         ("Candidate Schema Validation", 0, "Open Pilot Budget"),
         ("Open Pilot Budget", 0, "Provider Call Permit (Implementer)"),
         ("Provider Call Permit (Implementer)", 0, "Implementer Agent"),
@@ -351,6 +377,7 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
         ("Proposal Schema Validation", 0, "Proposal Freeze"),
         ("Proposal Freeze", 0, "Worker Authorize"),
         ("Worker Authorize", 0, "Worker Decision Router"),
+        ("Worker Decision Router", 0, "Worker AUTHORIZED Continue"),
         ("Worker AUTHORIZED Continue", 0, "Detached Worker Execute"),
         ("Detached Worker Execute", 0, "Execution Result Validation"),
         ("Execution Result Validation", 0, "Provider Call Permit (Reviewer)"),
@@ -367,6 +394,21 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 _err(
                     ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
                     f"missing success edge {source}[{out_idx}] → {dest}",
+                )
+            )
+
+    # Closed-world graph: reject extra main edges not in the allowlist.
+    allowed_main = set(REQUIRED_EDGES) | set(success_edges)
+    for out_idx, dest in WORKER_DECISION_TARGETS.items():
+        allowed_main.add(("Worker Decision Router", out_idx, dest))
+    for out_idx, dest in FAILURE_ROUTER_TARGETS.items():
+        allowed_main.add(("Failure Router", out_idx, dest))
+    for source, out_idx, dest in _all_main_edges(connections):
+        if (source, out_idx, dest) not in allowed_main:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"extra closed-world edge rejected: {source}[{out_idx}] → {dest}",
                 )
             )
 

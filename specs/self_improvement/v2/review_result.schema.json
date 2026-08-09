@@ -227,6 +227,23 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "synthetic_control": {
+            "const": true
+          }
+        },
+        "required": [
+          "synthetic_control"
+        ]
+      },
+      "then": {
+        "required": [
+          "probe_id"
+        ]
+      }
     }
   ]
 }

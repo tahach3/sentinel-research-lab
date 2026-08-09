@@ -45,13 +45,14 @@ MATERIAL_FIELDS_NODE = frozenset(
         "retryOnFail",
         "maxTries",
         "waitBetweenTries",
+        # disabled is material: silencing Open Pilot Budget / permits must change fingerprint
+        "disabled",
     }
 )
 IGNORED_FIELDS_NODE = frozenset(
     {
         "id",
         "position",
-        "disabled",
         "notes",
         "notesInFlow",
         "color",
