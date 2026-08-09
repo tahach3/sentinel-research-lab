@@ -1,14 +1,16 @@
 {
-  "combined": "8a7621e88f9108a4dab46164cdffe5f9316fb975e8bfef0fd5de4bef0e0c4086",
-  "description": "Reviewed content digests for trusted Self-Improvement V2 modules (F5).",
+  "schema_version": "2.0.0",
+  "description": "Reviewed content digests bound to reviewed_git_head for trusted Self-Improvement V2 modules.",
+  "reviewed_git_head": "21f0e844bbfe5faa907b9568c0f30670566b55bc",
+  "combined": "58348065c39c7eaa578dd1312bc483a8357223956de248ef5a43b865c2b771b8",
+  "head_content_binding": "454fc72665ec8e1672ae0fd67ca99d7fac9e11c3ca167449fc89588e49b028bf",
   "modules": {
-    "tools.self_improvement_v2.finalizer": "cd75b88744bc3873b10293bf3817ff7d1419fb9eaa6a8cfe1fdd2f08ee8b2da4",
-    "tools.self_improvement_v2.patch_validator": "7e45785a3793d53953c8a8d31b403bc7a04b9395a8375ca877bc0ef48f545e4d",
-    "tools.self_improvement_v2.path_policy": "17135b874ec2abd7e335c16487847f33b56ecc387646cc8bc771ca63e91efb22",
-    "tools.self_improvement_v2.pilot_budget": "2018d8b6f0e97aaada5b23936e40c5df1581414ead453414b4e44af0f8a53725",
-    "tools.self_improvement_v2.review_gate": "b2c9193bc4ef2560b62096fb83b1ace067286c55aaf60fffc4d7979880dfbfe0",
     "tools.self_improvement_v2.risk_authority": "f4d827309000c6e4c81e446fbd5f2cfdacbef93acac71129a22277749d6b2cb1",
-    "tools.self_improvement_v2.workflow_validator": "54a4d354a30cac474b9ff58cf9f3f64e7c4054ba5510ae93b3872bc63d17f1f3"
-  },
-  "schema_version": "2.0.0"
+    "tools.self_improvement_v2.review_gate": "b2c9193bc4ef2560b62096fb83b1ace067286c55aaf60fffc4d7979880dfbfe0",
+    "tools.self_improvement_v2.patch_validator": "7e45785a3793d53953c8a8d31b403bc7a04b9395a8375ca877bc0ef48f545e4d",
+    "tools.self_improvement_v2.finalizer": "cd75b88744bc3873b10293bf3817ff7d1419fb9eaa6a8cfe1fdd2f08ee8b2da4",
+    "tools.self_improvement_v2.workflow_validator": "5fa2c1557c12479a9736105d662e4ae6039fed349055cf604ef817c751bff780",
+    "tools.self_improvement_v2.path_policy": "17135b874ec2abd7e335c16487847f33b56ecc387646cc8bc771ca63e91efb22",
+    "tools.self_improvement_v2.pilot_budget": "98d759c5e0c8b1ef08c83263d5a876019afbcf9b1a3f16f09d4e68383d3c4e33"
+  }
 }

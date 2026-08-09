@@ -24,6 +24,7 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Candidate Schema Validation": "n8n-nodes-base.if",
     "Open Pilot Budget": "n8n-nodes-base.httpRequest",
     "Provider Call Permit (Implementer)": "n8n-nodes-base.httpRequest",
+    "Provider Call Consume (Implementer)": "n8n-nodes-base.httpRequest",
     "Proposal Schema Validation": "n8n-nodes-base.if",
     "Proposal Freeze": "n8n-nodes-base.code",
     "Implementer Agent": "@n8n/n8n-nodes-langchain.agent",
@@ -34,6 +35,7 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Detached Worker Execute": "n8n-nodes-base.code",
     "Execution Result Validation": "n8n-nodes-base.if",
     "Provider Call Permit (Reviewer)": "n8n-nodes-base.httpRequest",
+    "Provider Call Consume (Reviewer)": "n8n-nodes-base.httpRequest",
     "Independent Reviewer Agent": "@n8n/n8n-nodes-langchain.agent",
     "Independent Review Bind": "n8n-nodes-base.httpRequest",
     "Review Result Validation": "n8n-nodes-base.if",
@@ -88,7 +90,9 @@ REQUIRED_EDGES: list[tuple[str, int, str]] = [
     ("Invalid Candidate", 0, "Failure Router"),
     ("Open Pilot Budget", 1, "Annotate Budget Denied"),
     ("Provider Call Permit (Implementer)", 1, "Annotate Budget Denied"),
+    ("Provider Call Consume (Implementer)", 1, "Annotate Budget Denied"),
     ("Provider Call Permit (Reviewer)", 1, "Annotate Budget Denied"),
+    ("Provider Call Consume (Reviewer)", 1, "Annotate Budget Denied"),
     ("Annotate Budget Denied", 0, "Failure Router"),
     ("Proposal Schema Validation", 1, "Invalid Proposal"),
     ("Invalid Proposal", 0, "Failure Router"),
@@ -112,12 +116,20 @@ REQUIRED_EDGES: list[tuple[str, int, str]] = [
 ERROR_OUTPUT_NODES = (
     "Open Pilot Budget",
     "Provider Call Permit (Implementer)",
+    "Provider Call Consume (Implementer)",
     "Provider Call Permit (Reviewer)",
+    "Provider Call Consume (Reviewer)",
     "Worker Authorize",
     "Detached Worker Execute",
     "Independent Review Bind",
     "Finalization",
 )
+
+AGENT_NODES_REQUIRING_MAX_ITERATIONS = (
+    "Implementer Agent",
+    "Independent Reviewer Agent",
+)
+REQUIRED_AGENT_MAX_ITERATIONS = 1
 
 
 def _err(code: str, message: str) -> dict[str, str]:
@@ -366,13 +378,48 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 )
             )
 
-    # Success-path edges for operational nodes (budget/permit gates before providers).
+    # Agent maxIterations must be exactly 1 (consume cannot gate mid-loop retries).
+    for agent_name in AGENT_NODES_REQUIRING_MAX_ITERATIONS:
+        agent = by_name.get(agent_name)
+        if agent is None:
+            continue
+        params = agent.get("parameters") or {}
+        options = params.get("options") if isinstance(params.get("options"), dict) else {}
+        raw = options.get("maxIterations", params.get("maxIterations"))
+        if raw is None:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{agent_name} missing maxIterations (must be {REQUIRED_AGENT_MAX_ITERATIONS})",
+                )
+            )
+            continue
+        try:
+            max_iter = int(raw)
+        except (TypeError, ValueError):
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{agent_name} maxIterations must be an integer",
+                )
+            )
+            continue
+        if max_iter != REQUIRED_AGENT_MAX_ITERATIONS:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{agent_name} maxIterations must be {REQUIRED_AGENT_MAX_ITERATIONS} (got {max_iter})",
+                )
+            )
+
+    # Success-path edges for operational nodes (budget/permit/consume gates before providers).
     success_edges = [
         ("Manual Trigger", 0, "Candidate Intake"),
         ("Candidate Intake", 0, "Candidate Schema Validation"),
         ("Candidate Schema Validation", 0, "Open Pilot Budget"),
         ("Open Pilot Budget", 0, "Provider Call Permit (Implementer)"),
-        ("Provider Call Permit (Implementer)", 0, "Implementer Agent"),
+        ("Provider Call Permit (Implementer)", 0, "Provider Call Consume (Implementer)"),
+        ("Provider Call Consume (Implementer)", 0, "Implementer Agent"),
         ("Implementer Agent", 0, "Proposal Schema Validation"),
         ("Proposal Schema Validation", 0, "Proposal Freeze"),
         ("Proposal Freeze", 0, "Worker Authorize"),
@@ -381,7 +428,8 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
         ("Worker AUTHORIZED Continue", 0, "Detached Worker Execute"),
         ("Detached Worker Execute", 0, "Execution Result Validation"),
         ("Execution Result Validation", 0, "Provider Call Permit (Reviewer)"),
-        ("Provider Call Permit (Reviewer)", 0, "Independent Reviewer Agent"),
+        ("Provider Call Permit (Reviewer)", 0, "Provider Call Consume (Reviewer)"),
+        ("Provider Call Consume (Reviewer)", 0, "Independent Reviewer Agent"),
         ("Independent Reviewer Agent", 0, "Independent Review Bind"),
         ("Independent Review Bind", 0, "Review Result Validation"),
         ("Review Result Validation", 0, "Finalization"),

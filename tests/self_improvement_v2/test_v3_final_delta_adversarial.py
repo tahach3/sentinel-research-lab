@@ -100,15 +100,21 @@ def test_f1_budget_open_rejects_inflated_maxima() -> None:
 
 
 def test_f1_budget_open_rejects_zero_price_zero_worst_case() -> None:
-    """Zero prices make worst_case $0 and must fail closed."""
+    """Caller zero prices are ignored; server-owned prices are applied (no $0 worst_case)."""
+    from tools.self_improvement_v2.pilot_budget import (
+        SERVER_OWNED_PRICE_PER_INPUT_TOKEN_USD,
+        SERVER_OWNED_PRICE_PER_OUTPUT_TOKEN_USD,
+    )
+
     reg = PilotBudgetRegistry()
-    with pytest.raises(BudgetError) as exc:
-        reg.open_session(
-            session_id="f1-zero-price",
-            price_per_input_token_usd=0.0,
-            price_per_output_token_usd=0.0,
-        )
-    assert exc.value.code == ERROR_CODES["PILOT_BUDGET_INVALID"]
+    session = reg.open_session(
+        session_id="f1-zero-price",
+        price_per_input_token_usd=0.0,
+        price_per_output_token_usd=0.0,
+    )
+    assert session.price_per_input_token_usd == SERVER_OWNED_PRICE_PER_INPUT_TOKEN_USD
+    assert session.price_per_output_token_usd == SERVER_OWNED_PRICE_PER_OUTPUT_TOKEN_USD
+    assert session.worst_case_usd > 0
 
 
 def test_f2_permit_requires_role_nonce_and_single_use_consume() -> None:
@@ -244,8 +250,16 @@ def test_f4_unstaged_trusted_edit_changes_working_tree_fingerprint(tmp_path: Pat
 
 
 def test_f4_wall_assert_rejects_partial_caller_keys(tmp_path: Path) -> None:
+    """Baseline defect is omitted keys while present fingerprints still match."""
     repo = tmp_path / "repo"
     init_temp_repo(repo)
+    full = capture_wall_artifact_snapshot(repo)
+    assert REQUIRED_WALL_KEYS <= set(full)
+    # All fingerprints match first; omit keys (not wrong values).
+    partial = {"index_fingerprint": full["index_fingerprint"]}
+    assert partial["index_fingerprint"] == full["index_fingerprint"]
+    with pytest.raises(WallReassertError):
+        assert_wall_artifacts_unchanged(repo, partial)
     cfg = RuntimeConfig(
         repository_root=repo,
         state_db=tmp_path / "wall.sqlite",
@@ -254,7 +268,7 @@ def test_f4_wall_assert_rejects_partial_caller_keys(tmp_path: Path) -> None:
         worker_port=0,
     )
     with pytest.raises(WorkerError):
-        wall_assert_operation(cfg, {"before": {"index_fingerprint": "a" * 64}})
+        wall_assert_operation(cfg, {"before": partial})
 
 
 def test_f4_execute_operation_invokes_wall(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -365,7 +379,8 @@ def test_f8_zone_p_rejects_durable_ledger_contamination(tmp_path: Path) -> None:
         )
 
 
-def test_hard_caps_constants() -> None:
+def test_control_hard_caps_constants() -> None:
+    """Control (not a defect probe): hard-cap constants remain pinned."""
     assert MAXIMUM_AGENT_CALLS == 6
     assert MAXIMUM_PILOT_COST_USD == 5.0
     assert PILOT_TIMEOUT_SECONDS == 1800

@@ -15,6 +15,9 @@ from tools.self_improvement_v2.agent_runtime_contract import (
     BUDGET_OPEN_PATH,
     IMPLEMENTER_NODE_NAME,
     OPEN_PILOT_BUDGET_NODE_NAME,
+    PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME,
+    PROVIDER_CALL_CONSUME_PATH,
+    PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME,
     PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME,
     PROVIDER_CALL_PERMIT_PATH,
     PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME,
@@ -36,6 +39,8 @@ def test_workflow_wires_budget_open_and_permits_before_agents() -> None:
     assert wiring["budget_open"] == OPEN_PILOT_BUDGET_NODE_NAME
     assert wiring["provider_call_permit_implementer"] == PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME
     assert wiring["provider_call_permit_reviewer"] == PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME
+    assert wiring["provider_call_consume_implementer"] == PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME
+    assert wiring["provider_call_consume_reviewer"] == PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME
 
     workflow = load_design_workflow()
     assert workflow.get("active") is False
@@ -43,6 +48,8 @@ def test_workflow_wires_budget_open_and_permits_before_agents() -> None:
     assert BUDGET_OPEN_PATH in by_name[OPEN_PILOT_BUDGET_NODE_NAME]["parameters"]["url"]
     assert PROVIDER_CALL_PERMIT_PATH in by_name[PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME]["parameters"]["url"]
     assert PROVIDER_CALL_PERMIT_PATH in by_name[PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME]["parameters"]["url"]
+    assert PROVIDER_CALL_CONSUME_PATH in by_name[PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME]["parameters"]["url"]
+    assert PROVIDER_CALL_CONSUME_PATH in by_name[PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME]["parameters"]["url"]
 
     connections = workflow["connections"]
     assert (
@@ -55,6 +62,10 @@ def test_workflow_wires_budget_open_and_permits_before_agents() -> None:
     )
     assert (
         connections[PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME]["main"][0][0]["node"]
+        == PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME
+    )
+    assert (
+        connections[PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME]["main"][0][0]["node"]
         == IMPLEMENTER_NODE_NAME
     )
     assert (
@@ -63,13 +74,19 @@ def test_workflow_wires_budget_open_and_permits_before_agents() -> None:
     )
     assert (
         connections[PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME]["main"][0][0]["node"]
+        == PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME
+    )
+    assert (
+        connections[PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME]["main"][0][0]["node"]
         == REVIEWER_NODE_NAME
     )
     # Deny outputs are terminal via Annotate Budget Denied → Failure Router.
     for source in (
         OPEN_PILOT_BUDGET_NODE_NAME,
         PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME,
+        PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME,
         PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME,
+        PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME,
     ):
         assert connections[source]["main"][1][0]["node"] == ANNOTATE_BUDGET_DENIED_NODE_NAME
     assert (
