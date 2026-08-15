@@ -2,8 +2,9 @@
 
 **Status:** DRAFT — capture of properties established by independent Codex reviews and in-tree adversarial probes.  
 **Not authorization.** This ledger does not authorize any HEAD or pilot.  
-**HEAD context when drafted:** `a195e8329d9b8c3cae6310b4b6c3f19a5367ed07`  
-**Source ranges:** `21f0e84..6f4f1e2` (escalate; repaired through `457608d`); open assurance range `6f4f1e2..a195e83` (no PASS yet).
+**HEAD context (dispatch):** `7dbbfa1c3af997f2b71b28193357e1072b39679b`  
+**Source ranges:** `21f0e84..6f4f1e2` (escalate; repaired through `457608d`); open assurance range `6f4f1e2..7dbbfa1` (no PASS yet).  
+**Design:** Option A decided (`docs/SELF_IMPROVEMENT_V2_TRUSTED_ORIGIN_DESIGN.md`); **implementation held** until current review verdict.
 
 ## How to read
 
@@ -24,7 +25,7 @@
 | INV-TO-02 | CWD / package root / self-consistent pin inside an alternate checkout are **not** trust authority | Codex Finding 1; fail-closed redesign at `28eb33f` | established (pending Codex PASS on `6f4f1e2..a195e83`) |
 | INV-TO-03 | `trusted_origin` verifier module must be in its own pin set (`TRUSTED_MODULE_NAMES`) | Codex Finding 3 (HIGH); `test_r5_trusted_origin_module_is_pinned` | established |
 | INV-TO-04 | Pin `reviewed_git_head` and launcher `SRL_REVIEWED_HEAD` must agree under the documented bind rules (primary bind or trusted-module-unchanged successor tip) | Codex Finding 2 (HIGH); `assert_trusted_code_origin` bind branch | **accepted-residual** for one supervised docs-only P3-C1 under `docs/SELF_IMPROVEMENT_V2_P3C1_ACCEPTED_RESIDUAL_RISK.md`; design session required for durable close |
-| INV-TO-05 | A pin file **cannot** truthfully name the commit that first introduces that pin byte-for-byte (self-reference / one-commit lag) | Codex Finding 2 evidence (pin named `77def2a…` while candidate was `6f4f1e2…`; naming exact candidate rejected) | **design-open** — see trusted-origin design session |
+| INV-TO-05 | A pin file **cannot** truthfully name the commit that first introduces that pin byte-for-byte; pin must not claim HEAD | Codex Finding 2; Option A decision | **decided (A)** — implement after verdict; pin becomes content-digest only |
 | INV-BUD-01 | Boolean JSON must not coerce into pilot budget numeric fields | Codex Finding 5; `test_f5_boolean_budget_fields_rejected_via_runtime_bridge` | established |
 | INV-BUD-02 | Boolean `maxIterations` must not satisfy `maxIterations==1` via `int(True)` | Codex Finding 6; `test_f6_max_iterations_boolean_true_rejected` | established |
 | INV-BUD-03 | Provider-call consume validates role-bound provider/model/credential atomically | Codex Finding 4; `test_f4_consume_validates_provider_model_credential_binding` | established |
