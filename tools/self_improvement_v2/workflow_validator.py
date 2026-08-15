@@ -22,6 +22,9 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Manual Trigger": "n8n-nodes-base.manualTrigger",
     "Candidate Intake": "n8n-nodes-base.code",
     "Candidate Schema Validation": "n8n-nodes-base.if",
+    "Open Pilot Budget": "n8n-nodes-base.httpRequest",
+    "Provider Call Permit (Implementer)": "n8n-nodes-base.httpRequest",
+    "Provider Call Consume (Implementer)": "n8n-nodes-base.httpRequest",
     "Proposal Schema Validation": "n8n-nodes-base.if",
     "Proposal Freeze": "n8n-nodes-base.code",
     "Implementer Agent": "@n8n/n8n-nodes-langchain.agent",
@@ -31,8 +34,10 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Annotate Authorize Failure": "n8n-nodes-base.code",
     "Detached Worker Execute": "n8n-nodes-base.code",
     "Execution Result Validation": "n8n-nodes-base.if",
+    "Provider Call Permit (Reviewer)": "n8n-nodes-base.httpRequest",
+    "Provider Call Consume (Reviewer)": "n8n-nodes-base.httpRequest",
     "Independent Reviewer Agent": "@n8n/n8n-nodes-langchain.agent",
-    "Independent Review Bind": "n8n-nodes-base.code",
+    "Independent Review Bind": "n8n-nodes-base.httpRequest",
     "Review Result Validation": "n8n-nodes-base.if",
     "Finalization": "n8n-nodes-base.code",
     "Learning Persistence": "n8n-nodes-base.code",
@@ -40,6 +45,7 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Failure Router": "n8n-nodes-base.switch",
     "Invalid Candidate": "n8n-nodes-base.code",
     "Invalid Proposal": "n8n-nodes-base.code",
+    "Annotate Budget Denied": "n8n-nodes-base.code",
     "Annotate Worker Failure": "n8n-nodes-base.code",
     "Annotate Validation Failure": "n8n-nodes-base.code",
     "Annotate Review Failure": "n8n-nodes-base.code",
@@ -82,6 +88,12 @@ FAILURE_ROUTER_TARGETS = {
 REQUIRED_EDGES: list[tuple[str, int, str]] = [
     ("Candidate Schema Validation", 1, "Invalid Candidate"),
     ("Invalid Candidate", 0, "Failure Router"),
+    ("Open Pilot Budget", 1, "Annotate Budget Denied"),
+    ("Provider Call Permit (Implementer)", 1, "Annotate Budget Denied"),
+    ("Provider Call Consume (Implementer)", 1, "Annotate Budget Denied"),
+    ("Provider Call Permit (Reviewer)", 1, "Annotate Budget Denied"),
+    ("Provider Call Consume (Reviewer)", 1, "Annotate Budget Denied"),
+    ("Annotate Budget Denied", 0, "Failure Router"),
     ("Proposal Schema Validation", 1, "Invalid Proposal"),
     ("Invalid Proposal", 0, "Failure Router"),
     ("Worker Authorize", 1, "Annotate Authorize Failure"),
@@ -102,11 +114,22 @@ REQUIRED_EDGES: list[tuple[str, int, str]] = [
 ]
 
 ERROR_OUTPUT_NODES = (
+    "Open Pilot Budget",
+    "Provider Call Permit (Implementer)",
+    "Provider Call Consume (Implementer)",
+    "Provider Call Permit (Reviewer)",
+    "Provider Call Consume (Reviewer)",
     "Worker Authorize",
     "Detached Worker Execute",
     "Independent Review Bind",
     "Finalization",
 )
+
+AGENT_NODES_REQUIRING_MAX_ITERATIONS = (
+    "Implementer Agent",
+    "Independent Reviewer Agent",
+)
+REQUIRED_AGENT_MAX_ITERATIONS = 1
 
 
 def _err(code: str, message: str) -> dict[str, str]:
@@ -118,8 +141,26 @@ def _nodes_by_name(nodes: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     for node in nodes:
         name = str(node.get("name") or "")
         if name:
+            if name in out:
+                # Duplicate names are rejected by validate_workflow; keep first for diagnostics.
+                continue
             out[name] = node
     return out
+
+
+def _all_main_edges(connections: dict[str, Any]) -> list[tuple[str, int, str]]:
+    edges: list[tuple[str, int, str]] = []
+    for source, block in connections.items():
+        if not isinstance(block, dict):
+            continue
+        mains = block.get("main") or []
+        for idx, outputs in enumerate(mains):
+            if not outputs:
+                continue
+            for link in outputs:
+                if isinstance(link, dict) and isinstance(link.get("node"), str) and link["node"]:
+                    edges.append((source, idx, link["node"]))
+    return edges
 
 
 def _outgoing(
@@ -199,6 +240,12 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
     if not isinstance(nodes, list):
         errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "nodes must be list"))
         return {"status": "FAIL", "errors": errors, "nodes": []}
+
+    names = [str(n.get("name") or "") for n in nodes]
+    if any(not n for n in names):
+        errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "node names must be non-empty"))
+    if len(names) != len(set(names)):
+        errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "duplicate node names rejected (closed-world)"))
 
     by_name = _nodes_by_name(nodes)
     ids = [str(n.get("id") or "") for n in nodes]
@@ -331,16 +378,56 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 )
             )
 
-    # Success-path edges for operational nodes.
+    # Agent maxIterations must be exactly 1 (consume cannot gate mid-loop retries).
+    for agent_name in AGENT_NODES_REQUIRING_MAX_ITERATIONS:
+        agent = by_name.get(agent_name)
+        if agent is None:
+            continue
+        params = agent.get("parameters") or {}
+        options = params.get("options") if isinstance(params.get("options"), dict) else {}
+        raw = options.get("maxIterations", params.get("maxIterations"))
+        if raw is None:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{agent_name} missing maxIterations (must be {REQUIRED_AGENT_MAX_ITERATIONS})",
+                )
+            )
+            continue
+        if not isinstance(raw, int) or isinstance(raw, bool):
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{agent_name} maxIterations must be an integer (boolean rejected)",
+                )
+            )
+            continue
+        if raw != REQUIRED_AGENT_MAX_ITERATIONS:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{agent_name} maxIterations must be {REQUIRED_AGENT_MAX_ITERATIONS} (got {raw})",
+                )
+            )
+
+    # Success-path edges for operational nodes (budget/permit/consume gates before providers).
     success_edges = [
-        ("Candidate Schema Validation", 0, "Implementer Agent"),
+        ("Manual Trigger", 0, "Candidate Intake"),
+        ("Candidate Intake", 0, "Candidate Schema Validation"),
+        ("Candidate Schema Validation", 0, "Open Pilot Budget"),
+        ("Open Pilot Budget", 0, "Provider Call Permit (Implementer)"),
+        ("Provider Call Permit (Implementer)", 0, "Provider Call Consume (Implementer)"),
+        ("Provider Call Consume (Implementer)", 0, "Implementer Agent"),
         ("Implementer Agent", 0, "Proposal Schema Validation"),
         ("Proposal Schema Validation", 0, "Proposal Freeze"),
         ("Proposal Freeze", 0, "Worker Authorize"),
         ("Worker Authorize", 0, "Worker Decision Router"),
+        ("Worker Decision Router", 0, "Worker AUTHORIZED Continue"),
         ("Worker AUTHORIZED Continue", 0, "Detached Worker Execute"),
         ("Detached Worker Execute", 0, "Execution Result Validation"),
-        ("Execution Result Validation", 0, "Independent Reviewer Agent"),
+        ("Execution Result Validation", 0, "Provider Call Permit (Reviewer)"),
+        ("Provider Call Permit (Reviewer)", 0, "Provider Call Consume (Reviewer)"),
+        ("Provider Call Consume (Reviewer)", 0, "Independent Reviewer Agent"),
         ("Independent Reviewer Agent", 0, "Independent Review Bind"),
         ("Independent Review Bind", 0, "Review Result Validation"),
         ("Review Result Validation", 0, "Finalization"),
@@ -353,6 +440,21 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 _err(
                     ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
                     f"missing success edge {source}[{out_idx}] → {dest}",
+                )
+            )
+
+    # Closed-world graph: reject extra main edges not in the allowlist.
+    allowed_main = set(REQUIRED_EDGES) | set(success_edges)
+    for out_idx, dest in WORKER_DECISION_TARGETS.items():
+        allowed_main.add(("Worker Decision Router", out_idx, dest))
+    for out_idx, dest in FAILURE_ROUTER_TARGETS.items():
+        allowed_main.add(("Failure Router", out_idx, dest))
+    for source, out_idx, dest in _all_main_edges(connections):
+        if (source, out_idx, dest) not in allowed_main:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"extra closed-world edge rejected: {source}[{out_idx}] → {dest}",
                 )
             )
 

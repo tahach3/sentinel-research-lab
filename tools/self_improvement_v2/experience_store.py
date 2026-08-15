@@ -222,6 +222,20 @@ class ExperienceStore:
         )
 
     def insert_review(self, review: dict[str, Any]) -> str:
+        # Zone P synthetic reviews must never land in the durable ledger basename.
+        if review.get("synthetic_control") is True:
+            if self.db_path.name == "self-improvement-v2.sqlite":
+                raise WorkerError(
+                    ERROR_CODES["ZONE_P_HARNESS"],
+                    "synthetic_control review refused on durable ledger basename",
+                    state="POLICY_REJECTED",
+                )
+            if not review.get("probe_id"):
+                raise WorkerError(
+                    ERROR_CODES["ZONE_P_HARNESS"],
+                    "synthetic_control review requires probe_id",
+                    state="POLICY_REJECTED",
+                )
         return self._insert_immutable(
             "review_snapshots",
             "review_id",

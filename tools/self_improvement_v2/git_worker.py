@@ -371,6 +371,39 @@ def source_tree_fingerprint(root: Path) -> str:
     return h.hexdigest()
 
 
+def index_fingerprint(root: Path) -> str:
+    """Fingerprint the Git index (staged + tracked modes/hashes via ls-files -s)."""
+    listing = run_git(["ls-files", "-s"], cwd=root, check=True).stdout
+    return hashlib.sha256(listing).hexdigest()
+
+
+def working_tree_content_fingerprint(root: Path) -> str:
+    """Fingerprint tracked file *working-tree bytes* (not only index object ids).
+
+    Unstaged edits to trusted paths are visible here even when `git ls-files -s`
+    (index) is unchanged.
+    """
+    listing = run_git(["ls-files", "-z"], cwd=root, check=True).stdout
+    paths = [p.decode("utf-8", errors="surrogateescape") for p in listing.split(b"\0") if p]
+    h = hashlib.sha256()
+    for rel in sorted(paths):
+        h.update(rel.encode("utf-8", errors="surrogateescape"))
+        h.update(b"\0")
+        file_path = root / rel
+        if file_path.is_file() and not file_path.is_symlink():
+            h.update(file_path.read_bytes())
+        else:
+            h.update(b"<missing-or-symlink>")
+        h.update(b"\0")
+    return h.hexdigest()
+
+
+def worktree_list_fingerprint(root: Path) -> str:
+    """Fingerprint `git worktree list --porcelain` for Wall reassertion."""
+    proc = run_git(["worktree", "list", "--porcelain"], cwd=root, check=True)
+    return hashlib.sha256(proc.stdout).hexdigest()
+
+
 def assert_source_unchanged(root: Path, before: str) -> None:
     after = source_tree_fingerprint(root)
     if after != before:

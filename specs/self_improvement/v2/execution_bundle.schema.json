@@ -214,6 +214,36 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 64
+    },
+    "synthetic_control": {
+      "type": "boolean",
+      "description": "Zone P synthetic probe marker."
+    },
+    "probe_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "Zone P probe identifier when synthetic_control is true."
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "synthetic_control": {
+            "const": true
+          }
+        },
+        "required": [
+          "synthetic_control"
+        ]
+      },
+      "then": {
+        "required": [
+          "probe_id"
+        ]
+      }
+    }
+  ]
 }
