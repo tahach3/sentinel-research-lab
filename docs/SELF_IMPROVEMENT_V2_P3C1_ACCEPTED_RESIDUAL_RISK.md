@@ -1,7 +1,9 @@
 # Accepted Residual Risk — One Supervised Docs-Only P3-C1
 
-**Status:** Decision artifact. Predates the pilot it governs.  
-**Authority:** Operator decision (Option A trust bar).  
+**Status:** Decision artifact. Predates the pilot it governs.
+
+**Authority:** Operator decision (Option A trust bar).
+
 **Authorization:** WITHHELD until independent Codex PASS on the HEAD later named in an authorization line. This file does **not** authorize a HEAD and must not be read as naming an authorized commit.
 
 ## Source findings
