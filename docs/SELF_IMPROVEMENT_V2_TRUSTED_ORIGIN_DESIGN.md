@@ -2,7 +2,7 @@
 
 **Status:** DECIDED — Option A with launcher refinements.  
 **Decision date:** 2026-08-15  
-**Implementation:** **HELD** until independent review verdict on `6f4f1e2..7dbbfa1` returns. Do not patch mid-flight.  
+**Implementation:** **HELD** until independent review verdict on `6f4f1e2..<dispatch-tip>` returns (`git rev-parse HEAD` at paste). Do not patch mid-flight.  
 **Pilot authorization:** still absent; this document does not authorize any HEAD.
 
 ## Decision
