@@ -1,17 +1,22 @@
 {
-  "schema_version": "2.0.0",
-  "description": "Reviewed content digests bound to reviewed_git_head for trusted Self-Improvement V2 modules.",
-  "reviewed_git_head": "28eb33fd94f2ce8d9c1818f685fbae1c12258ca1",
-  "combined": "eb81a4510fda49b5ac42a6b29bdaf3c56c997352a6bbba7342ae3bc6e0a21306",
-  "head_content_binding": "088906fd6cb672e7990ab397c7ff5b3ca796bf57f89ecdf0a67afff24f9e7e9b",
+  "schema_version": "2.1.0",
+  "description": "Content digests for closed Self-Improvement V2 bootstrap/execution manifest. Reviewed HEAD identity is supplied exclusively by SRL_REVIEWED_HEAD.",
+  "combined": "8fb94b2e4b2551b562b43e0380875dbb33873bcced485bb7287bba30852adc03",
   "modules": {
-    "tools.self_improvement_v2.trusted_origin": "64da5f578f5b1597ca1515cfcabc6955e81dd04175a2c8247bfc0bca61d4457f",
+    "tools.self_improvement_v2.trusted_origin": "ed58d6d2489d822b72f705e1bca605a59954d342e1b649627725bf35c65daa62",
+    "tools.self_improvement_v2.runtime_bridge": "6ff3a664a7ab0e34b8b4d73ffd82bf3d2476686b6ec11ae2ef91f1a2efbfc9cd",
+    "tools.self_improvement_v2.git_worker": "6e8c2698e47a062c297a5ef64b531d2ddbacadfc7e4d81e527f3b99bde0fe68f",
     "tools.self_improvement_v2.risk_authority": "e71030d3f1461d7b570f5cf24c0c6c1e7999655ff9f6958805d76f1024d93ae3",
     "tools.self_improvement_v2.review_gate": "50518cc7988ef2dc8bcc117380a1722a30dff6fa287c31834cf8d432577fab42",
     "tools.self_improvement_v2.patch_validator": "91f821683d976c0e32c997d34276a631b176a38e2bd993c8dd45c31715c9bbc0",
     "tools.self_improvement_v2.finalizer": "bf80dd9dd1879a1a9e8bb7bff0573658133fc94b34a73ea3a94551da5dc2492b",
-    "tools.self_improvement_v2.workflow_validator": "ec094cb85072fbdb9570df7a22ef13f18adbe50b15648416e39c86ef4c60558f",
+    "tools.self_improvement_v2.workflow_validator": "a5908e423fbe6bd8de8601997d813075bb3f6dbdb1184af060b4e761d0e135b2",
+    "tools.self_improvement_v2.agent_runtime_contract": "9cf8ccc6cf1534fce9e6293d53d8a09c54e9dd3f703227f254492e48ee9d6dbe",
     "tools.self_improvement_v2.path_policy": "558bab192216c5c32fcde032bc8d2e8349a66f07616b905d0ae2d9cfa6a54390",
-    "tools.self_improvement_v2.pilot_budget": "cb95adeed9dee0957031b0c5d36e7fdcc79bf48d7da6601bac92a1bf516037b2"
+    "tools.self_improvement_v2.pilot_budget": "03c191158a3149d3dd47fc89d0776ccb5be5bb2b2f5c470876ed955bb2226da7",
+    "tools.self_improvement_v2.runtime_config": "d617e80773f5378fd48a07ac9e5dab724217a54ba0587a14a30c5cf6525900ef",
+    "tools.self_improvement_v2.schema_loader": "864f4dcb4a2ae82d13fec941d5d368a9bf68b241afeee231d8e62108cf5bd78f",
+    "tools.self_improvement_v2.canonical": "eaac859f50435803bfd6b7155c94106167aff3812fdaf24a4d9bc754e69c21c8",
+    "tools.self_improvement_v2.models": "47556c3eb0fef59c2b30ae0233ab8224d9a266d61b2f58f32549706cbf3ed5b3"
   }
 }

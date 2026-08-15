@@ -46,7 +46,7 @@ from tools.self_improvement_v2.runtime_config import (
     redact_log_text,
 )
 from tools.self_improvement_v2.schema_loader import ensure_schema_version, validate_instance
-from tools.self_improvement_v2.trusted_origin import assert_trusted_code_origin
+from tools.self_improvement_v2.trusted_origin import gated_assert_trusted_code_origin as assert_trusted_code_origin
 from tools.self_improvement_v2.wall_reassert import (
     REQUIRED_WALL_KEYS,
     assert_wall_artifacts_unchanged,
@@ -68,6 +68,7 @@ HEALTH_BODY = {
         "budget-open",
         "provider-call-permit",
         "provider-call-consume",
+        "provider-call-authorize",
         "bind-review",
         "wall-reassert",
     ],
@@ -109,6 +110,7 @@ _CONSUME_FIELDS = frozenset(
         "model",
     }
 )
+_AUTHORIZE_CALL_FIELDS = frozenset({"session_id", "role", "permit_nonce", "invocation_evidence"})
 _BIND_REVIEW_FIELDS = frozenset({"review"})
 _WALL_CAPTURE_FIELDS = frozenset({"workflow_fingerprint"})
 _WALL_ASSERT_FIELDS = frozenset({"before", "workflow_fingerprint"})
@@ -404,11 +406,17 @@ def provider_call_permit_operation(registry: PilotBudgetRegistry, payload: dict[
     call_params = payload.get("call_params")
     if call_params is not None and not isinstance(call_params, dict):
         raise WorkerError(ERROR_CODES["SCHEMA_INVALID"], "call_params must be an object", state="POLICY_REJECTED")
+    max_in = None
+    max_out = None
+    if payload.get("max_input_tokens") is not None:
+        max_in = _budget_int_field(payload, "max_input_tokens", 0)
+    if payload.get("max_output_tokens") is not None:
+        max_out = _budget_int_field(payload, "max_output_tokens", 0)
     permit = registry.request_call_permit(
         session_id,
         role=role,
-        max_input_tokens=int(payload["max_input_tokens"]) if payload.get("max_input_tokens") is not None else None,
-        max_output_tokens=int(payload["max_output_tokens"]) if payload.get("max_output_tokens") is not None else None,
+        max_input_tokens=max_in,
+        max_output_tokens=max_out,
         call_params=call_params,
     )
     return {"status": "PASS", "permit": permit}
@@ -438,21 +446,44 @@ def provider_call_consume_operation(registry: PilotBudgetRegistry, payload: dict
         ("credential_reference", credential_reference),
         ("model", model),
     ):
-        if value is not None and not isinstance(value, str):
+        if not isinstance(value, str) or not value.strip():
             raise WorkerError(
                 ERROR_CODES["PILOT_PERMIT_INVALID"],
-                f"{label} must be a string",
+                f"{label} required",
                 state="POLICY_REJECTED",
             )
     consumed = registry.consume_call_permit(
         session_id,
         permit_nonce=permit_nonce,
         role=role,
-        provider=provider if isinstance(provider, str) else None,
-        credential_reference=credential_reference if isinstance(credential_reference, str) else None,
-        model=model if isinstance(model, str) else None,
+        provider=provider,
+        credential_reference=credential_reference,
+        model=model,
+        require_identity=True,
     )
-    return {"status": "PASS", "consume": consumed}
+    # Server-owned one-shot invocation evidence (not self-reported transport proof alone).
+    evidence = registry.issue_invocation_evidence(session_id, permit_nonce=permit_nonce, role=role)
+    return {"status": "PASS", "consume": consumed, "invocation_evidence": evidence}
+
+
+def provider_call_authorize_operation(registry: PilotBudgetRegistry, payload: dict[str, Any]) -> dict[str, Any]:
+    """One-shot post-consume authorization bound to server-issued invocation evidence."""
+    _reject_unknown_and_forbidden(payload, _AUTHORIZE_CALL_FIELDS)
+    session_id = payload.get("session_id")
+    role = payload.get("role")
+    permit_nonce = payload.get("permit_nonce")
+    evidence = payload.get("invocation_evidence")
+    if not isinstance(session_id, str) or not session_id:
+        raise WorkerError(ERROR_CODES["PILOT_BUDGET_INVALID"], "session_id required", state="POLICY_REJECTED")
+    if not isinstance(role, str) or not role:
+        raise WorkerError(ERROR_CODES["PILOT_BUDGET_INVALID"], "role required", state="POLICY_REJECTED")
+    if not isinstance(permit_nonce, str) or not permit_nonce:
+        raise WorkerError(ERROR_CODES["PILOT_PERMIT_INVALID"], "permit_nonce required", state="POLICY_REJECTED")
+    if not isinstance(evidence, str) or not evidence:
+        raise WorkerError(ERROR_CODES["PILOT_PERMIT_INVALID"], "invocation_evidence required", state="POLICY_REJECTED")
+    registry.assert_invocation_evidence(session_id, permit_nonce=permit_nonce, role=role, evidence=evidence)
+    registry.assert_provider_call_authorized(session_id, role=role, permit_nonce=permit_nonce)
+    return {"status": "PASS", "authorized": True}
 
 
 def bind_review_operation(config: RuntimeConfig, payload: dict[str, Any]) -> dict[str, Any]:
@@ -568,6 +599,7 @@ class WorkerBridge:
                 "/v2/budget/open",
                 "/v2/provider-call-permit",
                 "/v2/provider-call-consume",
+                "/v2/provider-call-authorize",
                 "/v2/bind-review",
                 "/v2/wall/capture",
                 "/v2/wall/assert",
@@ -607,6 +639,9 @@ class WorkerBridge:
                 if path == "/v2/provider-call-consume":
                     return _json_bytes(provider_call_consume_operation(self.budget_registry, payload))
 
+                if path == "/v2/provider-call-authorize":
+                    return _json_bytes(provider_call_authorize_operation(self.budget_registry, payload))
+
                 if path == "/v2/bind-review":
                     return _json_bytes(bind_review_operation(self.config, payload))
 
@@ -640,9 +675,12 @@ class WorkerBridge:
 
             return _error(ERROR_CODES["POLICY_REJECTED"], "unknown endpoint", status=404)
         except WorkerError as exc:
-            auth_failure = any(
-                marker in exc.message.lower()
-                for marker in ("authorization", "token", "bearer")
+            msg = exc.message.lower()
+            auth_failure = (
+                "missing authorization" in msg
+                or "invalid authorization" in msg
+                or "invalid token" in msg
+                or "bearer" in msg
             )
             status = 401 if auth_failure else 400
             return _error(exc.code, exc.message, status=status, state=exc.state)

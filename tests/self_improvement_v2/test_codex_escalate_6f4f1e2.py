@@ -31,6 +31,7 @@ from tools.self_improvement_v2.pilot_budget import (
 from tools.self_improvement_v2.runtime_bridge import (
     open_budget_operation,
     provider_call_consume_operation,
+    provider_call_permit_operation,
 )
 from tools.self_improvement_v2.schema_loader import worker_package_root
 from tools.self_improvement_v2.trusted_origin import (
@@ -187,18 +188,11 @@ def test_r5_real_repo_env_final_head_accepts_omitting_reviewed_head_rejects(
     """Env root + final HEAD accept; omitting SRL_REVIEWED_HEAD rejects."""
     root = worker_package_root()
     live = _git(root, "rev-parse", "HEAD").stdout.strip()
-    pin = json.loads((root / PIN_REL).read_text(encoding="utf-8"))
-    reviewed = pin["reviewed_git_head"]
     monkeypatch.setenv(ENV_REPOSITORY_ROOT, str(root))
-    # Final tip form (pin-only successor allowed when trusted modules match pin head).
     monkeypatch.setenv(ENV_REVIEWED_HEAD, live)
     result = assert_trusted_code_origin()
     assert Path(result["install_root"]).resolve() == root.resolve()
-    assert result["reviewed_git_head"] == reviewed
-
-    # Primary bind form: launcher names pin.reviewed_git_head.
-    monkeypatch.setenv(ENV_REVIEWED_HEAD, reviewed)
-    assert_trusted_code_origin()
+    assert result["reviewed_git_head"] == live
 
     monkeypatch.delenv(ENV_REVIEWED_HEAD, raising=False)
     with pytest.raises(TrustedOriginError) as exc:
@@ -208,6 +202,8 @@ def test_r5_real_repo_env_final_head_accepts_omitting_reviewed_head_rejects(
 
 def test_r5_trusted_origin_module_is_pinned() -> None:
     assert "tools.self_improvement_v2.trusted_origin" in TRUSTED_MODULE_NAMES
+    assert "tools.self_improvement_v2.runtime_bridge" in TRUSTED_MODULE_NAMES
+    assert "tools.self_improvement_v2.git_worker" in TRUSTED_MODULE_NAMES
 
 
 def test_f5_boolean_budget_fields_rejected_via_runtime_bridge() -> None:
@@ -292,3 +288,47 @@ def test_f4_consume_validates_provider_model_credential_binding() -> None:
     )
     assert consumed["status"] == "PASS"
     assert consumed["consume"]["status"] == "CONSUMED"
+
+
+def test_f3_omit_identity_rejects_without_burning_nonce() -> None:
+    """Omitted provider/model/credential must reject without consuming the nonce."""
+    reg = PilotBudgetRegistry()
+    session = reg.open_session(session_id="f3-omit-id")
+    permit = reg.request_call_permit(session.session_id, role="implementer")
+    identity = ROLE_BOUND_IDENTITY["implementer"]
+    with pytest.raises((BudgetError, WorkerError)) as exc:
+        provider_call_consume_operation(
+            reg,
+            {
+                "session_id": session.session_id,
+                "role": "implementer",
+                "permit_nonce": permit["permit_nonce"],
+            },
+        )
+    assert exc.value.code == ERROR_CODES["PILOT_PERMIT_INVALID"]
+    # Nonce still consumable with correct identity.
+    consumed = provider_call_consume_operation(
+        reg,
+        {
+            "session_id": session.session_id,
+            "role": "implementer",
+            "permit_nonce": permit["permit_nonce"],
+            "provider": identity["provider"],
+            "model": identity["model"],
+            "credential_reference": identity["credential_reference"],
+        },
+    )
+    assert consumed["status"] == "PASS"
+    assert "invocation_evidence" in consumed
+
+
+def test_f5_permit_boolean_token_fields_rejected() -> None:
+    reg = PilotBudgetRegistry()
+    session = reg.open_session(session_id="f5-bool-permit")
+    for field, value in (("max_input_tokens", True), ("max_output_tokens", True), ("max_input_tokens", False)):
+        with pytest.raises((BudgetError, WorkerError)) as exc:
+            provider_call_permit_operation(
+                reg,
+                {"session_id": session.session_id, "role": "implementer", field: value},
+            )
+        assert exc.value.code == ERROR_CODES["PILOT_BUDGET_INVALID"]

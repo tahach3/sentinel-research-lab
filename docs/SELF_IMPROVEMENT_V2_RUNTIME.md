@@ -15,6 +15,8 @@ n8n (when configured) calls this bridge for deterministic local operations:
 | `GET` | `/v2/executions/<execution_id>` | Execution status (paths redacted) |
 | `POST` | `/v2/budget/open` | Open a pilot budget session (cost-by-construction assert) |
 | `POST` | `/v2/provider-call-permit` | Grant one provider-call permit (refuses 7th call / wall-clock) |
+| `POST` | `/v2/provider-call-consume` | Consume permit with mandatory provider/model/credential identity |
+| `POST` | `/v2/provider-call-authorize` | One-shot authorize bound to server-issued invocation evidence |
 | `POST` | `/v2/wall/capture` | Capture tracked-tree / index / worktree-list fingerprints |
 | `POST` | `/v2/wall/assert` | Reassert Wall fingerprints unchanged |
 
@@ -35,7 +37,8 @@ Trusted security modules must load from the worker install. Worktree-derived `sy
 
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `SRL_REPOSITORY_ROOT` | yes | Must resolve to a `sentinel-research-lab` checkout |
+| `SRL_REPOSITORY_ROOT` | yes | Absolute path to the reviewed git checkout (launcher-supplied) |
+| `SRL_REVIEWED_HEAD` | yes | Full commit SHA for this launch (launcher-supplied; pin does not claim HEAD) |
 | `SRL_STATE_DB` | yes | SQLite file **outside** tracked repository files |
 | `SRL_WORKER_TOKEN` | yes | Bearer token; never commit or print |
 | `SRL_WORKER_HOST` | no | Default `127.0.0.1` (loopback only) |
@@ -124,3 +127,13 @@ Workflow material comparison (A14): `workflow_normalizer` with explicit `MATERIA
 - Push, merge, or remote publish
 - Public bind or production URLs
 - SENTINEL / Equitify access
+
+
+## Trusted-origin launcher anchors (mandatory)
+
+The worker fails closed unless both are set by the external launcher:
+
+- `SRL_REPOSITORY_ROOT` — absolute path to the reviewed git checkout
+- `SRL_REVIEWED_HEAD` — full commit SHA authorized for this launch
+
+Do not derive either from CWD or package root. See `docs/SELF_IMPROVEMENT_V2_TRUSTED_ORIGIN_DESIGN.md` (Option A+).

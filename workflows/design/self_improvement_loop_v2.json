@@ -434,7 +434,7 @@
       "main": [
         [
           {
-            "node": "Proposal Schema Validation",
+            "node": "Provider Call Authorize (Implementer)",
             "type": "main",
             "index": 0
           }
@@ -456,7 +456,7 @@
       "main": [
         [
           {
-            "node": "Independent Review Bind",
+            "node": "Provider Call Authorize (Reviewer)",
             "type": "main",
             "index": 0
           }
@@ -562,6 +562,42 @@
         [
           {
             "node": "Independent Reviewer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider Call Authorize (Implementer)": {
+      "main": [
+        [
+          {
+            "node": "Proposal Schema Validation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider Call Authorize (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Independent Review Bind",
             "type": "main",
             "index": 0
           }
@@ -1214,7 +1250,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'implementer', permit_nonce: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).permit_nonce })}}",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'implementer', permit_nonce: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).permit_nonce, provider: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).provider, model: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).model, credential_reference: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).credential_reference })}}",
         "options": {}
       },
       "id": "provider-call-consume-implementer",
@@ -1268,7 +1304,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'reviewer', permit_nonce: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).permit_nonce })}}",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'reviewer', permit_nonce: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).permit_nonce, provider: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).provider, model: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).model, credential_reference: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).credential_reference })}}",
         "options": {}
       },
       "id": "provider-call-consume-reviewer",
@@ -1379,6 +1415,60 @@
           "name": "SRL Independent Reviewer \u2014 Groq"
         }
       }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/provider-call-authorize",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'implementer', permit_nonce: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).permit_nonce, invocation_evidence: ($('Provider Call Consume (Implementer)').item.json.invocation_evidence || ($('Provider Call Consume (Implementer)').item.json.consume || {}).invocation_evidence || $('Provider Call Consume (Implementer)').item.json).invocation_evidence })}",
+        "options": {}
+      },
+      "id": "provider-call-authorize-implementer",
+      "name": "Provider Call Authorize (Implementer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        750,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/provider-call-authorize",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'reviewer', permit_nonce: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).permit_nonce, invocation_evidence: ($('Provider Call Consume (Reviewer)').item.json.invocation_evidence || ($('Provider Call Consume (Reviewer)').item.json.consume || {}).invocation_evidence || $('Provider Call Consume (Reviewer)').item.json).invocation_evidence })}",
+        "options": {}
+      },
+      "id": "provider-call-authorize-reviewer",
+      "name": "Provider Call Authorize (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2140,
+        -240
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
     }
   ]
 }

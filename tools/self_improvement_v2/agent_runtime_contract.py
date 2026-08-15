@@ -43,6 +43,8 @@ PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME = "Provider Call Permit (Implementer)
 PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME = "Provider Call Permit (Reviewer)"
 PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME = "Provider Call Consume (Implementer)"
 PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME = "Provider Call Consume (Reviewer)"
+PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME = "Provider Call Authorize (Implementer)"
+PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME = "Provider Call Authorize (Reviewer)"
 ANNOTATE_BUDGET_DENIED_NODE_NAME = "Annotate Budget Denied"
 REQUIRED_AGENT_MAX_ITERATIONS = 1
 
@@ -63,6 +65,7 @@ HEALTH_PATH = "/health"
 BUDGET_OPEN_PATH = "/v2/budget/open"
 PROVIDER_CALL_PERMIT_PATH = "/v2/provider-call-permit"
 PROVIDER_CALL_CONSUME_PATH = "/v2/provider-call-consume"
+PROVIDER_CALL_AUTHORIZE_PATH = "/v2/provider-call-authorize"
 BIND_REVIEW_PATH = "/v2/bind-review"
 INDEPENDENT_REVIEW_BIND_NODE_NAME = "Independent Review Bind"
 
@@ -510,6 +513,8 @@ def assert_workflow_agent_wiring(
     permit_rev = by_name.get(PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME)
     consume_impl = by_name.get(PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME)
     consume_rev = by_name.get(PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME)
+    authorize_impl = by_name.get(PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME)
+    authorize_rev = by_name.get(PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME)
     budget_denied = by_name.get(ANNOTATE_BUDGET_DENIED_NODE_NAME)
     bind_review = by_name.get(INDEPENDENT_REVIEW_BIND_NODE_NAME)
 
@@ -524,6 +529,8 @@ def assert_workflow_agent_wiring(
         (PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME, permit_rev),
         (PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME, consume_impl),
         (PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME, consume_rev),
+        (PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, authorize_impl),
+        (PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, authorize_rev),
         (ANNOTATE_BUDGET_DENIED_NODE_NAME, budget_denied),
         (INDEPENDENT_REVIEW_BIND_NODE_NAME, bind_review),
     ):
@@ -552,6 +559,8 @@ def assert_workflow_agent_wiring(
         (PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME, permit_rev),
         (PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME, consume_impl),
         (PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME, consume_rev),
+        (PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, authorize_impl),
+        (PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, authorize_rev),
     ):
         if node.get("type") != HTTP_REQUEST_NODE_TYPE:
             raise AgentRuntimeContractError(f"{label} must be HTTP Request")
@@ -590,6 +599,8 @@ def assert_workflow_agent_wiring(
         (PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME, permit_rev),
         (PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME, consume_impl),
         (PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME, consume_rev),
+        (PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, authorize_impl),
+        (PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, authorize_rev),
         (INDEPENDENT_REVIEW_BIND_NODE_NAME, bind_review),
     ):
         cred = _credential_name(node, WORKER_HEADER_AUTH_CREDENTIAL_TYPE)
@@ -616,6 +627,12 @@ def assert_workflow_agent_wiring(
         consume_rev, PROVIDER_CALL_CONSUME_PATH, PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME
     )
     _assert_http_post_loopback_path(
+        authorize_impl, PROVIDER_CALL_AUTHORIZE_PATH, PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME
+    )
+    _assert_http_post_loopback_path(
+        authorize_rev, PROVIDER_CALL_AUTHORIZE_PATH, PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME
+    )
+    _assert_http_post_loopback_path(
         bind_review, BIND_REVIEW_PATH, INDEPENDENT_REVIEW_BIND_NODE_NAME
     )
     # Hardcoded review_ok must never appear — Groq/review_gate verdict must matter.
@@ -623,6 +640,55 @@ def assert_workflow_agent_wiring(
         raise AgentRuntimeContractError(
             "Independent Review Bind must not hardcode review_ok:true; use worker review_gate"
         )
+
+    # Authority/control nodes must not be disabled (n8n passthrough).
+    for label, node in (
+        (OPEN_PILOT_BUDGET_NODE_NAME, open_budget),
+        (PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME, permit_impl),
+        (PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME, permit_rev),
+        (PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME, consume_impl),
+        (PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME, consume_rev),
+        (WORKER_AUTHORIZE_NODE_NAME, authorize),
+        (INDEPENDENT_REVIEW_BIND_NODE_NAME, bind_review),
+        (IMPLEMENTER_NODE_NAME, implementer),
+        (REVIEWER_NODE_NAME, reviewer),
+    ):
+        if "disabled" in node and node.get("disabled") is not False:
+            if not isinstance(node.get("disabled"), bool):
+                raise AgentRuntimeContractError(f"{label} disabled must be boolean when present")
+            if node.get("disabled") is True:
+                raise AgentRuntimeContractError(f"{label} must not be disabled (authority/control node)")
+
+    decision = by_name.get("Worker Decision Router")
+    if decision is None:
+        raise AgentRuntimeContractError("missing wired node: Worker Decision Router")
+    if decision.get("disabled") is True:
+        raise AgentRuntimeContractError("Worker Decision Router must not be disabled")
+    dparams = decision.get("parameters") or {}
+    if dparams.get("output") != "={{$json.worker_decision}}":
+        raise AgentRuntimeContractError(
+            "Worker Decision Router output selector must be ={{$json.worker_decision}}"
+        )
+    rules_obj = dparams.get("rules") if isinstance(dparams.get("rules"), dict) else {}
+    rules = rules_obj.get("rules") if isinstance(rules_obj.get("rules"), list) else []
+    values = tuple(str(r.get("value") or "") for r in rules if isinstance(r, dict))
+    if values != ("AUTHORIZED", "DECISION_REQUIRED", "POLICY_REJECTED"):
+        raise AgentRuntimeContractError(
+            "Worker Decision Router rules must be AUTHORIZED, DECISION_REQUIRED, POLICY_REJECTED in order"
+        )
+
+    # Consume bodies must carry server-owned provider/model/credential identity.
+    for label, node, role in (
+        (PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME, consume_impl, "implementer"),
+        (PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME, consume_rev, "reviewer"),
+    ):
+        body = str((node.get("parameters") or {}).get("jsonBody") or "")
+        for key in ("provider", "model", "credential_reference"):
+            if key not in body:
+                raise AgentRuntimeContractError(
+                    f"{label} jsonBody must include {key} (mandatory consume identity)"
+                )
+
 
     # Chat model options must bind provider_call_params / token ceilings (permit not advisory).
     for label, node, permit_name in (
@@ -680,8 +746,16 @@ def assert_workflow_agent_wiring(
         raise AgentRuntimeContractError(
             "Implementer Agent must not bypass budget/permit gates"
         )
-    if not _has_main_edge(connections, IMPLEMENTER_NODE_NAME, "Proposal Schema Validation"):
-        raise AgentRuntimeContractError("Implementer Agent must feed Proposal Schema Validation")
+    if not _has_main_edge(connections, IMPLEMENTER_NODE_NAME, PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME):
+        raise AgentRuntimeContractError(
+            "Implementer Agent must feed Provider Call Authorize (Implementer)"
+        )
+    if not _has_main_edge(
+        connections, PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, "Proposal Schema Validation"
+    ):
+        raise AgentRuntimeContractError(
+            "Provider Call Authorize (Implementer) must feed Proposal Schema Validation"
+        )
     if not _has_main_edge(
         connections, "Execution Result Validation", PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME
     ):
@@ -710,9 +784,15 @@ def assert_workflow_agent_wiring(
         raise AgentRuntimeContractError(
             "Independent Reviewer Agent must not bypass provider-call-permit"
         )
-    if not _has_main_edge(connections, REVIEWER_NODE_NAME, "Independent Review Bind"):
+    if not _has_main_edge(connections, REVIEWER_NODE_NAME, PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME):
         raise AgentRuntimeContractError(
-            "Independent Reviewer Agent must feed Independent Review Bind"
+            "Independent Reviewer Agent must feed Provider Call Authorize (Reviewer)"
+        )
+    if not _has_main_edge(
+        connections, PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, "Independent Review Bind"
+    ):
+        raise AgentRuntimeContractError(
+            "Provider Call Authorize (Reviewer) must feed Independent Review Bind"
         )
     if not _has_main_edge(connections, OPEN_PILOT_BUDGET_NODE_NAME, ANNOTATE_BUDGET_DENIED_NODE_NAME):
         raise AgentRuntimeContractError("budget open deny must route to Annotate Budget Denied")

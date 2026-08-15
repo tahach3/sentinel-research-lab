@@ -129,6 +129,18 @@ def open_budget_hard_caps(
         )
 
 
+def strict_nonneg_int(value: Any, *, field: str) -> int:
+    """Reject bools and non-integers; never coerce JSON true/false via int()."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise BudgetError(
+            f"{field} must be an integer (boolean rejected)",
+            code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+        )
+    if value < 0:
+        raise BudgetError(f"{field} must be >= 0", code=ERROR_CODES["PILOT_BUDGET_INVALID"])
+    return value
+
+
 def worst_case_cost_usd(
     *,
     max_input_tokens: int,
@@ -201,11 +213,18 @@ def provider_call_params_with_token_ceiling(
         )
     out = dict(params or {})
     ceiling = int(max_output_tokens)
-    conflicts = [
-        key
-        for key in TOKEN_ALIASES
-        if key in out and int(out[key]) != ceiling
-    ]
+    conflicts = []
+    for key in TOKEN_ALIASES:
+        if key not in out:
+            continue
+        raw = out[key]
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            raise BudgetError(
+                f"{key} must be an integer (boolean rejected)",
+                code=ERROR_CODES["PILOT_BUDGET_INVALID"],
+            )
+        if raw != ceiling:
+            conflicts.append(key)
     if conflicts:
         raise BudgetError(
             f"token alias conflict for {', '.join(conflicts)} vs max_output_tokens={ceiling}",
@@ -263,6 +282,8 @@ class IssuedPermit:
     permit_number: int
     consumed: bool = False
     authorization_spent: bool = False
+    invocation_evidence: str | None = None
+    evidence_spent: bool = False
 
 
 @dataclass
@@ -395,8 +416,14 @@ class PilotBudgetRegistry:
                     code=ERROR_CODES["PILOT_CALL_LIMIT"],
                 )
 
-            out_tokens = int(max_output_tokens if max_output_tokens is not None else session.max_output_tokens)
-            in_tokens = int(max_input_tokens if max_input_tokens is not None else session.max_input_tokens)
+            out_tokens = strict_nonneg_int(
+                session.max_output_tokens if max_output_tokens is None else max_output_tokens,
+                field="max_output_tokens",
+            )
+            in_tokens = strict_nonneg_int(
+                session.max_input_tokens if max_input_tokens is None else max_input_tokens,
+                field="max_input_tokens",
+            )
             if out_tokens > session.max_output_tokens or in_tokens > session.max_input_tokens:
                 raise BudgetError(
                     "call token ceiling exceeds session construction bounds",
@@ -469,6 +496,7 @@ class PilotBudgetRegistry:
         provider: str | None = None,
         credential_reference: str | None = None,
         model: str | None = None,
+        require_identity: bool = False,
     ) -> dict[str, Any]:
         """Atomically validate identity binding and consume a single-use permit nonce."""
         if role not in PERMIT_ROLES:
@@ -508,6 +536,11 @@ class PilotBudgetRegistry:
                 ("credential_reference", credential_reference, identity["credential_reference"]),
                 ("model", model, identity["model"]),
             ):
+                if require_identity and (actual is None or actual == ""):
+                    raise BudgetError(
+                        f"permit {label} required",
+                        code=ERROR_CODES["PILOT_PERMIT_INVALID"],
+                    )
                 if actual is not None and actual != expected:
                     raise BudgetError(
                         f"permit {label} mismatch vs server-owned role identity",
@@ -603,6 +636,63 @@ class PilotBudgetRegistry:
                 )
             # Atomic consume-and-authorize: this assert is the one-shot gate.
             issued.authorization_spent = True
+
+
+    def issue_invocation_evidence(
+        self,
+        session_id: str,
+        *,
+        permit_nonce: str,
+        role: str,
+    ) -> str:
+        """Mint server-owned one-shot evidence after a successful consume."""
+        with self._lock:
+            issued = self._permits.get(permit_nonce)
+            if (
+                issued is None
+                or issued.session_id != session_id
+                or issued.role != role
+                or not issued.consumed
+            ):
+                raise BudgetError(
+                    "invocation evidence requires a consumed permit",
+                    code=ERROR_CODES["PILOT_PERMIT_INVALID"],
+                )
+            if issued.invocation_evidence is None:
+                issued.invocation_evidence = secrets.token_urlsafe(24)
+            return issued.invocation_evidence
+
+    def assert_invocation_evidence(
+        self,
+        session_id: str,
+        *,
+        permit_nonce: str,
+        role: str,
+        evidence: str,
+    ) -> None:
+        with self._lock:
+            issued = self._permits.get(permit_nonce)
+            if (
+                issued is None
+                or issued.session_id != session_id
+                or issued.role != role
+                or not issued.consumed
+            ):
+                raise BudgetError(
+                    "invocation evidence rejected: consumed permit required",
+                    code=ERROR_CODES["PILOT_PERMIT_INVALID"],
+                )
+            if not issued.invocation_evidence or evidence != issued.invocation_evidence:
+                raise BudgetError(
+                    "invocation evidence mismatch",
+                    code=ERROR_CODES["PILOT_PERMIT_INVALID"],
+                )
+            if issued.evidence_spent:
+                raise BudgetError(
+                    "invocation evidence already spent",
+                    code=ERROR_CODES["PILOT_PERMIT_CONSUMED"],
+                )
+            issued.evidence_spent = True
 
     def close(self, session_id: str) -> None:
         with self._lock:

@@ -1,37 +1,46 @@
-"""Fail-closed trusted-code origin pin for Self-Improvement V2 worker modules.
+"""Fail-closed trusted-code origin pin for Self-Improvement V2 (Option A+).
 
 Trust requires separately authenticated launcher anchors:
   SRL_REPOSITORY_ROOT + SRL_REVIEWED_HEAD
 
-Authority is never derived from CWD, package root, or a self-consistent pin inside
-an arbitrary alternate checkout alone. The pin binds module content digests
-(including this verifier) to pin.reviewed_git_head, which must match SRL_REVIEWED_HEAD.
+The pin is content-digest attestation only (no reviewed HEAD claim). Authority for
+HEAD identity is exclusively the launcher. Bootstrap verifies pinned modules
+(including runtime_bridge + git_worker) via direct filesystem reads and raw git
+subprocess before trusting imported helpers.
 """
 
 from __future__ import annotations
 
 import hashlib
 import importlib
+import importlib.util
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Iterable
 
-from tools.self_improvement_v2.git_worker import run_git
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 
-# Verifier is authenticated with the other pinned modules (env anchors first).
+# Closed bootstrap / execution manifest (Option A+).
 TRUSTED_MODULE_NAMES = (
     "tools.self_improvement_v2.trusted_origin",
+    "tools.self_improvement_v2.runtime_bridge",
+    "tools.self_improvement_v2.git_worker",
     "tools.self_improvement_v2.risk_authority",
     "tools.self_improvement_v2.review_gate",
     "tools.self_improvement_v2.patch_validator",
     "tools.self_improvement_v2.finalizer",
     "tools.self_improvement_v2.workflow_validator",
+    "tools.self_improvement_v2.agent_runtime_contract",
     "tools.self_improvement_v2.path_policy",
     "tools.self_improvement_v2.pilot_budget",
+    "tools.self_improvement_v2.runtime_config",
+    "tools.self_improvement_v2.schema_loader",
+    "tools.self_improvement_v2.canonical",
+    "tools.self_improvement_v2.models",
 )
 
 PIN_REL = Path("specs/self_improvement/v2/trusted_origin_pin.json")
@@ -64,7 +73,6 @@ def _module_relpath(module_name: str) -> str:
 
 
 def _canonical_bytes(data: bytes) -> bytes:
-    """Normalize text to LF so Windows working-tree CRLF matches git blob digests."""
     return data.replace(b"\r\n", b"\n")
 
 
@@ -72,20 +80,25 @@ def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(_canonical_bytes(data)).hexdigest()
 
 
+def _raw_git(args: list[str], *, cwd: Path, check: bool = True) -> subprocess.CompletedProcess[bytes]:
+    proc = subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, check=False)
+    if check and proc.returncode != 0:
+        raise TrustedOriginError(f"git {' '.join(args)} failed in reviewed install")
+    return proc
+
+
 def _git_head(root: Path) -> str:
-    return run_git(["rev-parse", "HEAD"], cwd=root, check=True).stdout.decode("utf-8").strip()
+    return _raw_git(["rev-parse", "HEAD"], cwd=root, check=True).stdout.decode("utf-8").strip()
 
 
 def _git_blob_digest(root: Path, reviewed_head: str, rel: str) -> str:
-    """Digest of immutable git object bytes at reviewed_head:rel (not working tree)."""
-    proc = run_git(["show", f"{reviewed_head}:{rel}"], cwd=root, check=False)
+    proc = _raw_git(["show", f"{reviewed_head}:{rel}"], cwd=root, check=False)
     if proc.returncode != 0:
         raise TrustedOriginError(f"reviewed git blob missing: {reviewed_head}:{rel}")
     return _sha256_bytes(proc.stdout)
 
 
 def _require_launcher_anchors() -> tuple[Path, str]:
-    """Fail closed unless immutable externally supplied root + reviewed HEAD are present."""
     env_root = os.environ.get(ENV_REPOSITORY_ROOT, "").strip()
     if not env_root:
         raise TrustedOriginError(
@@ -96,6 +109,8 @@ def _require_launcher_anchors() -> tuple[Path, str]:
         raise TrustedOriginError(
             "SRL_REVIEWED_HEAD required (fail-closed; pin self-identity is not authority)"
         )
+    if any(ch in env_head for ch in ("\n", "\r", "\0", " ")):
+        raise TrustedOriginError("SRL_REVIEWED_HEAD must be a single canonical git object name")
     root = Path(env_root).expanduser().resolve()
     if not root.is_dir():
         raise TrustedOriginError("SRL_REPOSITORY_ROOT must be an existing directory")
@@ -108,7 +123,6 @@ def _require_launcher_anchors() -> tuple[Path, str]:
 
 
 def resolve_reviewed_install_root(explicit: Path | None = None) -> Path:
-    """Resolve install root solely from SRL_REPOSITORY_ROOT (never CWD / package root)."""
     root, _env_head = _require_launcher_anchors()
     if explicit is not None and Path(explicit).expanduser().resolve() != root:
         raise TrustedOriginError(
@@ -118,7 +132,6 @@ def resolve_reviewed_install_root(explicit: Path | None = None) -> Path:
 
 
 def module_tree_digest_at(root: Path, module_names: Iterable[str] = TRUSTED_MODULE_NAMES) -> tuple[str, dict[str, str]]:
-    """Digest trusted modules under root from on-disk bytes (no identity policy)."""
     per: dict[str, str] = {}
     h = hashlib.sha256()
     for name in module_names:
@@ -136,13 +149,11 @@ def module_tree_digest_at(root: Path, module_names: Iterable[str] = TRUSTED_MODU
 
 
 def trusted_modules_tree_digest(install_root: Path | None = None) -> tuple[str, dict[str, str]]:
-    """Return (combined digest, per-module sha256) under the reviewed install root."""
     root = resolve_reviewed_install_root(install_root)
     return module_tree_digest_at(root)
 
 
 def head_content_binding_digest(reviewed_head: str, content_combined: str) -> str:
-    """Cryptographically bind reviewed HEAD to the trusted module content digest."""
     h = hashlib.sha256()
     h.update(reviewed_head.encode("ascii"))
     h.update(b"\0")
@@ -152,14 +163,10 @@ def head_content_binding_digest(reviewed_head: str, content_combined: str) -> st
 
 
 def trusted_modules_git_head_digest(install_root: Path | None = None) -> str:
-    """HEAD-bound digest anchoring trusted modules to the reviewed commit."""
     root = resolve_reviewed_install_root(install_root)
     content, _ = trusted_modules_tree_digest(root)
-    pin = load_trusted_origin_pin(root)
-    reviewed_head = pin.get("reviewed_git_head")
-    if not isinstance(reviewed_head, str) or len(reviewed_head) < 40:
-        raise TrustedOriginError("trusted origin pin missing reviewed_git_head")
-    return head_content_binding_digest(reviewed_head, content)
+    _root, env_head = _require_launcher_anchors()
+    return head_content_binding_digest(env_head, content)
 
 
 def load_trusted_origin_pin(install_root: Path | None = None) -> dict[str, Any]:
@@ -206,7 +213,6 @@ def assert_no_worktree_on_sys_path(
 
 
 def reject_worktree_as_import_root(candidate: Path, *, install_root: Path | None = None) -> None:
-    """Reject alternate checkout/worktree roots by verified identity (not only name markers)."""
     root = resolve_reviewed_install_root(install_root)
     cand = candidate.resolve()
     if cand == root:
@@ -222,20 +228,39 @@ def reject_worktree_as_import_root(candidate: Path, *, install_root: Path | None
         raise TrustedOriginError("import root is not the reviewed worker install")
 
 
+def _reject_forged_preloaded_verifier(root: Path, expected_digest: str) -> None:
+    name = "tools.self_improvement_v2.trusted_origin"
+    rel = _module_relpath(name)
+    disk_path = (root / rel).resolve()
+    disk_digest = _sha256_bytes(disk_path.read_bytes())
+    if disk_digest != expected_digest:
+        raise TrustedOriginError("trusted_origin on-disk digest mismatch vs pin")
+    existing = sys.modules.get(name)
+    if existing is None:
+        return
+    path = _module_file(existing)
+    if path is None or path != disk_path:
+        raise TrustedOriginError("preloaded trusted_origin module origin rejected")
+    # Compare the *loaded module file bytes* — forged modules often point __file__
+    # at a different path; if __file__ matches disk but code was replaced in-memory,
+    # still require disk digest == pin (already checked) and reject if module was
+    # injected without coming from that file (no __spec__.origin match).
+    origin = getattr(getattr(existing, "__spec__", None), "origin", None)
+    if origin and Path(origin).resolve() != disk_path:
+        raise TrustedOriginError("preloaded forged trusted_origin rejected")
+    # If a different object was stuffed into sys.modules with a fake __file__ that
+    # somehow matched, compare sha of that path again.
+    loaded_digest = _sha256_bytes(path.read_bytes())
+    if loaded_digest != expected_digest:
+        raise TrustedOriginError("preloaded forged trusted_origin rejected")
+
+
 def assert_trusted_code_origin(
     *,
     install_root: Path | None = None,
     module_names: Iterable[str] = TRUSTED_MODULE_NAMES,
     explicit_forbidden_worktrees: Iterable[Path] | None = None,
 ) -> dict[str, Any]:
-    """Ensure security-critical modules resolve under the reviewed install and match the pin.
-
-    Bootstrap order (fail-closed):
-      1) require SRL_REPOSITORY_ROOT + SRL_REVIEWED_HEAD
-      2) bind pin.reviewed_git_head to SRL_REVIEWED_HEAD
-      3) verify all pinned modules (including trusted_origin) against pin + git blobs
-    """
-    # 1) Externally supplied anchors — never CWD / self-pinned shadow.
     root, env_head = _require_launcher_anchors()
     if install_root is not None:
         reject_worktree_as_import_root(Path(install_root), install_root=root)
@@ -246,45 +271,58 @@ def assert_trusted_code_origin(
     reject_worktree_as_import_root(root, install_root=root)
     assert_no_worktree_on_sys_path(explicit_forbidden=explicit_forbidden_worktrees)
 
-    # 2) Pin vs launcher reviewed HEAD (pin alone is not authority).
-    pin = load_trusted_origin_pin(root)
-    reviewed_head = pin.get("reviewed_git_head")
-    if not isinstance(reviewed_head, str) or len(reviewed_head) < 40:
-        raise TrustedOriginError("trusted origin pin missing reviewed_git_head")
+    pin = json.loads((root / PIN_REL).read_text(encoding="utf-8"))
+    if not isinstance(pin, dict):
+        raise TrustedOriginError("trusted origin pin must be an object")
+    reviewed_head = env_head
 
     live_head = _git_head(root)
+    names = tuple(dict.fromkeys((*module_names, *TRUSTED_MODULE_NAMES)))
     rels = [_module_relpath(name) for name in TRUSTED_MODULE_NAMES]
 
     def _no_trusted_module_drift(left: str, right: str) -> bool:
-        drifted = run_git(
-            ["diff", "--quiet", left, right, "--", *rels],
-            cwd=root,
-            check=False,
-        )
+        drifted = _raw_git(["diff", "--quiet", left, right, "--", *rels], cwd=root, check=False)
         return drifted.returncode == 0
 
-    if env_head == reviewed_head:
-        # Primary bind: launcher names the pin's reviewed content anchor.
-        if live_head != reviewed_head and not _no_trusted_module_drift(reviewed_head, live_head):
-            raise TrustedOriginError(
-                f"git HEAD {live_head} drifted trusted modules vs reviewed_git_head {reviewed_head}"
-            )
-    elif env_head == live_head and _no_trusted_module_drift(reviewed_head, live_head):
-        # Two-step pin successor: launcher may name final tip when trusted modules still
-        # match pin.reviewed_git_head blobs (pin-metadata-only commits after modules tip).
+    if env_head == live_head:
+        pass
+    elif _no_trusted_module_drift(env_head, live_head):
         pass
     else:
         raise TrustedOriginError(
-            "reviewed HEAD identity mismatch (SRL_REVIEWED_HEAD vs pin.reviewed_git_head)"
+            "reviewed HEAD identity mismatch (SRL_REVIEWED_HEAD vs install HEAD / module drift)"
         )
 
-    # 3) Authenticate verifier + other pinned modules (loaded bytes + pin + git blobs).
-    names = tuple(module_names)
-    if "tools.self_improvement_v2.trusted_origin" not in names:
-        names = ("tools.self_improvement_v2.trusted_origin", *names)
+    combined, per = module_tree_digest_at(root, TRUSTED_MODULE_NAMES)
+    expected_combined = pin.get("combined")
+    if not isinstance(expected_combined, str) or expected_combined != combined:
+        raise TrustedOriginError(
+            "trusted modules tree digest mismatch vs reviewed pin "
+            f"(expected {expected_combined}, got {combined})"
+        )
+    pin_modules = pin.get("modules") or {}
+    if not isinstance(pin_modules, dict):
+        raise TrustedOriginError("trusted origin pin modules must be an object")
+
+    for name, digest in per.items():
+        if pin_modules.get(name) != digest:
+            raise TrustedOriginError(f"trusted module digest mismatch for {name}")
+        rel = _module_relpath(name)
+        dirty = _raw_git(["diff", "--quiet", "HEAD", "--", rel], cwd=root, check=False)
+        if dirty.returncode != 0:
+            raise TrustedOriginError(f"trusted module dirty vs HEAD: {rel}")
+        blob_digest = _git_blob_digest(root, reviewed_head, rel)
+        if blob_digest != digest:
+            raise TrustedOriginError(
+                f"trusted module git blob at reviewed HEAD mismatches pin/file for {name}"
+            )
+
+    _reject_forged_preloaded_verifier(root, per["tools.self_improvement_v2.trusted_origin"])
 
     origins: dict[str, str] = {}
     for name in names:
+        if name not in TRUSTED_MODULE_NAMES:
+            continue
         module = sys.modules.get(name)
         if module is None:
             module = importlib.import_module(name)
@@ -301,39 +339,15 @@ def assert_trusted_code_origin(
             raise TrustedOriginError(
                 f"module {name} loaded from {path} but reviewed path is {expected_path}"
             )
-        origins[name] = str(path)
-
-    combined, per = module_tree_digest_at(root, TRUSTED_MODULE_NAMES)
-    expected_combined = pin.get("combined")
-    if not isinstance(expected_combined, str) or expected_combined != combined:
-        raise TrustedOriginError(
-            "trusted modules tree digest mismatch vs reviewed pin "
-            f"(expected {expected_combined}, got {combined})"
-        )
-    pin_modules = pin.get("modules") or {}
-    for name, digest in per.items():
-        if pin_modules.get(name) != digest:
-            raise TrustedOriginError(f"trusted module digest mismatch for {name}")
-        file_digest = _sha256_bytes(Path(origins[name]).read_bytes())
-        if file_digest != digest:
+        file_digest = _sha256_bytes(path.read_bytes())
+        if file_digest != per[name]:
             raise TrustedOriginError(f"loaded module bytes mismatch pin for {name}")
-
-    # Bind content digests to immutable git blobs at reviewed_git_head (== SRL_REVIEWED_HEAD).
-    for name, digest in per.items():
-        rel = _module_relpath(name)
-        dirty = run_git(["diff", "--quiet", "HEAD", "--", rel], cwd=root, check=False)
-        if dirty.returncode != 0:
-            raise TrustedOriginError(f"trusted module dirty vs HEAD: {rel}")
-        blob_digest = _git_blob_digest(root, reviewed_head, rel)
-        if blob_digest != digest:
-            raise TrustedOriginError(
-                f"trusted module git blob at reviewed HEAD mismatches pin/file for {name}"
-            )
+        origins[name] = str(path)
 
     binding = head_content_binding_digest(reviewed_head, combined)
     expected_binding = pin.get("head_content_binding")
-    if not isinstance(expected_binding, str) or expected_binding != binding:
-        raise TrustedOriginError("head_content_binding mismatch vs reviewed pin")
+    if isinstance(expected_binding, str) and expected_binding != binding:
+        raise TrustedOriginError("head_content_binding mismatch vs launcher-reviewed HEAD")
 
     return {
         "install_root": str(root),
@@ -344,3 +358,48 @@ def assert_trusted_code_origin(
         "reviewed_git_head": reviewed_head,
         "pin_path": str(PIN_REL).replace("\\", "/"),
     }
+
+
+def build_content_only_pin(root: Path) -> dict[str, Any]:
+    combined, per = module_tree_digest_at(root, TRUSTED_MODULE_NAMES)
+    return {
+        "schema_version": "2.1.0",
+        "description": (
+            "Content digests for closed Self-Improvement V2 bootstrap/execution manifest. "
+            "Reviewed HEAD identity is supplied exclusively by SRL_REVIEWED_HEAD."
+        ),
+        "combined": combined,
+        "modules": per,
+    }
+
+
+def gated_assert_trusted_code_origin(
+    *,
+    install_root: Path | None = None,
+    explicit_forbidden_worktrees: Iterable[Path] | None = None,
+) -> dict[str, Any]:
+    """Load verifier from pin-matching on-disk bytes, displacing any preloaded forge."""
+    root, _env_head = _require_launcher_anchors()
+    pin = json.loads((root / PIN_REL).read_text(encoding="utf-8"))
+    pin_modules = pin.get("modules") or {}
+    name = "tools.self_improvement_v2.trusted_origin"
+    rel = _module_relpath(name)
+    path = (root / rel).resolve()
+    digest = _sha256_bytes(path.read_bytes())
+    expected = pin_modules.get(name)
+    if not isinstance(expected, str) or expected != digest:
+        raise TrustedOriginError("trusted_origin digest mismatch before gated load")
+    # Always displace sys.modules entry so a forged preload cannot supply assert_*.
+    existing = sys.modules.get(name)
+    if existing is not None:
+        sys.modules.pop(name, None)
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise TrustedOriginError("unable to gated-load trusted_origin")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module.assert_trusted_code_origin(
+        install_root=install_root,
+        explicit_forbidden_worktrees=explicit_forbidden_worktrees,
+    )

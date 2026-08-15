@@ -36,6 +36,8 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Execution Result Validation": "n8n-nodes-base.if",
     "Provider Call Permit (Reviewer)": "n8n-nodes-base.httpRequest",
     "Provider Call Consume (Reviewer)": "n8n-nodes-base.httpRequest",
+    "Provider Call Authorize (Implementer)": "n8n-nodes-base.httpRequest",
+    "Provider Call Authorize (Reviewer)": "n8n-nodes-base.httpRequest",
     "Independent Reviewer Agent": "@n8n/n8n-nodes-langchain.agent",
     "Independent Review Bind": "n8n-nodes-base.httpRequest",
     "Review Result Validation": "n8n-nodes-base.if",
@@ -93,6 +95,8 @@ REQUIRED_EDGES: list[tuple[str, int, str]] = [
     ("Provider Call Consume (Implementer)", 1, "Annotate Budget Denied"),
     ("Provider Call Permit (Reviewer)", 1, "Annotate Budget Denied"),
     ("Provider Call Consume (Reviewer)", 1, "Annotate Budget Denied"),
+    ("Provider Call Authorize (Implementer)", 1, "Annotate Budget Denied"),
+    ("Provider Call Authorize (Reviewer)", 1, "Annotate Budget Denied"),
     ("Annotate Budget Denied", 0, "Failure Router"),
     ("Proposal Schema Validation", 1, "Invalid Proposal"),
     ("Invalid Proposal", 0, "Failure Router"),
@@ -119,6 +123,8 @@ ERROR_OUTPUT_NODES = (
     "Provider Call Consume (Implementer)",
     "Provider Call Permit (Reviewer)",
     "Provider Call Consume (Reviewer)",
+    "Provider Call Authorize (Implementer)",
+    "Provider Call Authorize (Reviewer)",
     "Worker Authorize",
     "Detached Worker Execute",
     "Independent Review Bind",
@@ -130,6 +136,30 @@ AGENT_NODES_REQUIRING_MAX_ITERATIONS = (
     "Independent Reviewer Agent",
 )
 REQUIRED_AGENT_MAX_ITERATIONS = 1
+
+# Nodes that must never be disabled (n8n passes first main input through when disabled).
+MUST_ENABLE_AUTHORITY_NODES = (
+    "Open Pilot Budget",
+    "Provider Call Permit (Implementer)",
+    "Provider Call Consume (Implementer)",
+    "Provider Call Permit (Reviewer)",
+    "Provider Call Consume (Reviewer)",
+    "Provider Call Authorize (Implementer)",
+    "Provider Call Authorize (Reviewer)",
+    "Proposal Schema Validation",
+    "Worker Authorize",
+    "Worker Decision Router",
+    "Independent Review Bind",
+    "Review Result Validation",
+    "Finalization",
+    "Candidate Schema Validation",
+    "Execution Result Validation",
+    "Failure Router",
+)
+
+WORKER_DECISION_OUTPUT_EXPR = "={{$json.worker_decision}}"
+WORKER_DECISION_RULE_VALUES = ("AUTHORIZED", "DECISION_REQUIRED", "POLICY_REJECTED")
+
 
 
 def _err(code: str, message: str) -> dict[str, str]:
@@ -410,6 +440,63 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 )
             )
 
+    # Disabled authority / control nodes must be rejected (n8n passthrough hazard).
+    for name in MUST_ENABLE_AUTHORITY_NODES:
+        node = by_name.get(name)
+        if node is None:
+            continue
+        if "disabled" in node:
+            disabled = node.get("disabled")
+            if not isinstance(disabled, bool):
+                errors.append(
+                    _err(
+                        ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                        f"{name} disabled must be boolean when present",
+                    )
+                )
+            elif disabled is True:
+                errors.append(
+                    _err(
+                        ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                        f"{name} must not be disabled (authority/control node)",
+                    )
+                )
+
+    # Worker Decision Router selector + ordered rules (not destinations alone).
+    decision_node = by_name.get("Worker Decision Router")
+    if decision_node is not None:
+        params = decision_node.get("parameters") or {}
+        output_expr = params.get("output")
+        if output_expr != WORKER_DECISION_OUTPUT_EXPR:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-INVALID-RISK-ROUTE"],
+                    "Worker Decision Router output selector must be ={{$json.worker_decision}}",
+                )
+            )
+        rules_obj = params.get("rules") if isinstance(params.get("rules"), dict) else {}
+        rules = rules_obj.get("rules") if isinstance(rules_obj.get("rules"), list) else []
+        values = tuple(str(r.get("value") or "") for r in rules if isinstance(r, dict))
+        if values != WORKER_DECISION_RULE_VALUES:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-INVALID-RISK-ROUTE"],
+                    "Worker Decision Router rules must be AUTHORIZED, DECISION_REQUIRED, POLICY_REJECTED in order",
+                )
+            )
+
+    # Failure Router must keep expression-mode failure_state selector.
+    failure_router = by_name.get("Failure Router")
+    if failure_router is not None:
+        params = failure_router.get("parameters") or {}
+        if params.get("output") != "={{$json.failure_state}}":
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MARKER-NOT-ROUTE"],
+                    "Failure Router output selector must be ={{$json.failure_state}}",
+                )
+            )
+
     # Success-path edges for operational nodes (budget/permit/consume gates before providers).
     success_edges = [
         ("Manual Trigger", 0, "Candidate Intake"),
@@ -418,7 +505,8 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
         ("Open Pilot Budget", 0, "Provider Call Permit (Implementer)"),
         ("Provider Call Permit (Implementer)", 0, "Provider Call Consume (Implementer)"),
         ("Provider Call Consume (Implementer)", 0, "Implementer Agent"),
-        ("Implementer Agent", 0, "Proposal Schema Validation"),
+        ("Implementer Agent", 0, "Provider Call Authorize (Implementer)"),
+        ("Provider Call Authorize (Implementer)", 0, "Proposal Schema Validation"),
         ("Proposal Schema Validation", 0, "Proposal Freeze"),
         ("Proposal Freeze", 0, "Worker Authorize"),
         ("Worker Authorize", 0, "Worker Decision Router"),
@@ -428,7 +516,8 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
         ("Execution Result Validation", 0, "Provider Call Permit (Reviewer)"),
         ("Provider Call Permit (Reviewer)", 0, "Provider Call Consume (Reviewer)"),
         ("Provider Call Consume (Reviewer)", 0, "Independent Reviewer Agent"),
-        ("Independent Reviewer Agent", 0, "Independent Review Bind"),
+        ("Independent Reviewer Agent", 0, "Provider Call Authorize (Reviewer)"),
+        ("Provider Call Authorize (Reviewer)", 0, "Independent Review Bind"),
         ("Independent Review Bind", 0, "Review Result Validation"),
         ("Review Result Validation", 0, "Finalization"),
         ("Finalization", 0, "Learning Persistence"),
