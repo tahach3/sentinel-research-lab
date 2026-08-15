@@ -1,0 +1,842 @@
+{
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "name": "SRL Self-Improvement Loop V2",
+  "tags": [],
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "srlRound": "self_improvement_v2",
+    "srlInactiveByDesign": true,
+    "implementerAgentId": "srl-implementer-agent",
+    "reviewerAgentId": "srl-independent-reviewer-agent",
+    "schemas": [
+      "improvement_candidate.schema.json",
+      "implementation_proposal.schema.json",
+      "execution_bundle.schema.json",
+      "review_result.schema.json",
+      "finalization_result.schema.json",
+      "learning_record.schema.json"
+    ]
+  },
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Candidate Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate Intake": {
+      "main": [
+        [
+          {
+            "node": "Candidate Schema Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate Schema Validation": {
+      "main": [
+        [
+          {
+            "node": "Proposal Schema Validation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invalid Candidate": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Proposal Schema Validation": {
+      "main": [
+        [
+          {
+            "node": "Proposal Freeze",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invalid Proposal": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Proposal Freeze": {
+      "main": [
+        [
+          {
+            "node": "Risk Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Classification": {
+      "main": [
+        [
+          {
+            "node": "LOW Auto-Authorize",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MEDIUM Decision Required",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HIGH Human Approval Required",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PROHIBITED Policy Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LOW Auto-Authorize": {
+      "main": [
+        [
+          {
+            "node": "Detached Worker Execute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MEDIUM Decision Required": {
+      "main": [
+        [
+          {
+            "node": "Terminal DECISION_REQUIRED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HIGH Human Approval Required": {
+      "main": [
+        [
+          {
+            "node": "Terminal DECISION_REQUIRED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROHIBITED Policy Rejected": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detached Worker Execute": {
+      "main": [
+        [
+          {
+            "node": "Execution Result Validation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Worker Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Worker Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execution Result Validation": {
+      "main": [
+        [
+          {
+            "node": "Independent Review Bind",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Validation Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Validation Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Independent Review Bind": {
+      "main": [
+        [
+          {
+            "node": "Review Result Validation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Review Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Review Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review Result Validation": {
+      "main": [
+        [
+          {
+            "node": "Finalization",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Repair Limit Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Repair Limit Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalization": {
+      "main": [
+        [
+          {
+            "node": "Learning Persistence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Finalization Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Finalization Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Learning Persistence": {
+      "main": [
+        [
+          {
+            "node": "Human Promotion Boundary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failure Router": {
+      "main": [
+        [
+          {
+            "node": "Terminal POLICY_REJECTED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal VALIDATION_FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal REVIEW_FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal CONTENT_BINDING_MISMATCH",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal REPAIR_LIMIT_REACHED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal FAILED_FROZEN",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal PATCH_REJECTED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal BASELINE_MISMATCH",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal IMMUTABILITY_VIOLATION",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Terminal CONTENT_BINDING_MISMATCH": {
+      "main": [
+        [
+          {
+            "node": "Terminal FAILED_FROZEN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'CANDIDATE_RECEIVED', repository_id:'sentinel-research-lab', candidate_schema_valid:true, proposal_schema_valid:true}}];"
+      },
+      "id": "candidate-intake",
+      "name": "Candidate Intake",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.candidate_schema_valid}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "candidate-schema-validation",
+      "name": "Candidate Schema Validation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'POLICY_REJECTED', route:'invalid_candidate'}}];"
+      },
+      "id": "invalid-candidate",
+      "name": "Invalid Candidate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [440, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.proposal_schema_valid}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "proposal-schema-validation",
+      "name": "Proposal Schema Validation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'POLICY_REJECTED', route:'invalid_proposal'}}];"
+      },
+      "id": "invalid-proposal",
+      "name": "Invalid Proposal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [660, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'PROPOSAL_FROZEN'}}];"
+      },
+      "id": "proposal-freeze",
+      "name": "Proposal Freeze",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [880, 0]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{$json.risk_level}}",
+        "rules": {
+          "rules": [
+            {"outputKey": "LOW", "value": "LOW"},
+            {"outputKey": "MEDIUM", "value": "MEDIUM"},
+            {"outputKey": "HIGH", "value": "HIGH"},
+            {"outputKey": "PROHIBITED", "value": "PROHIBITED"}
+          ]
+        }
+      },
+      "id": "risk-classification",
+      "name": "Risk Classification",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1100, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'AUTO_AUTHORIZED', route:'LOW'}}];"
+      },
+      "id": "low-auto-authorize",
+      "name": "LOW Auto-Authorize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1340, -240]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'DECISION_REQUIRED', route:'MEDIUM'}}];"
+      },
+      "id": "medium-decision-required",
+      "name": "MEDIUM Decision Required",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1340, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'DECISION_REQUIRED', route:'HIGH', human_approval_required:true}}];"
+      },
+      "id": "high-human-approval-required",
+      "name": "HIGH Human Approval Required",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1340, 80]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'POLICY_REJECTED', route:'PROHIBITED', state:'POLICY_REJECTED'}}];"
+      },
+      "id": "prohibited-policy-rejected",
+      "name": "PROHIBITED Policy Rejected",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1340, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'REVIEW_PENDING', worker:'tools.self_improvement_v2', validation_ok:true}}];"
+      },
+      "id": "detached-worker-execute",
+      "name": "Detached Worker Execute",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1580, -240],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'FAILED_FROZEN', route:'worker_execution_failure'}}];"
+      },
+      "id": "annotate-worker-failure",
+      "name": "Annotate Worker Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1580, 40]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.validation_ok}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "execution-result-validation",
+      "name": "Execution Result Validation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1820, -240]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'VALIDATION_FAILED', route:'validation_failure'}}];"
+      },
+      "id": "annotate-validation-failure",
+      "name": "Annotate Validation Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1820, 40]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'REVIEW_BOUND', review_ok:true, repair_limit_ok:true}}];"
+      },
+      "id": "independent-review-bind",
+      "name": "Independent Review Bind",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2060, -240],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'REVIEW_FAILED', route:'review_failure'}}];"
+      },
+      "id": "annotate-review-failure",
+      "name": "Annotate Review Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2060, 40]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.review_ok && $json.repair_limit_ok}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "review-result-validation",
+      "name": "Review Result Validation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2300, -240]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'REPAIR_LIMIT_REACHED', route:'repair_limit_failure'}}];"
+      },
+      "id": "annotate-repair-limit-failure",
+      "name": "Annotate Repair Limit Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2300, 40]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'FINALIZATION_REVALIDATED'}}];"
+      },
+      "id": "finalization",
+      "name": "Finalization",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2540, -240],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'CONTENT_BINDING_MISMATCH', route:'finalization_failure'}}];"
+      },
+      "id": "annotate-finalization-failure",
+      "name": "Annotate Finalization Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2540, 40]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'LEARNING_RECORDED'}}];"
+      },
+      "id": "learning-persistence",
+      "name": "Learning Persistence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2780, -240]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'READY_FOR_HUMAN_PROMOTION', push:false, merge:false}}];"
+      },
+      "id": "human-promotion-boundary",
+      "name": "Human Promotion Boundary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3020, -240]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{$json.failure_state}}",
+        "rules": {
+          "rules": [
+            {"outputKey": "POLICY_REJECTED", "value": "POLICY_REJECTED"},
+            {"outputKey": "VALIDATION_FAILED", "value": "VALIDATION_FAILED"},
+            {"outputKey": "REVIEW_FAILED", "value": "REVIEW_FAILED"},
+            {"outputKey": "CONTENT_BINDING_MISMATCH", "value": "CONTENT_BINDING_MISMATCH"},
+            {"outputKey": "REPAIR_LIMIT_REACHED", "value": "REPAIR_LIMIT_REACHED"},
+            {"outputKey": "FAILED_FROZEN", "value": "FAILED_FROZEN"},
+            {"outputKey": "PATCH_REJECTED", "value": "PATCH_REJECTED"},
+            {"outputKey": "BASELINE_MISMATCH", "value": "BASELINE_MISMATCH"},
+            {"outputKey": "IMMUTABILITY_VIOLATION", "value": "IMMUTABILITY_VIOLATION"}
+          ]
+        }
+      },
+      "id": "failure-router",
+      "name": "Failure Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1820, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'DECISION_REQUIRED', terminal:true}}];"
+      },
+      "id": "terminal-decision-required",
+      "name": "Terminal DECISION_REQUIRED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1580, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'POLICY_REJECTED', terminal:true}}];"
+      },
+      "id": "terminal-policy-rejected",
+      "name": "Terminal POLICY_REJECTED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2060, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'VALIDATION_FAILED', terminal:true}}];"
+      },
+      "id": "terminal-validation-failed",
+      "name": "Terminal VALIDATION_FAILED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2060, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'REVIEW_FAILED', terminal:true}}];"
+      },
+      "id": "terminal-review-failed",
+      "name": "Terminal REVIEW_FAILED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2060, 520]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'CONTENT_BINDING_MISMATCH', terminal:true}}];"
+      },
+      "id": "terminal-content-binding-mismatch",
+      "name": "Terminal CONTENT_BINDING_MISMATCH",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2060, 640]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'REPAIR_LIMIT_REACHED', terminal:true}}];"
+      },
+      "id": "terminal-repair-limit-reached",
+      "name": "Terminal REPAIR_LIMIT_REACHED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2300, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'FAILED_FROZEN', terminal:true}}];"
+      },
+      "id": "terminal-failed-frozen",
+      "name": "Terminal FAILED_FROZEN",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2300, 640]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'PATCH_REJECTED', terminal:true}}];"
+      },
+      "id": "terminal-patch-rejected",
+      "name": "Terminal PATCH_REJECTED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2540, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'BASELINE_MISMATCH', terminal:true}}];"
+      },
+      "id": "terminal-baseline-mismatch",
+      "name": "Terminal BASELINE_MISMATCH",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2540, 520]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'IMMUTABILITY_VIOLATION', terminal:true}}];"
+      },
+      "id": "terminal-immutability-violation",
+      "name": "Terminal IMMUTABILITY_VIOLATION",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2540, 640]
+    },
+    {
+      "parameters": {
+        "content": "## SRL Self-Improvement Loop V2\nInactive design workflow with real graph edges for risk and failure routing.\nLOW→AUTO_AUTHORIZED→worker; MEDIUM/HIGH→DECISION_REQUIRED; PROHIBITED→POLICY_REJECTED.\nNo credentials. No push/merge. Schemas under specs/self_improvement/v2/.",
+        "height": 280,
+        "width": 420
+      },
+      "id": "sticky-v2",
+      "name": "V2 Design Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, 360]
+    }
+  ]
+}

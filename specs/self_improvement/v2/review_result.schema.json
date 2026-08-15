@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentinel-research-lab.local/self_improvement/v2/review_result.schema.json",
+  "title": "Self-Improvement V2 Review Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "review_id",
+    "reviewer_id",
+    "implementer_id",
+    "independent_from_implementer",
+    "proposal_id",
+    "proposal_sha256",
+    "execution_id",
+    "execution_result_sha256",
+    "actual_diff_sha256",
+    "worktree_tree_sha",
+    "validation_results_sha256",
+    "contract_alignment",
+    "allowed_path_compliance",
+    "acceptance_results",
+    "security_findings",
+    "architecture_findings",
+    "verdict",
+    "repair_instructions"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0.0"
+    },
+    "review_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "reviewer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "implementer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "independent_from_implementer": {
+      "type": "boolean"
+    },
+    "proposal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "proposal_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "execution_result_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "actual_diff_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "worktree_tree_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "validation_results_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "contract_alignment": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "allowed_path_compliance": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "acceptance_results": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "security_findings": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "architecture_findings": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FINITE_REPAIR",
+        "RESEARCH_REQUIRED",
+        "ESCALATE"
+      ]
+    },
+    "repair_instructions": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "PASS"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "security_findings": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "architecture_findings": {
+            "type": "array",
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ]
+}
