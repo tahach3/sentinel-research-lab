@@ -37,23 +37,35 @@ Trusted security modules must load from the worker install. Worktree-derived `sy
 
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `SRL_REPOSITORY_ROOT` | yes | Absolute path to the reviewed git checkout (launcher-supplied) |
-| `SRL_REVIEWED_HEAD` | yes | Full commit SHA for this launch (launcher-supplied; pin does not claim HEAD) |
+| `SRL_REPOSITORY_ROOT` | yes | Absolute path to the reviewed git checkout (**launcher-supplied**) |
+| `SRL_REVIEWED_HEAD` | yes | Full commit SHA for this launch (**launcher-supplied**; pin does not claim HEAD) |
 | `SRL_STATE_DB` | yes | SQLite file **outside** tracked repository files |
 | `SRL_WORKER_TOKEN` | yes | Bearer token; never commit or print |
 | `SRL_WORKER_HOST` | no | Default `127.0.0.1` (loopback only) |
 | `SRL_WORKER_PORT` | no | Default `8765` |
 
-Start:
+### Launcher (authentication root — outside the checkout)
+
+Canonical Windows path: `%LOCALAPPDATA%\SentinelResearchLab\launch-worker.ps1`  
+Linux/mac fallback used by the installer: `$XDG_DATA_HOME/SentinelResearchLab/launch-worker.sh` (or `~/.local/share/...`).
+
+The launcher is **unversioned and unreviewed by design** — it must live outside the artifact to be a root. It holds:
+
+1. Authorized / reviewed HEAD  
+2. Expected SHA-256 of `tools/self_improvement_v2/trusted_origin.py`
+
+It computes the actual verifier digest, **refuses on mismatch** (fail-closed only), sets `SRL_REPOSITORY_ROOT` / `SRL_REVIEWED_HEAD`, then execs the worker.
+
+Install / refresh (same operator action as issuing the authorization line for that HEAD):
 
 ```powershell
-$env:SRL_REPOSITORY_ROOT = (git rev-parse --show-toplevel)
-$env:SRL_STATE_DB = Join-Path $env:TEMP "srl-self-improvement-v2-state.sqlite"
-$env:SRL_WORKER_TOKEN = "<operator-supplied-token>"
-$env:SRL_WORKER_HOST = "127.0.0.1"
-$env:SRL_WORKER_PORT = "8765"
-python -m tools.self_improvement_v2.runtime_bridge
+python -m tools.self_improvement_v2.launcher.install_launcher `
+  --repository-root <absolute-reviewed-checkout> `
+  --reviewed-head <40-char-sha>
+& "$env:LOCALAPPDATA\SentinelResearchLab\launch-worker.ps1"
 ```
+
+Manual shell assignment of `SRL_REPOSITORY_ROOT` / `SRL_REVIEWED_HEAD` is **not** an attested source and must not be used for supervised pilot runs.
 
 ## Bind and auth policy
 

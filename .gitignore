@@ -49,3 +49,5 @@ Desktop.ini
 # Script scratch
 *.bak
 *.bak-sentinel
+__pycache__/
+*.py[cod]

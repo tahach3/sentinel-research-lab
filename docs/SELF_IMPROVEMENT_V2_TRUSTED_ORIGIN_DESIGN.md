@@ -26,14 +26,17 @@ That is a **CRITICAL bootstrap/closure failure**, not a pin-metadata nit. Option
 
 ### External launcher remains root of trust
 
-Canonical path: `%LOCALAPPDATA%\SentinelResearchLab\launch-worker.ps1` (not in the checkout).
+Canonical path: `%LOCALAPPDATA%\SentinelResearchLab\launch-worker.ps1` (not in the checkout).  
+Installer: `python -m tools.self_improvement_v2.launcher.install_launcher` writes the populated launcher + attestation **outside** the repository (LOCALAPPDATA or XDG data home). In-repo templates/helpers are not the trust root.
 
 Launcher supplies:
 
 1. Authorized HEAD → `SRL_REVIEWED_HEAD`
 2. Reviewed install root → `SRL_REPOSITORY_ROOT`
-3. Expected digests for the **closed bootstrap/execution manifest** (at minimum the verifier entry and every module in the pin), held outside the repo
-4. Fresh Python process; no attacker `PYTHONPATH` / CWD shadowing; refuse launch if on-disk bytes ≠ expected digests
+3. Expected digest of `trusted_origin.py` (held outside the repo); refuse if on-disk bytes ≠ expected
+4. Fresh process; refuse launch on digest mismatch (fail-closed only — never accept on drift)
+
+**Operator rule:** update the launcher’s expected verifier digest in the **same action** as issuing the authorization line for that HEAD. Both are attestations about one reviewed tip.
 
 No repository Python module may be treated as authoritative until that external boundary succeeds.
 
@@ -73,7 +76,8 @@ Both `validate_workflow` and `assert_workflow_agent_wiring` MUST reject `disable
 - Reject bool token fields **before** `calls_granted` or other durable state changes.
 - Consume requires provider, model, and credential; omit/mismatch rejects **without** burning the nonce.
 - Later correct request may consume exactly once; one-winner concurrency preserved.
-- Do not treat self-reported identity alone as proof of transport: issue server-owned one-shot invocation evidence at consume and require a production authorize/complete path bound to that evidence; bind reviewer acceptance to server-issued reviewer evidence when independence is claimed.
+- Do not treat self-reported identity alone as proof of transport: issue server-owned one-shot invocation evidence at consume and require a production authorize path **on the main edge immediately before the agent/model** for both roles; validators must reject Agent→Authorize post-hoc ordering.
+- Bind reviewer acceptance to server-issued reviewer evidence when independence is claimed.
 - Update the inactive design workflow consume bodies to pass mandatory identity fields.
 
 ## Residual-risk reconciliation (F4)

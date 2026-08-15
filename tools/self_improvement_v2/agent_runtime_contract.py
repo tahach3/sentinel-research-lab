@@ -715,7 +715,9 @@ def assert_workflow_agent_wiring(
     ):
         raise AgentRuntimeContractError("Reviewer chat model must attach via ai_languageModel")
 
-    # Provider-controlled path: open → permit → consume → agent (maxIterations=1).
+    # Provider-controlled path: open → permit → consume → authorize → agent.
+    # Authorize must run on the main path immediately before the agent (model
+    # invocation). Post-hoc Agent→Authorize is refused (same defect as unbound transport).
     if not _has_main_edge(connections, "Candidate Schema Validation", OPEN_PILOT_BUDGET_NODE_NAME):
         raise AgentRuntimeContractError("Open Pilot Budget must follow Candidate Schema Validation")
     if not _has_main_edge(
@@ -733,28 +735,42 @@ def assert_workflow_agent_wiring(
             "Provider Call Consume (Implementer) must follow Provider Call Permit (Implementer)"
         )
     if not _has_main_edge(
-        connections, PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME, IMPLEMENTER_NODE_NAME
+        connections,
+        PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME,
+        PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME,
     ):
         raise AgentRuntimeContractError(
-            "Implementer Agent must follow Provider Call Consume (Implementer)"
+            "Provider Call Authorize (Implementer) must follow Provider Call Consume (Implementer)"
+        )
+    if not _has_main_edge(
+        connections, PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, IMPLEMENTER_NODE_NAME
+    ):
+        raise AgentRuntimeContractError(
+            "Implementer Agent must follow Provider Call Authorize (Implementer)"
+        )
+    if not _has_main_edge(connections, IMPLEMENTER_NODE_NAME, "Proposal Schema Validation"):
+        raise AgentRuntimeContractError(
+            "Implementer Agent must feed Proposal Schema Validation"
         )
     if _has_main_edge(connections, PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME, IMPLEMENTER_NODE_NAME):
         raise AgentRuntimeContractError(
             "Implementer Agent must not bypass provider-call-consume"
         )
+    if _has_main_edge(
+        connections, PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME, IMPLEMENTER_NODE_NAME
+    ):
+        raise AgentRuntimeContractError(
+            "Implementer Agent must not bypass provider-call-authorize"
+        )
+    if _has_main_edge(
+        connections, IMPLEMENTER_NODE_NAME, PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME
+    ):
+        raise AgentRuntimeContractError(
+            "Provider Call Authorize (Implementer) must not run after Implementer Agent"
+        )
     if _has_main_edge(connections, "Candidate Schema Validation", IMPLEMENTER_NODE_NAME):
         raise AgentRuntimeContractError(
             "Implementer Agent must not bypass budget/permit gates"
-        )
-    if not _has_main_edge(connections, IMPLEMENTER_NODE_NAME, PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME):
-        raise AgentRuntimeContractError(
-            "Implementer Agent must feed Provider Call Authorize (Implementer)"
-        )
-    if not _has_main_edge(
-        connections, PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, "Proposal Schema Validation"
-    ):
-        raise AgentRuntimeContractError(
-            "Provider Call Authorize (Implementer) must feed Proposal Schema Validation"
         )
     if not _has_main_edge(
         connections, "Execution Result Validation", PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME
@@ -771,28 +787,42 @@ def assert_workflow_agent_wiring(
             "Provider Call Consume (Reviewer) must follow Provider Call Permit (Reviewer)"
         )
     if not _has_main_edge(
-        connections, PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME, REVIEWER_NODE_NAME
+        connections,
+        PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME,
+        PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME,
     ):
         raise AgentRuntimeContractError(
-            "Independent Reviewer Agent must follow Provider Call Consume (Reviewer)"
+            "Provider Call Authorize (Reviewer) must follow Provider Call Consume (Reviewer)"
+        )
+    if not _has_main_edge(
+        connections, PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, REVIEWER_NODE_NAME
+    ):
+        raise AgentRuntimeContractError(
+            "Independent Reviewer Agent must follow Provider Call Authorize (Reviewer)"
+        )
+    if not _has_main_edge(connections, REVIEWER_NODE_NAME, "Independent Review Bind"):
+        raise AgentRuntimeContractError(
+            "Independent Reviewer Agent must feed Independent Review Bind"
         )
     if _has_main_edge(connections, PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME, REVIEWER_NODE_NAME):
         raise AgentRuntimeContractError(
             "Independent Reviewer Agent must not bypass provider-call-consume"
         )
+    if _has_main_edge(
+        connections, PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME, REVIEWER_NODE_NAME
+    ):
+        raise AgentRuntimeContractError(
+            "Independent Reviewer Agent must not bypass provider-call-authorize"
+        )
+    if _has_main_edge(
+        connections, REVIEWER_NODE_NAME, PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME
+    ):
+        raise AgentRuntimeContractError(
+            "Provider Call Authorize (Reviewer) must not run after Independent Reviewer Agent"
+        )
     if _has_main_edge(connections, "Execution Result Validation", REVIEWER_NODE_NAME):
         raise AgentRuntimeContractError(
             "Independent Reviewer Agent must not bypass provider-call-permit"
-        )
-    if not _has_main_edge(connections, REVIEWER_NODE_NAME, PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME):
-        raise AgentRuntimeContractError(
-            "Independent Reviewer Agent must feed Provider Call Authorize (Reviewer)"
-        )
-    if not _has_main_edge(
-        connections, PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, "Independent Review Bind"
-    ):
-        raise AgentRuntimeContractError(
-            "Provider Call Authorize (Reviewer) must feed Independent Review Bind"
         )
     if not _has_main_edge(connections, OPEN_PILOT_BUDGET_NODE_NAME, ANNOTATE_BUDGET_DENIED_NODE_NAME):
         raise AgentRuntimeContractError("budget open deny must route to Annotate Budget Denied")

@@ -13,8 +13,11 @@ Candidate: this branch tip (`git rev-parse HEAD`)
 | B3 hardcoded Worker Decision Router output | exact behavioral RED→GREEN | both validators |
 | C1 permit boolean token fields | exact behavioral RED→GREEN | before `calls_granted` |
 | C2 omit consume identity | exact behavioral RED→GREEN | nonce preserved |
+| D1 authorize before agent/model (both roles) | exact behavioral RED→GREEN | `test_d1_*`; post-hoc Agent→Authorize rejected |
+| D2 out-of-repo launcher digest gate | exact behavioral RED→GREEN | `test_d2_*`; refuse on mismatch; anchors set on match |
 | R5 no-env shadow self-pin | GREEN→GREEN control | prior mandatory probe still holds |
 | Open-budget boolean matrix | GREEN→GREEN control | already green at base |
+| Round5A 32 (`R5A-MANIFEST-HASH`) | RED→RED out-of-range | INV-R5A-01 known-failing; not SI2 |
 | Symlink alias root | collection/setup failure | not claimed (host may deny symlink) |
 
 Helper-import failures are not counted as behavioral red evidence.

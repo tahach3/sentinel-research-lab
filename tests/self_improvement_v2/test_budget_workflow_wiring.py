@@ -66,6 +66,10 @@ def test_workflow_wires_budget_open_and_permits_before_agents() -> None:
     )
     assert (
         connections[PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME]["main"][0][0]["node"]
+        == "Provider Call Authorize (Implementer)"
+    )
+    assert (
+        connections["Provider Call Authorize (Implementer)"]["main"][0][0]["node"]
         == IMPLEMENTER_NODE_NAME
     )
     assert (
@@ -78,6 +82,10 @@ def test_workflow_wires_budget_open_and_permits_before_agents() -> None:
     )
     assert (
         connections[PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME]["main"][0][0]["node"]
+        == "Provider Call Authorize (Reviewer)"
+    )
+    assert (
+        connections["Provider Call Authorize (Reviewer)"]["main"][0][0]["node"]
         == REVIEWER_NODE_NAME
     )
     # Deny outputs are terminal via Annotate Budget Denied → Failure Router.
@@ -85,8 +93,10 @@ def test_workflow_wires_budget_open_and_permits_before_agents() -> None:
         OPEN_PILOT_BUDGET_NODE_NAME,
         PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME,
         PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME,
+        "Provider Call Authorize (Implementer)",
         PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME,
         PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME,
+        "Provider Call Authorize (Reviewer)",
     ):
         assert connections[source]["main"][1][0]["node"] == ANNOTATE_BUDGET_DENIED_NODE_NAME
     assert (

@@ -2,9 +2,8 @@
 
 **Status:** DRAFT — capture of properties established by independent Codex reviews and in-tree adversarial probes.  
 **Not authorization.** This ledger does not authorize any HEAD or pilot.  
-**HEAD context (dispatch):** `7dbbfa1c3af997f2b71b28193357e1072b39679b`  
-**Source ranges:** `21f0e84..6f4f1e2` (escalate; repaired through `457608d`); open assurance range `6f4f1e2..7dbbfa1` (no PASS yet).  
-**Design:** Option A decided (`docs/SELF_IMPROVEMENT_V2_TRUSTED_ORIGIN_DESIGN.md`); **implementation held** until current review verdict.
+**HEAD context:** tip of `research-lab-self-improvement-v2-v3-gates` (see `git rev-parse HEAD`).  
+**Design:** Option A+ (`docs/SELF_IMPROVEMENT_V2_TRUSTED_ORIGIN_DESIGN.md`).
 
 ## How to read
 
@@ -13,7 +12,7 @@
 | ID | Stable invariant id |
 | Property | Normative claim |
 | Evidence | Review finding and/or test |
-| Status | `established` / `accepted-residual` / `open` / `withdrawn-if` |
+| Status | `established` / `accepted-residual` / `open` / `known-failing` / `withdrawn-if` |
 
 ---
 
@@ -21,26 +20,31 @@
 
 | ID | Property | Evidence | Status |
 |----|----------|----------|--------|
-| INV-TO-01 | Launcher anchors are mandatory: absent `SRL_REPOSITORY_ROOT` or `SRL_REVIEWED_HEAD` ⇒ trusted-origin **REJECT** | Codex Finding 1 (CRITICAL); `test_r5_external_process_no_env_shadow_self_pin_must_reject`; `_require_launcher_anchors` | **established** at repair tip; **re-prove** on every assurance review |
-| INV-TO-02 | CWD / package root / self-consistent pin inside an alternate checkout are **not** trust authority | Codex Finding 1; fail-closed redesign at `28eb33f` | established (pending Codex PASS on `6f4f1e2..a195e83`) |
-| INV-TO-03 | `trusted_origin` verifier module must be in its own pin set (`TRUSTED_MODULE_NAMES`) | Codex Finding 3 (HIGH); `test_r5_trusted_origin_module_is_pinned` | established |
-| INV-TO-04 | Pin `reviewed_git_head` and launcher `SRL_REVIEWED_HEAD` must agree under the documented bind rules (primary bind or trusted-module-unchanged successor tip) | Codex Finding 2 (HIGH); `assert_trusted_code_origin` bind branch | **accepted-residual** for one supervised docs-only P3-C1 under `docs/SELF_IMPROVEMENT_V2_P3C1_ACCEPTED_RESIDUAL_RISK.md`; design session required for durable close |
-| INV-TO-05 | A pin file **cannot** truthfully name the commit that first introduces that pin byte-for-byte; pin must not claim HEAD | Codex Finding 2; Option A decision | **decided (A)** — implement after verdict; pin becomes content-digest only |
-| INV-BUD-01 | Boolean JSON must not coerce into pilot budget numeric fields | Codex Finding 5; `test_f5_boolean_budget_fields_rejected_via_runtime_bridge` | established |
-| INV-BUD-02 | Boolean `maxIterations` must not satisfy `maxIterations==1` via `int(True)` | Codex Finding 6; `test_f6_max_iterations_boolean_true_rejected` | established |
-| INV-BUD-03 | Provider-call consume validates role-bound provider/model/credential atomically | Codex Finding 4; `test_f4_consume_validates_provider_model_credential_binding` | established |
-| INV-BUD-04 | Consumed permits are one-shot; second assert after consume fails | `test_r2_consumed_permit_second_assert_one_shot` | established |
+| INV-TO-01 | Launcher anchors are mandatory: absent `SRL_REPOSITORY_ROOT` or `SRL_REVIEWED_HEAD` ⇒ trusted-origin **REJECT** | Codex Finding 1; R5 no-env probe; `_require_launcher_anchors` | established |
+| INV-TO-02 | CWD / package root / self-consistent pin inside an alternate checkout are **not** trust authority | Codex Finding 1 | established |
+| INV-TO-03 | Expected digest of `trusted_origin.py` is held **outside** the checkout by the launcher; mismatch ⇒ refuse (fail-closed) | Option A+; `install_launcher`; `test_d2_*` | established (re-prove on assurance review) |
+| INV-TO-05 | Pin is content-digest only; must not claim HEAD; `SRL_REVIEWED_HEAD` is sole HEAD claim | Option A+ | established |
+| INV-BUD-01 | Boolean JSON must not coerce into pilot budget numeric fields | Codex Finding 5 | established |
+| INV-BUD-02 | Boolean `maxIterations` must not satisfy `maxIterations==1` via `int(True)` | Codex Finding 6 | established |
+| INV-BUD-03 | Provider-call consume validates role-bound provider/model/credential atomically; omit does not burn nonce | Codex Finding 3/4 | established |
+| INV-BUD-04 | `/v2/provider-call-authorize` sits on the main path **immediately before** each role’s agent (model invocation); Agent→Authorize post-hoc is rejected by validators | V-TRANSPORT repair; `test_d1_*` | established |
 | INV-AUTH-01 | Risk authority is sole authorizer; agent nodes are inactive-by-design and non-authoritative | agent-runtime contract + workflow inactive flag | established (process) |
-| INV-AUTH-02 | Independent external PASS is required before written pilot authorization; Cursor cannot restore revoked auth via self-review | operator process; residual-risk doc Authorization line | established (process) |
+| INV-AUTH-02 | Independent external PASS is required before written pilot authorization; Cursor cannot restore revoked auth via self-review; operator issues the auth line | residual-risk doc | established (process) |
 | INV-RES-01 | Residual acceptance of Findings 1–3 is one-run, docs-only, supervised, expires on use; withdraws if mandatory no-env R5 REJECTS at reviewed HEAD | `docs/SELF_IMPROVEMENT_V2_P3C1_ACCEPTED_RESIDUAL_RISK.md` | decision artifact |
+
+## Known-failing (out of SI2 scope)
+
+| ID | Property | Evidence | Status |
+|----|----------|----------|--------|
+| INV-R5A-01 | Round 5A Phase D manifest integrity (`R5A-MANIFEST-HASH`): registry expected digests match on-disk Round5A artifact SHA-256 | Settled RED→RED (32/32) at `e85c42ee` and SI2 candidate tips; error class `R5A-MANIFEST-HASH`; SI2 candidate diffs do not touch Round5A paths | **known-failing** (Round 5A round; do not treat as SI2 regression) |
 
 ## Withdrawal hooks
 
 - If mandatory no-env external R5 **REJECTS** at the HEAD under review ⇒ Findings 1–3 **closed by evidence**; INV-RES-01 acceptance **withdrawn**.
-- If trusted-origin design session picks a new root-of-trust model ⇒ re-derive INV-TO-01..05; do not patch a fifth time under the old model without that decision.
+- If trusted-origin design session picks a new root-of-trust model ⇒ re-derive INV-TO-*; do not patch under the old model without that decision.
 
 ## Explicitly not established
 
-- Codex **PASS** on `6f4f1e2..a195e83` — **open** (filter refusal is a process failure, not a PASS).
-- Any P3-C1 authorization line naming `a195e83` — **absent**.
-- Unsupervised / code-touching pilots while Findings 1–3 remain open under residual — **forbidden** (hard gate).
+- Codex **PASS** on the current A+ range — **open** until independent review returns.
+- Any P3-C1 authorization line — **absent**.
+- Unsupervised / code-touching pilots while assurance is open — **forbidden** (hard gate).

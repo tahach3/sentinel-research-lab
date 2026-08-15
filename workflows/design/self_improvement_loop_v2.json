@@ -434,7 +434,7 @@
       "main": [
         [
           {
-            "node": "Provider Call Authorize (Implementer)",
+            "node": "Proposal Schema Validation",
             "type": "main",
             "index": 0
           }
@@ -456,7 +456,7 @@
       "main": [
         [
           {
-            "node": "Provider Call Authorize (Reviewer)",
+            "node": "Independent Review Bind",
             "type": "main",
             "index": 0
           }
@@ -543,7 +543,7 @@
       "main": [
         [
           {
-            "node": "Implementer Agent",
+            "node": "Provider Call Authorize (Implementer)",
             "type": "main",
             "index": 0
           }
@@ -561,7 +561,7 @@
       "main": [
         [
           {
-            "node": "Independent Reviewer Agent",
+            "node": "Provider Call Authorize (Reviewer)",
             "type": "main",
             "index": 0
           }
@@ -579,7 +579,7 @@
       "main": [
         [
           {
-            "node": "Proposal Schema Validation",
+            "node": "Implementer Agent",
             "type": "main",
             "index": 0
           }
@@ -597,7 +597,7 @@
       "main": [
         [
           {
-            "node": "Independent Review Bind",
+            "node": "Independent Reviewer Agent",
             "type": "main",
             "index": 0
           }
