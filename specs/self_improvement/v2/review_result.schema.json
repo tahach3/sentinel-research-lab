@@ -22,7 +22,16 @@
     "security_findings",
     "architecture_findings",
     "verdict",
-    "repair_instructions"
+    "repair_instructions",
+    "declared_risk",
+    "computed_risk_pre",
+    "effective_risk_pre",
+    "computed_risk_post",
+    "effective_risk_post",
+    "risk_reason_codes_pre",
+    "risk_reason_codes_post",
+    "policy_sha256",
+    "risk_classifier_version"
   ],
   "properties": {
     "schema_version": {
@@ -134,6 +143,53 @@
         "minLength": 1,
         "maxLength": 1000
       }
+    },
+    "declared_risk": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "PROHIBITED"]
+    },
+    "computed_risk_pre": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "PROHIBITED"]
+    },
+    "effective_risk_pre": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "PROHIBITED"]
+    },
+    "computed_risk_post": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "PROHIBITED"]
+    },
+    "effective_risk_post": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "PROHIBITED"]
+    },
+    "risk_reason_codes_pre": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "risk_reason_codes_post": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "risk_classifier_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
     }
   },
   "allOf": [

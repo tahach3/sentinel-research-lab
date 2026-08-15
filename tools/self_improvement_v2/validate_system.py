@@ -56,6 +56,7 @@ REQUIRED_FILES = [
     "specs/self_improvement/v2/policy.json",
     "tools/self_improvement_v2/canonical.py",
     "tools/self_improvement_v2/path_policy.py",
+    "tools/self_improvement_v2/risk_authority.py",
     "tools/self_improvement_v2/patch_parser.py",
     "tools/self_improvement_v2/patch_validator.py",
     "tools/self_improvement_v2/experience_store.py",
@@ -174,6 +175,39 @@ def _build_proposal(baseline: str, doc_path: str = "docs/SI2_NOTE.md", body: str
     }
 
 
+def _review_from_bundle(bundle: dict[str, Any], review_id: str) -> dict[str, Any]:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "review_id": review_id,
+        "reviewer_id": "srl-independent-reviewer-agent",
+        "implementer_id": "srl-implementer-agent",
+        "independent_from_implementer": True,
+        "proposal_id": bundle["proposal_id"],
+        "proposal_sha256": bundle["proposal_sha256"],
+        "execution_id": bundle["execution_id"],
+        "execution_result_sha256": bundle["execution_result_sha256"],
+        "actual_diff_sha256": bundle["actual_diff_sha256"],
+        "worktree_tree_sha": bundle["worktree_tree_sha"],
+        "validation_results_sha256": bundle["validation_results_sha256"],
+        "contract_alignment": "PASS",
+        "allowed_path_compliance": "PASS",
+        "acceptance_results": "PASS",
+        "security_findings": [],
+        "architecture_findings": [],
+        "verdict": "PASS",
+        "repair_instructions": [],
+        "declared_risk": bundle["declared_risk"],
+        "computed_risk_pre": bundle["computed_risk_pre"],
+        "effective_risk_pre": bundle["effective_risk_pre"],
+        "computed_risk_post": bundle["computed_risk_post"],
+        "effective_risk_post": bundle["effective_risk_post"],
+        "risk_reason_codes_pre": list(bundle.get("risk_reason_codes_pre") or []),
+        "risk_reason_codes_post": list(bundle.get("risk_reason_codes_post") or []),
+        "policy_sha256": bundle["policy_sha256"],
+        "risk_classifier_version": bundle["risk_classifier_version"],
+    }
+
+
 class SystemValidator:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
@@ -272,12 +306,12 @@ class SystemValidator:
                 ]
 
             def m_high(data: dict) -> None:
-                data["connections"]["Risk Classification"]["main"][2] = [
-                    {"node": "LOW Auto-Authorize", "type": "main", "index": 0}
+                data["connections"]["Worker Decision Router"]["main"][1] = [
+                    {"node": "Worker AUTHORIZED Continue", "type": "main", "index": 0}
                 ]
 
             def m_prohibited(data: dict) -> None:
-                data["connections"]["Risk Classification"]["main"][3] = [
+                data["connections"]["Worker Decision Router"]["main"][2] = [
                     {"node": "Detached Worker Execute", "type": "main", "index": 0}
                 ]
 
@@ -298,8 +332,18 @@ class SystemValidator:
 
             add("wf-remove-worker-failure", ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "remove worker failure edge", m_worker)
             add("wf-remove-review-failure", ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "remove review failure edge", m_review)
-            add("wf-high-autoauth", ERROR_CODES["SI2-WF-AUTOAUTH-NONLOW"], "route HIGH to AUTO_AUTHORIZED", m_high)
-            add("wf-prohibited-worker", ERROR_CODES["SI2-WF-INVALID-RISK-ROUTE"], "route PROHIBITED to worker", m_prohibited)
+            add(
+                "wf-decision-required-autoauth",
+                ERROR_CODES["SI2-WF-AUTOAUTH-NONLOW"],
+                "route DECISION_REQUIRED to AUTHORIZED continue",
+                m_high,
+            )
+            add(
+                "wf-policy-rejected-worker",
+                ERROR_CODES["SI2-WF-AUTOAUTH-NONLOW"],
+                "route POLICY_REJECTED to worker",
+                m_prohibited,
+            )
             add(
                 "wf-remove-binding-route",
                 ERROR_CODES["SI2-WF-DISCONNECTED-FAILURE-STATE"],
@@ -551,27 +595,7 @@ class SystemValidator:
                 self.probe_results["proposal_immutability"] = exc.code
 
             # Valid review
-            review = {
-                "schema_version": SCHEMA_VERSION,
-                "review_id": "rev-probe-1",
-                "reviewer_id": "srl-independent-reviewer-agent",
-                "implementer_id": "srl-implementer-agent",
-                "independent_from_implementer": True,
-                "proposal_id": bundle["proposal_id"],
-                "proposal_sha256": bundle["proposal_sha256"],
-                "execution_id": bundle["execution_id"],
-                "execution_result_sha256": bundle["execution_result_sha256"],
-                "actual_diff_sha256": bundle["actual_diff_sha256"],
-                "worktree_tree_sha": bundle["worktree_tree_sha"],
-                "validation_results_sha256": bundle["validation_results_sha256"],
-                "contract_alignment": "PASS",
-                "allowed_path_compliance": "PASS",
-                "acceptance_results": "PASS",
-                "security_findings": [],
-                "architecture_findings": [],
-                "verdict": "PASS",
-                "repair_instructions": [],
-            }
+            review = _review_from_bundle(bundle, "rev-probe-1")
             assert_review_bound(review, proposal=proposal, bundle=bundle, root=self.root)
             store.insert_review(review)
 
@@ -633,27 +657,7 @@ class SystemValidator:
             proposal2["candidate_id"] = "cand-probe-2"
             bundle2 = execute_proposal(root=repo, proposal=proposal2, state_db=db2)
             store2 = ExperienceStore(db2)
-            review2 = {
-                "schema_version": SCHEMA_VERSION,
-                "review_id": "rev-probe-2",
-                "reviewer_id": "srl-independent-reviewer-agent",
-                "implementer_id": "srl-implementer-agent",
-                "independent_from_implementer": True,
-                "proposal_id": bundle2["proposal_id"],
-                "proposal_sha256": bundle2["proposal_sha256"],
-                "execution_id": bundle2["execution_id"],
-                "execution_result_sha256": bundle2["execution_result_sha256"],
-                "actual_diff_sha256": bundle2["actual_diff_sha256"],
-                "worktree_tree_sha": bundle2["worktree_tree_sha"],
-                "validation_results_sha256": bundle2["validation_results_sha256"],
-                "contract_alignment": "PASS",
-                "allowed_path_compliance": "PASS",
-                "acceptance_results": "PASS",
-                "security_findings": [],
-                "architecture_findings": [],
-                "verdict": "PASS",
-                "repair_instructions": [],
-            }
+            review2 = _review_from_bundle(bundle2, "rev-probe-2")
             store2.insert_review(review2)
 
             def _drop_triggers(path: Path) -> None:
@@ -720,19 +724,7 @@ class SystemValidator:
             proposal3["candidate_id"] = "cand-probe-3"
             bundle3 = execute_proposal(root=repo, proposal=proposal3, state_db=db3)
             store3 = ExperienceStore(db3)
-            review3 = dict(review2)
-            review3.update(
-                {
-                    "review_id": "rev-probe-3",
-                    "proposal_id": bundle3["proposal_id"],
-                    "proposal_sha256": bundle3["proposal_sha256"],
-                    "execution_id": bundle3["execution_id"],
-                    "execution_result_sha256": bundle3["execution_result_sha256"],
-                    "actual_diff_sha256": bundle3["actual_diff_sha256"],
-                    "worktree_tree_sha": bundle3["worktree_tree_sha"],
-                    "validation_results_sha256": bundle3["validation_results_sha256"],
-                }
-            )
+            review3 = _review_from_bundle(bundle3, "rev-probe-3")
             store3.insert_review(review3)
             _drop_triggers(db3)
             conn = sqlite3.connect(str(db3))
@@ -778,19 +770,7 @@ class SystemValidator:
             proposal4["candidate_id"] = "cand-probe-4"
             bundle4 = execute_proposal(root=repo, proposal=proposal4, state_db=db4)
             store4 = ExperienceStore(db4)
-            review4 = dict(review2)
-            review4.update(
-                {
-                    "review_id": "rev-probe-4",
-                    "proposal_id": bundle4["proposal_id"],
-                    "proposal_sha256": bundle4["proposal_sha256"],
-                    "execution_id": bundle4["execution_id"],
-                    "execution_result_sha256": bundle4["execution_result_sha256"],
-                    "actual_diff_sha256": bundle4["actual_diff_sha256"],
-                    "worktree_tree_sha": bundle4["worktree_tree_sha"],
-                    "validation_results_sha256": bundle4["validation_results_sha256"],
-                }
-            )
+            review4 = _review_from_bundle(bundle4, "rev-probe-4")
             store4.insert_review(review4)
             _drop_triggers(db4)
             conn = sqlite3.connect(str(db4))
@@ -853,6 +833,193 @@ class SystemValidator:
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    def probe_risk_authority(self) -> None:
+        """Executable risk-authority probes — not source-text / name presence checks."""
+        from tools.self_improvement_v2.path_policy import load_policy
+        from tools.self_improvement_v2.risk_authority import (
+            DECISION_AUTHORIZED,
+            DECISION_POLICY_REJECTED,
+            DECISION_REQUIRED,
+            authorize_execution,
+            enforce_authorization,
+        )
+
+        tmp = Path(tempfile.mkdtemp(prefix="si2-risk-probe-"))
+        proofs: list[dict[str, Any]] = []
+        try:
+            repo = tmp / "repo"
+            baseline = _init_temp_repo(repo)
+            specs_src = self.root / "specs" / "self_improvement" / "v2"
+            specs_dst = repo / "specs" / "self_improvement" / "v2"
+            specs_dst.parent.mkdir(parents=True, exist_ok=True)
+            if specs_dst.exists():
+                shutil.rmtree(specs_dst)
+            shutil.copytree(specs_src, specs_dst)
+            (repo / ".git" / "info" / "exclude").write_text("specs/\n", encoding="utf-8")
+            policy = load_policy(repo)
+
+            def record(
+                probe_id: str,
+                corruption: str,
+                expected_decision: str,
+                expected_code: str,
+                actual_decision: str | None,
+                actual_code: str | None,
+                worktree_created: bool,
+                commit_created: bool,
+                stage: str,
+            ) -> None:
+                detected = actual_decision == expected_decision and (
+                    not expected_code or actual_code == expected_code
+                )
+                unrelated = bool(actual_code) and actual_code != expected_code and not detected
+                proofs.append(
+                    {
+                        "probe_id": probe_id,
+                        "corruption_or_attack": corruption,
+                        "stage_reached": stage,
+                        "expected_decision": expected_decision,
+                        "actual_decision": actual_decision,
+                        "expected_error_code": expected_code,
+                        "actual_error_code": actual_code,
+                        "worktree_created": worktree_created,
+                        "commit_created": commit_created,
+                        "detected": detected,
+                        "unrelated_failure": unrelated,
+                    }
+                )
+                if not detected:
+                    self.fail(expected_code or "RISK_PROBE", f"{probe_id} not detected")
+
+            # Migration patch declares LOW.
+            mig = _build_proposal(baseline, doc_path="database/migrations/001.sql", body="SELECT 1;\n")
+            mig["allowed_paths"] = ["database/migrations/**", "docs/**"]
+            auth = authorize_execution(mig, policy)
+            record(
+                "risk-migration-low-declared",
+                "LOW declaration + migration path",
+                DECISION_POLICY_REJECTED,
+                ERROR_CODES["RISK_NOT_AUTO_AUTHORIZED"],
+                auth.decision,
+                auth.error_code,
+                False,
+                False,
+                "authorize_execution",
+            )
+
+            # Credential-sensitive path.
+            cred = _build_proposal(baseline, doc_path="docs/.env", body="SECRET=1\n")
+            auth = authorize_execution(cred, policy)
+            record(
+                "risk-credential-low-declared",
+                "LOW declaration + .env path",
+                DECISION_POLICY_REJECTED,
+                ERROR_CODES["RISK_NOT_AUTO_AUTHORIZED"],
+                auth.decision,
+                auth.error_code,
+                False,
+                False,
+                "authorize_execution",
+            )
+
+            # Declared MEDIUM with otherwise LOW docs change.
+            med = _build_proposal(baseline, doc_path="docs/MED.md", body="# m\n")
+            med["risk_level"] = "MEDIUM"
+            auth = authorize_execution(med, policy)
+            record(
+                "risk-declared-medium",
+                "MEDIUM declaration with LOW computed content",
+                DECISION_REQUIRED,
+                ERROR_CODES["RISK_NOT_AUTO_AUTHORIZED"],
+                auth.decision,
+                auth.error_code,
+                False,
+                False,
+                "authorize_execution",
+            )
+
+            # Replay / caller-supplied authorization.
+            ok = _build_proposal(baseline, doc_path="docs/OK.md", body="# ok\n")
+            try:
+                authorize_execution(ok, policy, caller_authorization={"decision": "AUTHORIZED"})
+                actual_decision, actual_code = DECISION_AUTHORIZED, None
+            except WorkerError as exc:
+                actual_decision, actual_code = DECISION_POLICY_REJECTED, exc.code
+            record(
+                "risk-auth-replay",
+                "caller_authorization replay",
+                DECISION_POLICY_REJECTED,
+                ERROR_CODES["RISK_AUTH_REPLAY"],
+                actual_decision,
+                actual_code,
+                False,
+                False,
+                "authorize_execution",
+            )
+
+            # Execute path must not create worktree when unauthorized.
+            db = tmp / "risk.sqlite"
+            worktree_before = list((tmp).glob("**/si2-*"))
+            try:
+                execute_proposal(root=repo, proposal=mig, state_db=db)
+                stage = "execute_completed"
+                actual_code = None
+                wt_created = True
+            except WorkerError as exc:
+                stage = "execute_pre_auth"
+                actual_code = exc.code
+                wt_created = False
+            record(
+                "risk-execute-no-worktree",
+                "execute migration proposal",
+                DECISION_POLICY_REJECTED,
+                ERROR_CODES["RISK_NOT_AUTO_AUTHORIZED"],
+                DECISION_POLICY_REJECTED if actual_code else DECISION_AUTHORIZED,
+                actual_code,
+                wt_created,
+                False,
+                stage,
+            )
+
+            # Prove DetachedWorktree is not reachable via authorize failure path.
+            # (No public bypass API; skip_risk_check rejected.)
+            try:
+                execute_proposal(root=repo, proposal=ok, state_db=tmp / "bypass.sqlite", skip_risk_check=True)
+                actual_code = None
+            except WorkerError as exc:
+                actual_code = exc.code
+            record(
+                "risk-skip-flag-bypass",
+                "skip_risk_check=True",
+                DECISION_POLICY_REJECTED,
+                ERROR_CODES["POLICY_REJECTED"],
+                DECISION_POLICY_REJECTED if actual_code else DECISION_AUTHORIZED,
+                actual_code,
+                False,
+                False,
+                "execute_proposal",
+            )
+
+            # Successful authorize still produces AUTHORIZED for docs LOW.
+            auth = authorize_execution(ok, policy)
+            enforce_authorization(auth)
+            record(
+                "risk-docs-authorized",
+                "control: docs LOW",
+                DECISION_AUTHORIZED,
+                "",
+                auth.decision,
+                auth.error_code or "",
+                False,
+                False,
+                "authorize_execution",
+            )
+        except Exception as exc:  # pragma: no cover
+            self.fail("RISK_PROBE_ENV", str(exc)[:300])
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        self.probe_results["risk_authority"] = proofs
+
     def run(self) -> dict[str, Any]:
         self.check_files()
         if not self.errors:
@@ -863,6 +1030,7 @@ class SystemValidator:
             self.probe_nested_paths()
             self.probe_git_hooks_and_signing()
             self.probe_immutability_and_binding()
+            self.probe_risk_authority()
         status = "PASS" if not self.errors else "FAIL"
         return {
             "validator": "self_improvement_v2_validate_system",

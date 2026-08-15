@@ -109,83 +109,7 @@
       "main": [
         [
           {
-            "node": "Risk Classification",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Risk Classification": {
-      "main": [
-        [
-          {
-            "node": "LOW Auto-Authorize",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "MEDIUM Decision Required",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "HIGH Human Approval Required",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "PROHIBITED Policy Rejected",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "LOW Auto-Authorize": {
-      "main": [
-        [
-          {
-            "node": "Detached Worker Execute",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "MEDIUM Decision Required": {
-      "main": [
-        [
-          {
-            "node": "Terminal DECISION_REQUIRED",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "HIGH Human Approval Required": {
-      "main": [
-        [
-          {
-            "node": "Terminal DECISION_REQUIRED",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "PROHIBITED Policy Rejected": {
-      "main": [
-        [
-          {
-            "node": "Failure Router",
+            "node": "Worker Authorize",
             "type": "main",
             "index": 0
           }
@@ -412,6 +336,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Terminal DECISION_REQUIRED",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -420,6 +351,71 @@
         [
           {
             "node": "Terminal FAILED_FROZEN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Worker Authorize": {
+      "main": [
+        [
+          {
+            "node": "Worker Decision Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Authorize Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Authorize Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Worker Decision Router": {
+      "main": [
+        [
+          {
+            "node": "Worker AUTHORIZED Continue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal DECISION_REQUIRED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal POLICY_REJECTED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Worker AUTHORIZED Continue": {
+      "main": [
+        [
+          {
+            "node": "Detached Worker Execute",
             "type": "main",
             "index": 0
           }
@@ -434,7 +430,10 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -444,7 +443,10 @@
       "name": "Candidate Intake",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [220, 0]
+      "position": [
+        220,
+        0
+      ]
     },
     {
       "parameters": {
@@ -461,7 +463,10 @@
       "name": "Candidate Schema Validation",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [440, 0]
+      "position": [
+        440,
+        0
+      ]
     },
     {
       "parameters": {
@@ -471,7 +476,10 @@
       "name": "Invalid Candidate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [440, 220]
+      "position": [
+        440,
+        220
+      ]
     },
     {
       "parameters": {
@@ -488,7 +496,10 @@
       "name": "Proposal Schema Validation",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [660, 0]
+      "position": [
+        660,
+        0
+      ]
     },
     {
       "parameters": {
@@ -498,7 +509,10 @@
       "name": "Invalid Proposal",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [660, 220]
+      "position": [
+        660,
+        220
+      ]
     },
     {
       "parameters": {
@@ -508,66 +522,10 @@
       "name": "Proposal Freeze",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [880, 0]
-    },
-    {
-      "parameters": {
-        "mode": "expression",
-        "output": "={{$json.risk_level}}",
-        "rules": {
-          "rules": [
-            {"outputKey": "LOW", "value": "LOW"},
-            {"outputKey": "MEDIUM", "value": "MEDIUM"},
-            {"outputKey": "HIGH", "value": "HIGH"},
-            {"outputKey": "PROHIBITED", "value": "PROHIBITED"}
-          ]
-        }
-      },
-      "id": "risk-classification",
-      "name": "Risk Classification",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 1,
-      "position": [1100, 0]
-    },
-    {
-      "parameters": {
-        "jsCode": "return [{json:{...items[0].json, state:'AUTO_AUTHORIZED', route:'LOW'}}];"
-      },
-      "id": "low-auto-authorize",
-      "name": "LOW Auto-Authorize",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [1340, -240]
-    },
-    {
-      "parameters": {
-        "jsCode": "return [{json:{state:'DECISION_REQUIRED', route:'MEDIUM'}}];"
-      },
-      "id": "medium-decision-required",
-      "name": "MEDIUM Decision Required",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [1340, -80]
-    },
-    {
-      "parameters": {
-        "jsCode": "return [{json:{state:'DECISION_REQUIRED', route:'HIGH', human_approval_required:true}}];"
-      },
-      "id": "high-human-approval-required",
-      "name": "HIGH Human Approval Required",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [1340, 80]
-    },
-    {
-      "parameters": {
-        "jsCode": "return [{json:{failure_state:'POLICY_REJECTED', route:'PROHIBITED', state:'POLICY_REJECTED'}}];"
-      },
-      "id": "prohibited-policy-rejected",
-      "name": "PROHIBITED Policy Rejected",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [1340, 240]
+      "position": [
+        880,
+        0
+      ]
     },
     {
       "parameters": {
@@ -577,7 +535,10 @@
       "name": "Detached Worker Execute",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [1580, -240],
+      "position": [
+        1580,
+        -240
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -588,7 +549,10 @@
       "name": "Annotate Worker Failure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [1580, 40]
+      "position": [
+        1580,
+        40
+      ]
     },
     {
       "parameters": {
@@ -605,7 +569,10 @@
       "name": "Execution Result Validation",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [1820, -240]
+      "position": [
+        1820,
+        -240
+      ]
     },
     {
       "parameters": {
@@ -615,7 +582,10 @@
       "name": "Annotate Validation Failure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [1820, 40]
+      "position": [
+        1820,
+        40
+      ]
     },
     {
       "parameters": {
@@ -625,7 +595,10 @@
       "name": "Independent Review Bind",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2060, -240],
+      "position": [
+        2060,
+        -240
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -636,7 +609,10 @@
       "name": "Annotate Review Failure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2060, 40]
+      "position": [
+        2060,
+        40
+      ]
     },
     {
       "parameters": {
@@ -653,7 +629,10 @@
       "name": "Review Result Validation",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [2300, -240]
+      "position": [
+        2300,
+        -240
+      ]
     },
     {
       "parameters": {
@@ -663,7 +642,10 @@
       "name": "Annotate Repair Limit Failure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2300, 40]
+      "position": [
+        2300,
+        40
+      ]
     },
     {
       "parameters": {
@@ -673,7 +655,10 @@
       "name": "Finalization",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2540, -240],
+      "position": [
+        2540,
+        -240
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -684,7 +669,10 @@
       "name": "Annotate Finalization Failure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2540, 40]
+      "position": [
+        2540,
+        40
+      ]
     },
     {
       "parameters": {
@@ -694,7 +682,10 @@
       "name": "Learning Persistence",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2780, -240]
+      "position": [
+        2780,
+        -240
+      ]
     },
     {
       "parameters": {
@@ -704,7 +695,10 @@
       "name": "Human Promotion Boundary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [3020, -240]
+      "position": [
+        3020,
+        -240
+      ]
     },
     {
       "parameters": {
@@ -712,15 +706,46 @@
         "output": "={{$json.failure_state}}",
         "rules": {
           "rules": [
-            {"outputKey": "POLICY_REJECTED", "value": "POLICY_REJECTED"},
-            {"outputKey": "VALIDATION_FAILED", "value": "VALIDATION_FAILED"},
-            {"outputKey": "REVIEW_FAILED", "value": "REVIEW_FAILED"},
-            {"outputKey": "CONTENT_BINDING_MISMATCH", "value": "CONTENT_BINDING_MISMATCH"},
-            {"outputKey": "REPAIR_LIMIT_REACHED", "value": "REPAIR_LIMIT_REACHED"},
-            {"outputKey": "FAILED_FROZEN", "value": "FAILED_FROZEN"},
-            {"outputKey": "PATCH_REJECTED", "value": "PATCH_REJECTED"},
-            {"outputKey": "BASELINE_MISMATCH", "value": "BASELINE_MISMATCH"},
-            {"outputKey": "IMMUTABILITY_VIOLATION", "value": "IMMUTABILITY_VIOLATION"}
+            {
+              "outputKey": "POLICY_REJECTED",
+              "value": "POLICY_REJECTED"
+            },
+            {
+              "outputKey": "VALIDATION_FAILED",
+              "value": "VALIDATION_FAILED"
+            },
+            {
+              "outputKey": "REVIEW_FAILED",
+              "value": "REVIEW_FAILED"
+            },
+            {
+              "outputKey": "CONTENT_BINDING_MISMATCH",
+              "value": "CONTENT_BINDING_MISMATCH"
+            },
+            {
+              "outputKey": "REPAIR_LIMIT_REACHED",
+              "value": "REPAIR_LIMIT_REACHED"
+            },
+            {
+              "outputKey": "FAILED_FROZEN",
+              "value": "FAILED_FROZEN"
+            },
+            {
+              "outputKey": "PATCH_REJECTED",
+              "value": "PATCH_REJECTED"
+            },
+            {
+              "outputKey": "BASELINE_MISMATCH",
+              "value": "BASELINE_MISMATCH"
+            },
+            {
+              "outputKey": "IMMUTABILITY_VIOLATION",
+              "value": "IMMUTABILITY_VIOLATION"
+            },
+            {
+              "outputKey": "DECISION_REQUIRED",
+              "value": "DECISION_REQUIRED"
+            }
           ]
         }
       },
@@ -728,7 +753,10 @@
       "name": "Failure Router",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [1820, 280]
+      "position": [
+        1820,
+        280
+      ]
     },
     {
       "parameters": {
@@ -738,7 +766,10 @@
       "name": "Terminal DECISION_REQUIRED",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [1580, 280]
+      "position": [
+        1580,
+        280
+      ]
     },
     {
       "parameters": {
@@ -748,7 +779,10 @@
       "name": "Terminal POLICY_REJECTED",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2060, 280]
+      "position": [
+        2060,
+        280
+      ]
     },
     {
       "parameters": {
@@ -758,7 +792,10 @@
       "name": "Terminal VALIDATION_FAILED",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2060, 400]
+      "position": [
+        2060,
+        400
+      ]
     },
     {
       "parameters": {
@@ -768,7 +805,10 @@
       "name": "Terminal REVIEW_FAILED",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2060, 520]
+      "position": [
+        2060,
+        520
+      ]
     },
     {
       "parameters": {
@@ -778,7 +818,10 @@
       "name": "Terminal CONTENT_BINDING_MISMATCH",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2060, 640]
+      "position": [
+        2060,
+        640
+      ]
     },
     {
       "parameters": {
@@ -788,7 +831,10 @@
       "name": "Terminal REPAIR_LIMIT_REACHED",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2300, 400]
+      "position": [
+        2300,
+        400
+      ]
     },
     {
       "parameters": {
@@ -798,7 +844,10 @@
       "name": "Terminal FAILED_FROZEN",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2300, 640]
+      "position": [
+        2300,
+        640
+      ]
     },
     {
       "parameters": {
@@ -808,7 +857,10 @@
       "name": "Terminal PATCH_REJECTED",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2540, 400]
+      "position": [
+        2540,
+        400
+      ]
     },
     {
       "parameters": {
@@ -818,7 +870,10 @@
       "name": "Terminal BASELINE_MISMATCH",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2540, 520]
+      "position": [
+        2540,
+        520
+      ]
     },
     {
       "parameters": {
@@ -828,11 +883,84 @@
       "name": "Terminal IMMUTABILITY_VIOLATION",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [2540, 640]
+      "position": [
+        2540,
+        640
+      ]
     },
     {
       "parameters": {
-        "content": "## SRL Self-Improvement Loop V2\nInactive design workflow with real graph edges for risk and failure routing.\nLOW→AUTO_AUTHORIZED→worker; MEDIUM/HIGH→DECISION_REQUIRED; PROHIBITED→POLICY_REJECTED.\nWorker base URL: meta.localWorkerBaseUrl (loopback). Header Auth credential name: meta.workerHeaderAuthCredentialName (value not embedded).\nNo credential values. No push/merge. Schemas under specs/self_improvement/v2/.",
+        "jsCode": "// Design-only: call local worker authorize (POST /v2/validate-proposal).\n// Worker derives risk from proposal content+policy; n8n must not compute risk.\n// Expect response.worker_decision in {AUTHORIZED, DECISION_REQUIRED, POLICY_REJECTED}.\nconst item = items[0].json;\nreturn [{json:{...item, worker_decision:item.worker_decision||'UNAUTHORIZED_PLACEHOLDER', state:'AWAITING_WORKER_DECISION', risk_authority:'tools.self_improvement_v2.risk_authority'}}];"
+      },
+      "id": "worker-authorize",
+      "name": "Worker Authorize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{$json.worker_decision}}",
+        "rules": {
+          "rules": [
+            {
+              "outputKey": "AUTHORIZED",
+              "value": "AUTHORIZED"
+            },
+            {
+              "outputKey": "DECISION_REQUIRED",
+              "value": "DECISION_REQUIRED"
+            },
+            {
+              "outputKey": "POLICY_REJECTED",
+              "value": "POLICY_REJECTED"
+            }
+          ]
+        }
+      },
+      "id": "worker-decision-router",
+      "name": "Worker Decision Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'AUTO_AUTHORIZED', route:'worker_AUTHORIZED'}}];"
+      },
+      "id": "worker-authorized-continue",
+      "name": "Worker AUTHORIZED Continue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1580,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'POLICY_REJECTED', route:'worker_authorize_failure'}}];"
+      },
+      "id": "annotate-authorize-failure",
+      "name": "Annotate Authorize Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## SRL Self-Improvement Loop V2\nInactive design workflow. Risk authority is the local worker only.\nn8n submits proposal \u2192 Worker Authorize \u2192 routes worker_decision (AUTHORIZED|DECISION_REQUIRED|POLICY_REJECTED). n8n never trusts proposal.risk_level and never manufactures AUTO_AUTHORIZED.\nWorker base URL: meta.localWorkerBaseUrl (loopback). Header Auth credential name: meta.workerHeaderAuthCredentialName (value not embedded).\nNo credential values. No push/merge. Schemas under specs/self_improvement/v2/.",
         "height": 280,
         "width": 420
       },
@@ -840,7 +968,10 @@
       "name": "V2 Design Notes",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [0, 360]
+      "position": [
+        0,
+        360
+      ]
     }
   ]
 }

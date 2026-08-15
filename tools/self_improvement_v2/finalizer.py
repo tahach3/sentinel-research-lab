@@ -25,7 +25,9 @@ from tools.self_improvement_v2.patch_validator import (
     changed_paths_since,
     staged_tree_sha,
 )
+from tools.self_improvement_v2.path_policy import load_policy, policy_sha256
 from tools.self_improvement_v2.review_gate import assert_review_bound
+from tools.self_improvement_v2.risk_authority import assert_finalize_risk_bindings
 from tools.self_improvement_v2.schema_loader import validate_instance
 
 
@@ -70,6 +72,17 @@ def finalize(
 
     # Bind review to frozen bundle (not a mutable proposal file).
     assert_review_bound(review, proposal=proposal, bundle=bundle, root=repository_root)
+
+    # Risk authority recheck — refuses elevated/mismatched risk regardless of review verdict.
+    current_policy = load_policy(repository_root)
+    current_pol_sha = policy_sha256(repository_root)
+    assert_finalize_risk_bindings(
+        bundle,
+        proposal=proposal,
+        current_policy=current_policy,
+        current_policy_sha256=current_pol_sha,
+    )
+
     store.append_state_event("execution", execution_id, "REVIEW_PENDING", "REVIEW_BOUND")
 
     repo = resolve_repo_root(repository_root)

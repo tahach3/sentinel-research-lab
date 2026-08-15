@@ -66,6 +66,28 @@ Implementer and reviewer agent credential references remain operator-managed and
 
 Do not raise these automatically.
 
+## Risk authority
+
+Executable risk authority lives only in the V2 worker (`tools.self_improvement_v2.risk_authority`).
+
+| Field | Meaning |
+| --- | --- |
+| `declared_risk` | Proposer-supplied assessment (may raise, never lowers) |
+| `computed_risk_pre` | Worker-derived from patch text + policy (no apply) |
+| `effective_risk_pre` | `stricter(declared, computed_pre)` — must be `LOW` to authorize |
+| `computed_risk_post` | Worker-derived from actual applied diff |
+| `effective_risk_post` | `stricter(effective_pre, computed_post)` — must stay `LOW` and equal pre |
+
+Worker decisions returned to n8n: `AUTHORIZED` | `DECISION_REQUIRED` | `POLICY_REJECTED`.
+
+n8n may route these decisions. n8n must not compute, override, or manufacture authorization from `proposal.risk_level`.
+
+Policy snapshot is content-addressed (`policy_sha256`) and pinned in the execution bundle. Finalization rechecks current policy; a later policy may tighten or halt, never make an elevated run safer.
+
+### Shared Git object property
+
+Linked Git worktrees share the source repository object database. Rejected or halted post-application executions may leave unreferenced Git objects until normal garbage collection. This is an accepted local implementation property and is why pre-authorization classifies patch text without applying the patch or creating content objects. No automatic aggressive garbage collection is authorized.
+
 ## Explicit non-goals
 
 - Live pilot execution

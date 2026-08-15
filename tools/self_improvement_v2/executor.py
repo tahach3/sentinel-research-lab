@@ -31,11 +31,18 @@ from tools.self_improvement_v2.patch_validator import (
 )
 from tools.self_improvement_v2.path_policy import (
     assert_path_allowed,
-    classify_and_authorize,
     load_policy,
     policy_sha256,
 )
 from tools.self_improvement_v2.repair_policy import assert_repair_attempt_allowed, assert_repair_not_broadening
+from tools.self_improvement_v2.risk_authority import (
+    authorize_execution,
+    classify_post_application,
+    classify_pre_application,
+    enforce_authorization,
+    enforce_post_risk,
+    risk_fields_for_bundle,
+)
 from tools.self_improvement_v2.schema_loader import ensure_schema_version, validate_instance
 from tools.self_improvement_v2.validation_runner import run_validation_profile
 
@@ -82,7 +89,17 @@ def execute_proposal(
     proposal: dict[str, Any],
     state_db: Path,
     candidate: dict[str, Any] | None = None,
+    authorization: Any = None,
+    skip_risk_check: Any = None,
 ) -> dict[str, Any]:
+    """Execute a proposal. Risk authority is mandatory and non-bypassable."""
+    if skip_risk_check is not None:
+        raise WorkerError(
+            ERROR_CODES["POLICY_REJECTED"],
+            "skip_risk_check is not permitted",
+            state="POLICY_REJECTED",
+        )
+
     policy = load_policy(root)
     store = ExperienceStore(state_db)
     proposal = ensure_schema_version(proposal)
@@ -111,7 +128,15 @@ def execute_proposal(
     proposal_digest = content_sha256(proposal)
     pol_sha = policy_sha256(root)
 
-    classify_and_authorize(proposal, policy)
+    # Pre-authorization from patch text + policy BEFORE any worktree / apply / staging.
+    auth = authorize_execution(
+        proposal,
+        policy,
+        policy_sha256=pol_sha,
+        caller_authorization=authorization,
+    )
+    enforce_authorization(auth)
+    pre = classify_pre_application(proposal, policy)
     store.append_state_event("proposal", proposal["proposal_id"], "PROPOSAL_FROZEN", "RISK_CLASSIFIED")
     store.append_state_event("proposal", proposal["proposal_id"], "RISK_CLASSIFIED", "AUTO_AUTHORIZED")
 
@@ -138,6 +163,18 @@ def execute_proposal(
             assert_path_allowed(path, policy, proposal, repo_root=worktree)
         summary = summarize_diff(worktree, proposal["baseline_sha"])
         enforce_diff_limits(summary, policy, proposal)
+
+        post = classify_post_application(
+            proposal=proposal,
+            policy=policy,
+            changed_paths=changed,
+            lines_added=int(summary["lines_added"]),
+            lines_removed=int(summary["lines_removed"]),
+            patch_bytes=int(summary["patch_bytes"]),
+            pre=pre,
+        )
+        enforce_post_risk(pre=pre, post=post)
+
         store.append_state_event("execution", execution_id, "DETACHED_WORKTREE_PREPARED", "PATCH_APPLIED")
 
         store.append_state_event("execution", execution_id, "PATCH_APPLIED", "VALIDATING")
@@ -153,6 +190,7 @@ def execute_proposal(
         val_hash = content_sha256(validation)
         profile_hash = content_sha256(policy["validation_profiles"][proposal["validation_profile"]])
 
+        risk_fields = risk_fields_for_bundle(auth=auth, post=post, policy_sha256=pol_sha)
         bundle_body = {
             "schema_version": SCHEMA_VERSION,
             "execution_id": execution_id,
@@ -174,6 +212,7 @@ def execute_proposal(
             "repair_attempt": int(proposal.get("repair_attempt") or 0),
             "final_state": "REVIEW_PENDING",
             "error_codes": [],
+            **risk_fields,
         }
         # execution_result_sha256 is hash of bundle without that field set to empty — use core fields
         core_for_hash = {k: v for k, v in bundle_body.items() if k != "execution_result_sha256"}
