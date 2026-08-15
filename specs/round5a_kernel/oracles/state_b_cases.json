@@ -1,0 +1,907 @@
+{
+  "artifact_type": "state_b_oracle",
+  "schema_version": "1.1.0",
+  "authority_namespace": "round5a_kernel",
+  "prohibited": {
+    "arbitrary_sql": true,
+    "arbitrary_python": true,
+    "executable_strings": true,
+    "shell_commands": true,
+    "templates": true,
+    "eval_content": true,
+    "oid_identities": true
+  },
+  "cases": [
+    {
+      "case_id": "valid_one_ordinary",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "slot-a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": true,
+        "failure_codes": [],
+        "failure_state": null
+      }
+    },
+    {
+      "case_id": "valid_shared_event",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        },
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc02"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        },
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02",
+          "outcome_slot": "b"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "e1",
+          "source_refs": [
+            "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+            "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02"
+          ]
+        }
+      ],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {
+        "e1": [
+          "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02"
+        ]
+      },
+      "expected": {
+        "valid": true,
+        "failure_codes": [],
+        "failure_state": null
+      }
+    },
+    {
+      "case_id": "valid_archive_owned",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "arch"
+        }
+      ],
+      "events": [],
+      "archives": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": true,
+        "failure_codes": [],
+        "failure_state": null
+      }
+    },
+    {
+      "case_id": "valid_discrepancy_owned",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "disc"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": true,
+        "failure_codes": [],
+        "failure_state": null
+      }
+    },
+    {
+      "case_id": "valid_fallback_owned",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "fb"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": true,
+        "failure_codes": [],
+        "failure_state": null
+      }
+    },
+    {
+      "case_id": "invalid_zero_outcomes",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "zero_outcome_slots"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_two_outcomes",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        },
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "b"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "multiple_outcome_slots"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_duplicate_source",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        },
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "duplicate_source_identity"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_normalization_collision",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        },
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        },
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "b"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "duplicate_source_identity",
+          "multiple_outcome_slots"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_unknown_event",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "e1",
+          "source_refs": [
+            "unknown"
+          ]
+        }
+      ],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {
+        "e1": [
+          "unknown"
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "unknown_event_reference"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_missing_event_ref",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "e1",
+          "source_refs": [
+            "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01"
+          ]
+        }
+      ],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {
+        "e1": [
+          "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02"
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "incomplete_shared_event_reference_sets"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_duplicate_event_ref",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "e1",
+          "source_refs": [
+            "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+            "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01"
+          ]
+        }
+      ],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {
+        "e1": [
+          "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01"
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "duplicate_event_reference"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_incomplete_shared",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        },
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc02"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        },
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02",
+          "outcome_slot": "b"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "e1",
+          "source_refs": [
+            "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+            "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02"
+          ]
+        }
+      ],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {
+        "e1": [
+          "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01"
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "incomplete_shared_event_reference_sets"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_unknown_archive",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [
+        {
+          "source_identity": "nope"
+        }
+      ],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "unknown_archive_reference"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_unknown_discrepancy",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [
+        {
+          "source_identity": "nope"
+        }
+      ],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "unknown_discrepancy_reference"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_unknown_fallback",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [
+        {
+          "source_identity": "nope"
+        }
+      ],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "unknown_fallback_reference"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_equal_counts_swapped",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "zero_outcome_slots",
+          "unknown_outcome_source",
+          "equal_counts_unequal_identities"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_source_added_after_state_a",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        },
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc02"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "zero_outcome_slots"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_source_removed_after_state_a",
+      "legacy_sources": [],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "unknown_outcome_source"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_event_removed",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {
+        "e1": [
+          "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01"
+        ]
+      },
+      "hostile_cached_digest": "forged",
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "missing_event_reference"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_archive_ref_changed",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02"
+        }
+      ],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "unknown_archive_reference"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_discrepancy_ref_changed",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02"
+        }
+      ],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "unknown_discrepancy_reference"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_fallback_ref_changed",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02"
+        }
+      ],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "unknown_fallback_reference"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_shared_event_order_only",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        },
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc02"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        },
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02",
+          "outcome_slot": "b"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "e1",
+          "source_refs": [
+            "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02",
+            "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01"
+          ]
+        }
+      ],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {
+        "e1": [
+          "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02"
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "shared_event_order_mismatch"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_shared_event_membership_change",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        },
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc02"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        },
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02",
+          "outcome_slot": "b"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "e1",
+          "source_refs": [
+            "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+            "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc02"
+          ]
+        }
+      ],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {
+        "e1": [
+          "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01"
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "incomplete_shared_event_reference_sets"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_duplicate_durable_outcome",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        },
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "multiple_outcome_slots"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_forged_cached_digest",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "hostile_cached_digest": "DIGEST-FORGED",
+      "hostile_cached_count": 999,
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "forged_cached_digest"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    },
+    {
+      "case_id": "invalid_forged_cached_count",
+      "legacy_sources": [
+        {
+          "legacy_reservation_id": "00000000-0000-4000-8000-cccccccccc01"
+        }
+      ],
+      "durable_outcomes": [
+        {
+          "source_identity": "legacy_reservation_id=00000000-0000-4000-8000-cccccccccc01",
+          "outcome_slot": "a"
+        }
+      ],
+      "events": [],
+      "archives": [],
+      "discrepancies": [],
+      "fallback_records": [],
+      "source_reference_membership": {},
+      "hostile_cached_count": 999,
+      "expected": {
+        "valid": false,
+        "failure_codes": [
+          "forged_cached_count"
+        ],
+        "failure_state": "failed_frozen"
+      }
+    }
+  ]
+}
