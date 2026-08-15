@@ -4,7 +4,7 @@
 **Mode:** Read-only security assurance of **defensive integrity gates**  
 **Not requested:** exploit development, unauthorized access guidance, live pilot execution, or mid-review implementation
 
-**Dispatch HEAD:** `a5363b0024b7987f580e07ce7155769a07ec168a` (from `git rev-parse HEAD` at authoring; re-confirm before paste).
+**Dispatch HEAD:** `89999d967ed3d28fb95cbfbefec2044c64265fe9` (from `git rev-parse HEAD` at authoring; re-confirm before paste).
 
 ---
 
@@ -14,9 +14,9 @@
 |------|-------|
 | Pilot authorization | **DOES NOT EXIST** — nothing to revoke; this review does not create it |
 | Workflow | `workflows/design/self_improvement_loop_v2.json` is **inactive by design** |
-| Reviewed HEAD | a5363b0024b7987f580e07ce7155769a07ec168a |
-| Review range | `6f4f1e26ec7785d2f2bd954e086e9843b6691f61` .. `a5363b0024b7987f580e07ce7155769a07ec168a` |
-| Last committed tip when brief was authored | `a5363b0024b7987f580e07ce7155769a07ec168a` |
+| Reviewed HEAD | 89999d967ed3d28fb95cbfbefec2044c64265fe9 |
+| Review range | `89999d967ed3d28fb95cbfbefec2044c64265fe9` .. `89999d967ed3d28fb95cbfbefec2044c64265fe9` |
+| Last committed tip when brief was authored | `89999d967ed3d28fb95cbfbefec2044c64265fe9` |
 | Prior escalate (handled) | `21f0e84..6f4f1e2` repaired through `457608d`; residual-risk doc records Option A acceptance for Findings 1–3 only (one supervised docs-only P3-C1, not yet authorized) |
 | Design decision (docs only) | Option A trusted-origin redesign **decided and documented**; **implementation held** until this verdict returns — see `docs/SELF_IMPROVEMENT_V2_TRUSTED_ORIGIN_DESIGN.md` |
 | Operator intent | Verify fail-closed **trust and budget gates** at current HEAD before any future written authorization |
