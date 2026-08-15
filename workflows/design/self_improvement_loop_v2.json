@@ -11,6 +11,10 @@
     "srlInactiveByDesign": true,
     "implementerAgentId": "srl-implementer-agent",
     "reviewerAgentId": "srl-independent-reviewer-agent",
+    "localWorkerBaseUrl": "http://127.0.0.1:8765",
+    "workerHeaderAuthCredentialName": "srl-v2-worker-header-auth",
+    "implementerAgentCredentialReference": "OPERATOR_REQUIRED",
+    "reviewerAgentCredentialReference": "OPERATOR_REQUIRED",
     "schemas": [
       "improvement_candidate.schema.json",
       "implementation_proposal.schema.json",
@@ -828,7 +832,7 @@
     },
     {
       "parameters": {
-        "content": "## SRL Self-Improvement Loop V2\nInactive design workflow with real graph edges for risk and failure routing.\nLOW→AUTO_AUTHORIZED→worker; MEDIUM/HIGH→DECISION_REQUIRED; PROHIBITED→POLICY_REJECTED.\nNo credentials. No push/merge. Schemas under specs/self_improvement/v2/.",
+        "content": "## SRL Self-Improvement Loop V2\nInactive design workflow with real graph edges for risk and failure routing.\nLOW→AUTO_AUTHORIZED→worker; MEDIUM/HIGH→DECISION_REQUIRED; PROHIBITED→POLICY_REJECTED.\nWorker base URL: meta.localWorkerBaseUrl (loopback). Header Auth credential name: meta.workerHeaderAuthCredentialName (value not embedded).\nNo credential values. No push/merge. Schemas under specs/self_improvement/v2/.",
         "height": 280,
         "width": 420
       },
