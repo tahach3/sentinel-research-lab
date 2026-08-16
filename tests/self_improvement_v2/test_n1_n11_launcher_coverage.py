@@ -69,6 +69,26 @@ def test_n1_negative_extra_module_breaks_equality(tmp_path: Path) -> None:
             entrypoint="tools.self_improvement_v2.runtime_bridge",
         )
     assert "tools.self_improvement_v2._closure_probe_extra" in closure
+    assert "tools.self_improvement_v2" in closure  # package __init__ is in the closure
+
+
+def test_n1_relative_import_is_visible_to_closure(tmp_path: Path) -> None:
+    """Relative imports are static constructs and must enter the closure (NP-2)."""
+    pkg = tmp_path / "tools" / "self_improvement_v2"
+    pkg.mkdir(parents=True)
+    (tmp_path / "tools" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "runtime_bridge.py").write_text(
+        "from . import evil_relative\nfrom .evil_relative import MARK\n",
+        encoding="utf-8",
+    )
+    (pkg / "evil_relative.py").write_text("MARK = 1\n", encoding="utf-8")
+    closure = compute_static_import_closure(
+        tmp_path,
+        entrypoint="tools.self_improvement_v2.runtime_bridge",
+    )
+    assert "tools.self_improvement_v2.evil_relative" in closure
+    assert "tools.self_improvement_v2" in closure
 
 
 def test_n1_negative_underpin_fails_equality() -> None:

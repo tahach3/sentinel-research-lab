@@ -28,6 +28,7 @@ from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 # Must equal the static AST import closure of runtime_bridge (+ import_closure itself).
 # Does NOT cover dynamic importlib/__import__/string-built loaders — see import_closure.
 TRUSTED_MODULE_NAMES = (
+    "tools.self_improvement_v2",
     "tools.self_improvement_v2.agent_runtime_contract",
     "tools.self_improvement_v2.canonical",
     "tools.self_improvement_v2.executor",
@@ -77,8 +78,15 @@ def _module_file(module: ModuleType) -> Path | None:
     return Path(raw).resolve()
 
 
-def _module_relpath(module_name: str) -> str:
-    return str(Path(*module_name.split(".")).with_suffix(".py")).replace("\\", "/")
+def _module_relpath(module_name: str, *, root: Path | None = None) -> str:
+    """Repo-relative path for a pinned module or package ``__init__.py``."""
+    from tools.self_improvement_v2.import_closure import module_file_relpath, module_name_to_relpath
+
+    if root is not None:
+        rel = module_file_relpath(root, module_name)
+        if rel is not None:
+            return rel
+    return module_name_to_relpath(module_name)
 
 
 def _canonical_bytes(data: bytes) -> bytes:
@@ -176,7 +184,7 @@ def module_tree_digest_at(root: Path, module_names: Iterable[str] = TRUSTED_MODU
     per: dict[str, str] = {}
     h = hashlib.sha256()
     for name in module_names:
-        rel = _module_relpath(name)
+        rel = _module_relpath(name, root=root)
         path = root / rel
         if not path.is_file():
             raise TrustedOriginError(f"trusted module missing from install: {rel}")
@@ -271,7 +279,7 @@ def reject_worktree_as_import_root(candidate: Path, *, install_root: Path | None
 
 def _reject_forged_preloaded_verifier(root: Path, expected_digest: str) -> None:
     name = "tools.self_improvement_v2.trusted_origin"
-    rel = _module_relpath(name)
+    rel = _module_relpath(name, root=root)
     disk_path = (root / rel).resolve()
     disk_digest = _sha256_bytes(disk_path.read_bytes())
     if disk_digest != expected_digest:
@@ -352,7 +360,7 @@ def assert_trusted_code_origin(
     for name, digest in per.items():
         if pin_modules.get(name) != digest:
             raise TrustedOriginError(f"trusted module digest mismatch for {name}")
-        rel = _module_relpath(name)
+        rel = _module_relpath(name, root=root)
         dirty = _raw_git(["diff", "--quiet", "HEAD", "--", rel], cwd=root, check=False)
         if dirty.returncode != 0:
             raise TrustedOriginError(f"trusted module dirty vs HEAD: {rel}")
@@ -372,7 +380,7 @@ def assert_trusted_code_origin(
         if module is None:
             module = importlib.import_module(name)
         path = assert_module_from_worker_install(module, install_root=root)
-        rel = _module_relpath(name)
+        rel = _module_relpath(name, root=root)
         expected_path = (root / rel).resolve()
         same = path == expected_path
         if not same:
@@ -428,7 +436,7 @@ def gated_assert_trusted_code_origin(
     pin = json.loads((root / PIN_REL).read_text(encoding="utf-8"))
     pin_modules = pin.get("modules") or {}
     name = "tools.self_improvement_v2.trusted_origin"
-    rel = _module_relpath(name)
+    rel = _module_relpath(name, root=root)
     path = (root / rel).resolve()
     digest = _sha256_bytes(path.read_bytes())
     expected = pin_modules.get(name)

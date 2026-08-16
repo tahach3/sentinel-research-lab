@@ -15,6 +15,37 @@ from urllib.parse import urlparse
 
 from tools.self_improvement_v2.models import ERROR_CODES
 
+
+def _safe_url_origin(url: str) -> str | None:
+    """Return ``scheme://host:port`` lowercased, or None when URL/port is unusable."""
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return None
+    if not parsed.scheme or not parsed.hostname:
+        return None
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+    if port is None:
+        return None
+    return f"{parsed.scheme}://{parsed.hostname}:{port}".lower()
+
+
+def _safe_url_host_port_path(url: str) -> tuple[str | None, int | None, str]:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return None, None, ""
+    host = (parsed.hostname or "").lower() or None
+    try:
+        port = parsed.port
+    except ValueError:
+        return host, None, parsed.path or ""
+    return host, port, parsed.path or ""
+
+
 CREDENTIAL_VALUE_RE = re.compile(
     r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*['\"][^'\"]{8,}"
 )
@@ -540,12 +571,7 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
     base_url = str(meta.get("localWorkerBaseUrl") or "").strip().rstrip("/")
     absolute = urlparse(DEFAULT_LOCAL_WORKER_BASE_URL)
     absolute_origin = f"{absolute.scheme}://{absolute.hostname}:{absolute.port}".lower()
-    base_parsed = urlparse(base_url)
-    base_origin = (
-        f"{base_parsed.scheme}://{base_parsed.hostname}:{base_parsed.port}".lower()
-        if base_parsed.scheme and base_parsed.hostname and base_parsed.port
-        else ""
-    )
+    base_origin = _safe_url_origin(base_url) or ""
     if not base_origin:
         errors.append(
             _err(
@@ -567,19 +593,15 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
             if node is None:
                 continue
             url = str((node.get("parameters") or {}).get("url") or "").strip()
-            parsed = urlparse(url)
-            if (
-                parsed.scheme != "http"
-                or (parsed.hostname or "").lower() != "127.0.0.1"
-                or parsed.port != 8765
-            ):
+            host, port, path = _safe_url_host_port_path(url)
+            if host != "127.0.0.1" or port != 8765 or not url.lower().startswith("http://"):
                 errors.append(
                     _err(
                         ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
                         f"{name} URL origin must equal absolute pin {DEFAULT_LOCAL_WORKER_BASE_URL}",
                     )
                 )
-            elif parsed.path != expected_path:
+            elif path != expected_path:
                 errors.append(
                     _err(
                         ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],

@@ -256,3 +256,84 @@ def test_r5_head_content_binding_no_longer_enforced(
     result = assert_trusted_code_origin()
     assert result["reviewed_git_head"] == head
     assert compute_verifier_digest(REPO)
+
+
+def test_np1_dirty_package_init_refuses_origin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Uncommitted edit to package __init__.py must refuse (NP-1)."""
+    clone = tmp_path / "sentinel-research-lab"
+    subprocess.run(
+        ["git", "clone", "--local", str(REPO), str(clone)],
+        check=True,
+        capture_output=True,
+    )
+    init = clone / "tools" / "self_improvement_v2" / "__init__.py"
+    init.write_text(init.read_text(encoding="utf-8") + "\nINJECTED = True\n", encoding="utf-8")
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=clone, text=True).strip()
+    monkeypatch.setenv(ENV_REPOSITORY_ROOT, str(clone.resolve()))
+    monkeypatch.setenv(ENV_REVIEWED_HEAD, head)
+    with pytest.raises(TrustedOriginError, match="dirty|digest|mismatch"):
+        assert_trusted_code_origin()
+
+
+def test_np1_package_init_is_pinned() -> None:
+    pin = json.loads((REPO / PIN_REL).read_text(encoding="utf-8"))
+    assert "tools.self_improvement_v2" in pin["modules"]
+    launcher = json.loads((REPO / LAUNCHER_PIN_REL).read_text(encoding="utf-8"))
+    assert "tools.self_improvement_v2" in launcher["modules"]
+    assert "tools.self_improvement_v2.launcher" in launcher["modules"]
+    assert set(LAUNCHER_TRUSTED_MODULE_NAMES) == set(launcher["modules"])
+
+
+def test_np3_launcher_script_quotes_apostrophe_paths(tmp_path: Path) -> None:
+    """Repository paths with apostrophes must produce valid, inert bash (NP-3)."""
+    from tools.self_improvement_v2.launcher.install_launcher import _sh_script, _ps1_script
+
+    awkward = tmp_path / "o'brien" / "sentinel-research-lab"
+    awkward.mkdir(parents=True)
+    script = _sh_script(
+        repository_root=awkward,
+        reviewed_head="a" * 40,
+        expected_digest="b" * 64,
+        git_executable="/usr/bin/git",
+    )
+    # shlex.quote embeds apostrophes as '"'"' — never raw unquoted path text.
+    assert "o'brien" not in script or "'\"'\"'" in script
+    assert "REPOSITORY_ROOT=" in script
+    sh_path = tmp_path / "launch-awkward.sh"
+    sh_path.write_text(script, encoding="utf-8")
+    assert subprocess.run(["bash", "-n", str(sh_path)], capture_output=True).returncode == 0
+
+    evil = tmp_path / "x'$(touch MARKER)'y" / "sentinel-research-lab"
+    evil.mkdir(parents=True)
+    evil_script = _sh_script(
+        repository_root=evil,
+        reviewed_head="a" * 40,
+        expected_digest="b" * 64,
+        git_executable="/usr/bin/git",
+    )
+    evil_path = tmp_path / "launch-evil.sh"
+    evil_path.write_text(evil_script, encoding="utf-8")
+    assert subprocess.run(["bash", "-n", str(evil_path)], capture_output=True).returncode == 0
+    # Command substitution in the path must remain inside quoted segments.
+    for line in evil_script.splitlines():
+        if line.startswith("REPOSITORY_ROOT="):
+            assert "'\"'\"'" in line or line.startswith("REPOSITORY_ROOT='")
+            # The $( must not appear outside of single-quoted fragments.
+            # After shlex.quote, touch MARKER sits between quote reopenings, never executed.
+            assert "touch MARKER" in line
+    marker = tmp_path / "MARKER"
+    # Parse-only already proved; also ensure a dry eval of the assignment does not create MARKER.
+    assign = [ln for ln in evil_script.splitlines() if ln.startswith("REPOSITORY_ROOT=")][0]
+    subprocess.run(["bash", "-c", assign], cwd=tmp_path, check=True)
+    assert not marker.exists()
+
+    ps1 = _ps1_script(
+        repository_root=awkward,
+        reviewed_head="a" * 40,
+        expected_digest="b" * 64,
+        git_executable="/usr/bin/git",
+    )
+    assert "o''brien" in ps1  # PowerShell doubles single quotes
+

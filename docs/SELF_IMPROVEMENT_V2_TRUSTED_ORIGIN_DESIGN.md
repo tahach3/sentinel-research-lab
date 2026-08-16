@@ -57,6 +57,10 @@ AST-only limit: an unpinned module loaded via literal-name dynamic import can
 still execute inside the worker. That is the documented calculator limit, not
 a missing pin entry.
 
+Ancestor package ``__init__.py`` modules under `tools.self_improvement_v2`
+**are** included (they execute on every import). Relative imports under that
+prefix **are** included.
+
 Pin = **content digests only** (per-module + combined). Pin must **not** claim reviewed HEAD.
 `SRL_REVIEWED_HEAD` is the sole HEAD claim and **must equal** the live `git rev-parse HEAD`
 of the install (no “pinned paths clean” drift tolerance).

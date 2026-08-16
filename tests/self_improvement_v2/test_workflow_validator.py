@@ -119,3 +119,23 @@ def test_mutation_marker_only_failure_router(tmp_path: Path):
     assert report["status"] == "FAIL"
     codes = _codes(report)
     assert ERROR_CODES["SI2-WF-MARKER-NOT-ROUTE"] in codes
+
+
+def test_malformed_worker_port_is_structured_fail(tmp_path: Path):
+    """Non-numeric / out-of-range ports must not raise raw ValueError (NP-5)."""
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    mutated.setdefault("meta", {})["localWorkerBaseUrl"] = "http://127.0.0.1:8765x"
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"] in _codes(report)
+    assert all("ValueError" not in str(e) for e in report["errors"])
+
+    mutated2 = copy.deepcopy(data)
+    for node in mutated2["nodes"]:
+        if node.get("name") == "Open Pilot Budget":
+            node.setdefault("parameters", {})["url"] = "http://127.0.0.1:99999/v2/budget/open"
+            break
+    report2 = _validate_data(root, mutated2, tmp_path)
+    assert report2["status"] == "FAIL"
+    assert ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"] in _codes(report2)

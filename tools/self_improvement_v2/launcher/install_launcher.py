@@ -28,12 +28,16 @@ import argparse
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from tools.self_improvement_v2.import_closure import assert_pin_covers_static_closure
+from tools.self_improvement_v2.import_closure import (
+    assert_pin_covers_static_closure,
+    module_file_relpath,
+)
 from tools.self_improvement_v2.launcher.paths import (
     ATTESTATION_NAME,
     LAUNCHER_PS1_NAME,
@@ -47,7 +51,9 @@ WORKER_PIN_REL = Path("specs/self_improvement/v2/trusted_origin_pin.json")
 LAUNCHER_PIN_REL = Path("specs/self_improvement/v2/launcher_pin.json")
 LAUNCHER_ENTRYPOINT = "tools.self_improvement_v2.launcher.install_launcher"
 LAUNCHER_TRUSTED_MODULE_NAMES = (
+    "tools.self_improvement_v2",
     "tools.self_improvement_v2.import_closure",
+    "tools.self_improvement_v2.launcher",
     "tools.self_improvement_v2.launcher.install_launcher",
     "tools.self_improvement_v2.launcher.paths",
 )
@@ -108,8 +114,12 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _module_relpath(module_name: str) -> Path:
-    return Path(*module_name.split(".")).with_suffix(".py")
+def _module_relpath(root: Path, module_name: str) -> Path:
+    rel = module_file_relpath(root, module_name)
+    if rel is None:
+        # Fall back so the missing-file error still names a path.
+        return Path(*module_name.split(".")).with_suffix(".py")
+    return Path(rel)
 
 
 def _validate_pin_object(pin: dict, *, allowed_keys: frozenset[str], label: str) -> None:
@@ -130,10 +140,10 @@ def _module_tree_digest(root: Path, module_names: tuple[str, ...]) -> tuple[str,
     per: dict[str, str] = {}
     h = hashlib.sha256()
     for name in module_names:
-        rel = _module_relpath(name)
+        rel = _module_relpath(root, name)
         path = root / rel
         if not path.is_file():
-            raise FileNotFoundError(f"pinned module missing: {rel}")
+            raise FileNotFoundError(f"pinned module missing: {rel.as_posix()}")
         digest = _canonical_sha256(path.read_bytes())
         per[name] = digest
         h.update(str(rel).replace("\\", "/").encode("utf-8"))
@@ -152,7 +162,8 @@ def build_launcher_pin(root: Path) -> dict[str, object]:
         "schema_version": "1.0.0",
         "description": (
             "Content digests for the SI2 launcher installer closure "
-            f"(entrypoint {LAUNCHER_ENTRYPOINT}). Separate from the worker pin."
+            f"(entrypoint {LAUNCHER_ENTRYPOINT}; closed under static AST imports "
+            "including package __init__ and relative imports). Separate from the worker pin."
         ),
         "entrypoint": LAUNCHER_ENTRYPOINT,
         "combined": combined,
@@ -243,6 +254,17 @@ def _git_env_unset_ps1() -> str:
     return "\n".join(lines) + "\n"
 
 
+def _ps1_single_quote(value: str) -> str:
+    """Embed value in a PowerShell single-quoted literal ('' escapes ')."""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _refuse_unsafe_interpolants(*values: str) -> None:
+    for value in values:
+        if any(ch in value for ch in ("\0", "\n", "\r")):
+            raise ValueError("launcher path/digest values must not contain NUL or newlines")
+
+
 def _ps1_script(
     *,
     repository_root: Path,
@@ -251,13 +273,15 @@ def _ps1_script(
     git_executable: str,
 ) -> str:
     root = str(repository_root.resolve())
+    git_exe = str(Path(git_executable).resolve()) if git_executable else git_executable
+    _refuse_unsafe_interpolants(root, reviewed_head, expected_digest, git_exe)
     return f"""# Sentinel Research Lab — SI2 worker launcher (OUTSIDE repository; unversioned root)
 # Update expected digest in the same operator action as the authorization line.
 $ErrorActionPreference = 'Stop'
-$ReviewedHead = '{reviewed_head}'
-$RepositoryRoot = '{root}'
-$ExpectedVerifierDigest = '{expected_digest}'
-$GitExecutable = '{git_executable}'
+$ReviewedHead = {_ps1_single_quote(reviewed_head)}
+$RepositoryRoot = {_ps1_single_quote(root)}
+$ExpectedVerifierDigest = {_ps1_single_quote(expected_digest)}
+$GitExecutable = {_ps1_single_quote(git_exe)}
 $VerifierRel = 'tools\\self_improvement_v2\\trusted_origin.py'
 $VerifierPath = Join-Path $RepositoryRoot $VerifierRel
 {_git_env_unset_ps1()}if (-not (Test-Path -LiteralPath $VerifierPath)) {{
@@ -291,13 +315,15 @@ def _sh_script(
     git_executable: str,
 ) -> str:
     root = str(repository_root.resolve())
+    git_exe = str(Path(git_executable).resolve()) if git_executable else git_executable
+    _refuse_unsafe_interpolants(root, reviewed_head, expected_digest, git_exe)
     return f"""#!/usr/bin/env bash
 # Sentinel Research Lab — SI2 worker launcher (OUTSIDE repository; unversioned root)
 set -euo pipefail
-REVIEWED_HEAD='{reviewed_head}'
-REPOSITORY_ROOT='{root}'
-EXPECTED_VERIFIER_DIGEST='{expected_digest}'
-GIT_EXECUTABLE='{git_executable}'
+REVIEWED_HEAD={shlex.quote(reviewed_head)}
+REPOSITORY_ROOT={shlex.quote(root)}
+EXPECTED_VERIFIER_DIGEST={shlex.quote(expected_digest)}
+GIT_EXECUTABLE={shlex.quote(git_exe)}
 VERIFIER_PATH="$REPOSITORY_ROOT/tools/self_improvement_v2/trusted_origin.py"
 {_git_env_unset_bash()}if [[ ! -f "$VERIFIER_PATH" ]]; then
   echo "launcher refuse: verifier missing at $VERIFIER_PATH" >&2
