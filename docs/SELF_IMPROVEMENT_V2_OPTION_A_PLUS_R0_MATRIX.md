@@ -42,13 +42,13 @@ Implementer-emitted. Reviewer verifies; do not re-derive arithmetic as the prima
 | N4 executeOnce authorize/consume | ACCEPT | REFUSE | RED→GREEN |
 | N2 rogue node port (meta fixed) | ACCEPT | REFUSE | RED→GREEN |
 | N2 meta+nodes rogue port agree | ACCEPT | REFUSE | RED→GREEN (absolute pin) |
-| N5 authorize disabled both validators | 1-of-2 | both REFUSE | RED→GREEN |
+| N5 authorize disabled both validators | 0-of-2 REFUSE (both ACCEPT) | both REFUSE | RED→GREEN |
 | N6 authorize retryOnFail | ACCEPT | REFUSE | RED→GREEN |
 | N7 authorize onError wrong | 1-of-2 | both REFUSE | RED→GREEN |
 | Launcher wrong digest | n/a | REFUSE | RED→GREEN |
 | Launcher wrong HEAD | n/a | REFUSE | RED→GREEN |
 | Launcher install inside repo | n/a | REFUSE | RED→GREEN |
 | R5 no-env shadow | REFUSE | REFUSE | GREEN→GREEN control |
-| INV-R5A-01 R5A-MANIFEST-HASH | FAIL | FAIL | RED→RED known-failing Round5A |
+| INV-R5A-01 Round5A integrity | FAIL (19 errs: 13 MANIFEST-HASH + 3 PROV-SOURCE-PROVENANCE-HASH + 3 PROV-SOURCE-RECREATED-HASH; 4/38 tests fail) | FAIL (same) | RED→RED known-failing Round5A |
 
 Reviewer must re-execute mandatory rows and ≥5 novel probes; treat this table as a claim to verify, not a substitute for PASS.

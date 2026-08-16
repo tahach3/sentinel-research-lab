@@ -89,8 +89,40 @@ def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(_canonical_bytes(data)).hexdigest()
 
 
+_GIT_ENV_BLOCKLIST_EXACT = frozenset(
+    {
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_COMMON_DIR",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    }
+)
+
+
+def _sanitized_git_env() -> dict[str, str]:
+    """Drop ambient GIT_* overrides that would rebind the install root (R2-A)."""
+    out: dict[str, str] = {}
+    for key, value in os.environ.items():
+        if key in _GIT_ENV_BLOCKLIST_EXACT:
+            continue
+        if key.startswith("GIT_CONFIG"):
+            continue
+        out[key] = value
+    return out
+
+
 def _raw_git(args: list[str], *, cwd: Path, check: bool = True) -> subprocess.CompletedProcess[bytes]:
-    proc = subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, check=False)
+    root = Path(cwd).resolve()
+    git_dir = root / ".git"
+    proc = subprocess.run(
+        ["git", f"--git-dir={git_dir}", f"--work-tree={root}", *args],
+        cwd=str(root),
+        capture_output=True,
+        check=False,
+        env=_sanitized_git_env(),
+    )
     if check and proc.returncode != 0:
         raise TrustedOriginError(f"git {' '.join(args)} failed in reviewed install")
     return proc
@@ -283,6 +315,10 @@ def assert_trusted_code_origin(
     pin = json.loads((root / PIN_REL).read_text(encoding="utf-8"))
     if not isinstance(pin, dict):
         raise TrustedOriginError("trusted origin pin must be an object")
+    allowed_pin_keys = frozenset({"schema_version", "description", "combined", "modules"})
+    unknown = sorted(set(pin) - allowed_pin_keys)
+    if unknown:
+        raise TrustedOriginError(f"trusted origin pin has unknown keys: {unknown}")
     reviewed_head = env_head
 
     live_head = _git_head(root)
@@ -353,10 +389,9 @@ def assert_trusted_code_origin(
             raise TrustedOriginError(f"loaded module bytes mismatch pin for {name}")
         origins[name] = str(path)
 
+    # head_content_binding removed: optional-if-present checks decayed silently once
+    # the pin stopped carrying the field. HEAD authority is SRL_REVIEWED_HEAD alone.
     binding = head_content_binding_digest(reviewed_head, combined)
-    expected_binding = pin.get("head_content_binding")
-    if isinstance(expected_binding, str) and expected_binding != binding:
-        raise TrustedOriginError("head_content_binding mismatch vs launcher-reviewed HEAD")
 
     return {
         "install_root": str(root),

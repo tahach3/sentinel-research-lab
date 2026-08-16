@@ -47,7 +47,9 @@ The content-only pin MUST equal the **static AST import closure** of
 Computation is defined in `tools/self_improvement_v2/import_closure.py` and is
 **AST-only**: top-level and function-level `import` / `from … import` with literal
 `tools.self_improvement_v2.*` names. It does **not** resolve dynamic
-`importlib.import_module(variable)`, `__import__` with non-literals, or plugin loaders.
+`importlib.import_module(...)` (including literal module-name strings),
+`__import__(...)` (including literals), string-built names, or plugin loaders.
+`TYPE_CHECKING`-only imports **are** included (over-inclusive / fail-safe).
 A negative test must prove that adding a module to the closure breaks pin equality.
 
 Pin = **content digests only** (per-module + combined). Pin must **not** claim reviewed HEAD.

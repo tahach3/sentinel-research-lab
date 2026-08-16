@@ -3,10 +3,13 @@
 LIMIT (stated): this is **static AST analysis** of top-level and function-level
 `import` / `from … import` statements that resolve to
 `tools.self_improvement_v2.*`. It does **not** resolve:
-  - dynamic imports (`importlib.import_module(variable)`)
-  - `__import__` with non-literal names
+  - dynamic imports via `importlib.import_module(...)` — including **literal**
+    module-name strings (not only variable forms)
+  - `__import__(...)` — including **literal** names (not only non-literals)
   - plugin/entry-point loading
   - string-built module names
+
+TYPE_CHECKING-only imports **are** included (over-inclusive / fail-safe).
 
 A calculator that under-computes would let the pin under-cover while the
 equality test still passes — hence the negative test that injects a module

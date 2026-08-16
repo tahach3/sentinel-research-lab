@@ -145,14 +145,18 @@ def test_launcher_path_starts_worker_health(tmp_path: Path, monkeypatch: pytest.
 
 def test_launcher_wrong_digest_refuses(tmp_path: Path) -> None:
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip()
+    digest = compute_verifier_digest(REPO)
     installed = install_launcher(
         repository_root=REPO,
         reviewed_head=head,
         install_dir=tmp_path / "SentinelResearchLab",
-        expected_digest="a" * 64,
+        expected_digest=digest,
     )
+    sh = Path(installed["launch_worker_sh"])
+    text = sh.read_text(encoding="utf-8")
+    sh.write_text(text.replace(digest, "a" * 64), encoding="utf-8")
     proc = subprocess.run(
-        ["bash", installed["launch_worker_sh"]],
+        ["bash", str(sh)],
         capture_output=True,
         text=True,
     )
@@ -162,15 +166,17 @@ def test_launcher_wrong_digest_refuses(tmp_path: Path) -> None:
 
 def test_launcher_wrong_head_refuses_after_digest_ok(tmp_path: Path) -> None:
     """Launcher sets wrong HEAD; worker must refuse once digest gate passes."""
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip()
     digest = compute_verifier_digest(REPO)
     installed = install_launcher(
         repository_root=REPO,
-        reviewed_head="b" * 40,
+        reviewed_head=head,
         install_dir=tmp_path / "SentinelResearchLab",
         expected_digest=digest,
     )
     sh = Path(installed["launch_worker_sh"])
     text = sh.read_text(encoding="utf-8")
+    text = text.replace(f"REVIEWED_HEAD='{head}'", "REVIEWED_HEAD='" + ("b" * 40) + "'")
     text = text.replace(
         'exec python3 -m tools.self_improvement_v2.runtime_bridge "$@"',
         "python3 -c 'from tools.self_improvement_v2.trusted_origin import assert_trusted_code_origin; assert_trusted_code_origin()'",

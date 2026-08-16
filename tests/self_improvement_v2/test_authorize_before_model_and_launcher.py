@@ -101,11 +101,12 @@ def test_d1_posthoc_authorize_after_agent_rejected() -> None:
 def test_d2_launcher_install_refuses_inside_repo(tmp_path: Path) -> None:
     inside = REPO / "tmp_launcher_inside_must_fail"
     inside.mkdir(exist_ok=True)
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip()
     try:
         with pytest.raises(ValueError, match="outside the repository"):
             install_launcher(
                 repository_root=REPO,
-                reviewed_head="a" * 40,
+                reviewed_head=head,
                 install_dir=inside,
             )
     finally:
@@ -113,7 +114,7 @@ def test_d2_launcher_install_refuses_inside_repo(tmp_path: Path) -> None:
 
 
 def test_d2_launcher_digest_mismatch_refuses(tmp_path: Path) -> None:
-    head = "b" * 40
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip()
     digest = compute_verifier_digest(REPO)
     result = install_launcher(
         repository_root=REPO,
@@ -140,7 +141,7 @@ def test_d2_launcher_digest_mismatch_refuses(tmp_path: Path) -> None:
 
 def test_d2_launcher_matching_digest_sets_anchors(tmp_path: Path) -> None:
     # Use a stub exec: rewrite launcher to print env and exit 0 before runtime_bridge.
-    head = "a" * 40
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip()
     digest = compute_verifier_digest(REPO)
     result = install_launcher(
         repository_root=REPO,
@@ -162,15 +163,17 @@ def test_d2_launcher_matching_digest_sets_anchors(tmp_path: Path) -> None:
 
 
 def test_d2_expected_digest_lives_outside_checkout(tmp_path: Path) -> None:
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip()
     digest = compute_verifier_digest(REPO)
     result = install_launcher(
         repository_root=REPO,
-        reviewed_head="d" * 40,
+        reviewed_head=head,
         install_dir=tmp_path / "SentinelResearchLab",
         expected_digest=digest,
     )
     att = json.loads(Path(result["attestation"]).read_text(encoding="utf-8"))
     assert att["expected_verifier_digest"] == digest
+    assert "git_executable" in att and att["git_executable"]
     assert Path(result["attestation"]).resolve().is_relative_to(tmp_path.resolve())
     # Pin file inside repo is not the launcher attestation.
     pin = json.loads((REPO / "specs/self_improvement/v2/trusted_origin_pin.json").read_text())

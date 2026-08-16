@@ -37,7 +37,7 @@
 
 | ID | Property | Evidence | Status |
 |----|----------|----------|--------|
-| INV-R5A-01 | Round 5A Phase D manifest integrity (`R5A-MANIFEST-HASH`): registry expected digests match on-disk Round5A artifact SHA-256 | Settled RED→RED (32/32) at `e85c42ee` and SI2 candidate tips; error class `R5A-MANIFEST-HASH`; SI2 candidate diffs do not touch Round5A paths | **known-failing** (Round 5A round; do not treat as SI2 regression) |
+| INV-R5A-01 | Round 5A Phase D manifest integrity: on-disk Round5A artifact digests must match registry expectations | Settled RED→RED at `e85c42ee` and SI2 candidate tips. Error-class multiset (identical at both ends): `R5A-MANIFEST-HASH`×13 + `R5A-PROV-SOURCE-PROVENANCE-HASH`×3 + `R5A-PROV-SOURCE-RECREATED-HASH`×3 (19 errors). `tests/test_validate_round5a.py` collects 38 tests of which 4 fail / 34 pass. SI2 candidate diffs do not touch Round5A paths | **known-failing** (Round 5A round; do not treat as SI2 regression) |
 
 ## Withdrawal hooks
 
