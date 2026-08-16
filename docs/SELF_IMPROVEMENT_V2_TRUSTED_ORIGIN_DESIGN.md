@@ -42,27 +42,50 @@ No repository Python module may be treated as authoritative until that external 
 
 ### Closed bootstrap / execution manifest
 
-The content-only pin MUST cover at least:
+The content-only pin MUST equal the **static AST import closure** of
+`tools.self_improvement_v2.runtime_bridge` (plus the closure calculator module itself).
+Computation is defined in `tools/self_improvement_v2/import_closure.py` and is
+**AST-only**: top-level and function-level `import` / `from … import` with literal
+`tools.self_improvement_v2.*` names. It does **not** resolve dynamic
+`importlib.import_module(variable)`, `__import__` with non-literals, or plugin loaders.
+A negative test must prove that adding a module to the closure breaks pin equality.
 
-- `runtime_bridge.py` (actual worker entrypoint)
-- `trusted_origin.py` (verifier)
-- `git_worker.py` (Git/evidence provider used by the verifier)
-- every transitive in-repo module that can change authentication, authorization, path selection, origin evidence, or provider dispatch (including `risk_authority`, `review_gate`, `pilot_budget`, `path_policy`, `workflow_validator`, `agent_runtime_contract`, `finalizer`, `patch_validator`, `runtime_config`, `schema_loader`, `canonical`, `models`)
-
-Pin = **content digests only** (per-module + combined). Pin must **not** claim reviewed HEAD. `SRL_REVIEWED_HEAD` is the sole HEAD claim.
+Pin = **content digests only** (per-module + combined). Pin must **not** claim reviewed HEAD.
+`SRL_REVIEWED_HEAD` is the sole HEAD claim and **must equal** the live `git rev-parse HEAD`
+of the install (no “pinned paths clean” drift tolerance).
 
 Missing / malformed / mismatching / noncanonical launcher identities → fail closed. No CWD / package-root / self-pin fallback.
 
-### Verify-before-execute / anti-TOCTOU
+### Explicit trust boundary (local code execution)
 
-- Digest checks for pinned modules (including `git_worker`) MUST use direct filesystem reads (and/or raw `git` subprocess) **before** trusting imported helpers that those modules provide.
-- Reject Git-dirty or digest-mismatched pinned modules **before** their mutated code is relied upon.
-- Reject a preloaded forged `trusted_origin` in `sys.modules` whose `__file__`/bytes do not match the pinned on-disk module (reload-from-verified-path or fail closed).
-- Prefer launch from an authenticated immutable snapshot/worktree of `SRL_REVIEWED_HEAD`, or an equally strong proof that verified bytes are executed bytes.
+**Named boundary (not a missing fourth attestation layer):**
 
-### Explicit residual boundary (unchanged, stated)
+> An attacker who can execute arbitrary code as the operator on this machine
+> defeats this system. Mechanisms below that line — content pin, out-of-repo
+> launcher, digests, HEAD equality — defend **misconfiguration, drift, and
+> accident**, not a local adversary who already owns the operator identity.
 
-An attacker who can **modify the external launcher** or **forge the operator authorization line** wins. That is the deliberate residual boundary (same trust as the operator shell). Do not silently broaden it.
+Consequences that are **accepted under this boundary** (do not invent another
+in-repo “launcher attestation” gadget for them):
+
+- **D2-BYPASS:** starting `python -m tools.self_improvement_v2.runtime_bridge`
+  with hand-set `SRL_REPOSITORY_ROOT` / `SRL_REVIEWED_HEAD` (the worker cannot
+  cryptographically prove launcher provenance without moving the trust problem).
+- **Anchor spoof with a self-consistent checkout:** pointing anchors at an
+  attacker-controlled clone whose pin matches its own bytes (same class as
+  owning the operator shell / forging the auth line).
+- **N12 post-start in-process replacement:** mutating already-loaded Python
+  objects after a successful byte attestation.
+
+What is **not** part of this boundary and must remain closed in code:
+
+- Incomplete pin vs import closure (N1)
+- Workflow validator gaps (duplicate edges, executeOnce, port/origin, disabled coverage)
+- `SRL_REVIEWED_HEAD != live HEAD` tolerance (N11 — fixed by requiring equality)
+
+An attacker who can **modify the external launcher** or **forge the operator
+authorization line** also wins — same trust class as the operator shell.
+Do not silently broaden the boundary.
 
 ## Companion controls (same candidate; not “pin-only”)
 

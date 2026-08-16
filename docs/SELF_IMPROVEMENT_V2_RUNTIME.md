@@ -65,7 +65,7 @@ python -m tools.self_improvement_v2.launcher.install_launcher `
 & "$env:LOCALAPPDATA\SentinelResearchLab\launch-worker.ps1"
 ```
 
-Manual shell assignment of `SRL_REPOSITORY_ROOT` / `SRL_REVIEWED_HEAD` is **not** an attested source and must not be used for supervised pilot runs.
+Manual shell assignment of `SRL_REPOSITORY_ROOT` / `SRL_REVIEWED_HEAD` is **not** an attested source for supervised pilot runs. Prefer the launcher. Direct module start with hand-set anchors (D2-BYPASS) is a **documented local-code-execution trust boundary** — see `docs/SELF_IMPROVEMENT_V2_TRUSTED_ORIGIN_DESIGN.md` and the residual-risk record — not a missing fourth attestation gadget.
 
 ## Bind and auth policy
 

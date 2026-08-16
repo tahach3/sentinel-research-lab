@@ -22,8 +22,9 @@
 |----|----------|----------|--------|
 | INV-TO-01 | Launcher anchors are mandatory: absent `SRL_REPOSITORY_ROOT` or `SRL_REVIEWED_HEAD` ⇒ trusted-origin **REJECT** | Codex Finding 1; R5 no-env probe; `_require_launcher_anchors` | established |
 | INV-TO-02 | CWD / package root / self-consistent pin inside an alternate checkout are **not** trust authority | Codex Finding 1 | established |
-| INV-TO-03 | Expected digest of `trusted_origin.py` is held **outside** the checkout by the launcher; mismatch ⇒ refuse (fail-closed) | Option A+; `install_launcher`; `test_d2_*` | established (re-prove on assurance review) |
-| INV-TO-05 | Pin is content-digest only; must not claim HEAD; `SRL_REVIEWED_HEAD` is sole HEAD claim | Option A+ | established |
+| INV-TO-03 | Expected digest of `trusted_origin.py` is held **outside** the checkout by the launcher; mismatch ⇒ refuse (fail-closed). Launcher defends drift/misconfig; D2-BYPASS is a **documented local-code-execution boundary**, not a missing gadget | Option A+; `install_launcher`; residual-risk boundary | established + boundary stated |
+| INV-TO-05 | Pin is content-digest only; must not claim HEAD; `SRL_REVIEWED_HEAD` is sole HEAD claim and **must equal** live HEAD | Option A+; N11 repair | established |
+| INV-TO-06 | Pin set **equals** static AST import closure of `runtime_bridge` (AST-only limit stated; negative under-coverage test required) | N1 repair; `import_closure.py` | established |
 | INV-BUD-01 | Boolean JSON must not coerce into pilot budget numeric fields | Codex Finding 5 | established |
 | INV-BUD-02 | Boolean `maxIterations` must not satisfy `maxIterations==1` via `int(True)` | Codex Finding 6 | established |
 | INV-BUD-03 | Provider-call consume validates role-bound provider/model/credential atomically; omit does not burn nonce | Codex Finding 3/4 | established |
