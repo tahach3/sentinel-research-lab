@@ -28,7 +28,6 @@ import argparse
 import hashlib
 import json
 import os
-import shlex
 import shutil
 import subprocess
 import sys
@@ -259,6 +258,11 @@ def _ps1_single_quote(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
+def _bash_single_quote(value: str) -> str:
+    """Always emit a single-quoted bash literal (shlex.quote omits quotes for bare tokens)."""
+    return "'" + value.replace("'", "'\"'\"'") + "'"
+
+
 def _refuse_unsafe_interpolants(*values: str) -> None:
     for value in values:
         if any(ch in value for ch in ("\0", "\n", "\r")):
@@ -320,10 +324,10 @@ def _sh_script(
     return f"""#!/usr/bin/env bash
 # Sentinel Research Lab — SI2 worker launcher (OUTSIDE repository; unversioned root)
 set -euo pipefail
-REVIEWED_HEAD={shlex.quote(reviewed_head)}
-REPOSITORY_ROOT={shlex.quote(root)}
-EXPECTED_VERIFIER_DIGEST={shlex.quote(expected_digest)}
-GIT_EXECUTABLE={shlex.quote(git_exe)}
+REVIEWED_HEAD={_bash_single_quote(reviewed_head)}
+REPOSITORY_ROOT={_bash_single_quote(root)}
+EXPECTED_VERIFIER_DIGEST={_bash_single_quote(expected_digest)}
+GIT_EXECUTABLE={_bash_single_quote(git_exe)}
 VERIFIER_PATH="$REPOSITORY_ROOT/tools/self_improvement_v2/trusted_origin.py"
 {_git_env_unset_bash()}if [[ ! -f "$VERIFIER_PATH" ]]; then
   echo "launcher refuse: verifier missing at $VERIFIER_PATH" >&2

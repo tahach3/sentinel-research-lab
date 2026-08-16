@@ -46,7 +46,10 @@ from tools.self_improvement_v2.workflow_validator import validate_workflow
 
 
 def _module_relpath(module_name: str) -> str:
-    return str(Path(*module_name.split(".")).with_suffix(".py")).replace("\\", "/")
+    from tools.self_improvement_v2.import_closure import module_file_relpath, module_name_to_relpath
+
+    rel = module_file_relpath(Path.cwd(), module_name)
+    return rel if rel is not None else module_name_to_relpath(module_name)
 
 
 def _git(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:

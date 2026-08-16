@@ -82,10 +82,10 @@ def _module_relpath(module_name: str, *, root: Path | None = None) -> str:
     """Repo-relative path for a pinned module or package ``__init__.py``."""
     from tools.self_improvement_v2.import_closure import module_file_relpath, module_name_to_relpath
 
-    if root is not None:
-        rel = module_file_relpath(root, module_name)
-        if rel is not None:
-            return rel
+    base = root if root is not None else Path.cwd()
+    rel = module_file_relpath(base, module_name)
+    if rel is not None:
+        return rel
     return module_name_to_relpath(module_name)
 
 
