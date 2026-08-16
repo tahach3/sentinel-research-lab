@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 import json
 import logging
-import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -14,6 +13,7 @@ import pytest
 
 from tests.self_improvement_v2.helpers import build_pass_review, build_proposal, init_temp_repo, run
 from tools.self_improvement_v2.git_worker import source_tree_fingerprint
+from tools.self_improvement_v2.runtime_bridge import LoopbackServer, configure_logging
 from tools.self_improvement_v2.runtime_config import MAX_REQUEST_BYTES, load_runtime_config, redact_log_text
 
 
@@ -21,50 +21,92 @@ TOKEN = "test-worker-token-not-for-production"
 ALT_TOKEN = "different-invalid-token-value"
 
 
-def _purge_si2_modules() -> None:
-    for name in list(sys.modules):
-        if name == "tools" or name.startswith("tools."):
-            del sys.modules[name]
-
-
 @pytest.fixture()
-def bridge_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Disposable checkout that is ALSO the trusted install root (R4)."""
+def bridge_env(tmp_path: Path):
+    """Disposable checkout that is ALSO the trusted install root (R4).
+
+    Server runs in a subprocess so parent pytest sys.modules stay clean.
+    """
+    import os
+    import subprocess
+    import sys
+    import time
+
     repo = tmp_path / "sentinel-research-lab"
     baseline = init_temp_repo(repo, include_worker_package=True)
     state_db = tmp_path / "runtime" / "v2-state.sqlite"
+    state_db.parent.mkdir(parents=True, exist_ok=True)
     root = str(repo.resolve())
-    monkeypatch.setenv("SRL_REPOSITORY_ROOT", root)
-    monkeypatch.setenv("SRL_REVIEWED_HEAD", baseline)
-    monkeypatch.setenv("SRL_WORKER_TOKEN", TOKEN)
-    monkeypatch.syspath_prepend(root)
-    _purge_si2_modules()
-    # Import after path/env bind so WorkerBridge + trusted_origin load from temp root.
-    from tools.self_improvement_v2.runtime_bridge import LoopbackServer
-    from tools.self_improvement_v2.runtime_config import load_runtime_config as _load
-
-    config = _load(
-        repository_root=root,
-        state_db=str(state_db),
-        worker_token=TOKEN,
-        worker_host="127.0.0.1",
-        worker_port=0,
+    boot = tmp_path / "boot_bridge.py"
+    boot.write_text(
+        "import os, sys\n"
+        f"os.environ['SRL_REPOSITORY_ROOT'] = {root!r}\n"
+        f"os.environ['SRL_REVIEWED_HEAD'] = {baseline!r}\n"
+        f"os.environ['SRL_WORKER_TOKEN'] = {TOKEN!r}\n"
+        "os.environ['PYTHONDONTWRITEBYTECODE'] = '1'\n"
+        f"sys.path.insert(0, {root!r})\n"
+        "from tools.self_improvement_v2.runtime_config import load_runtime_config\n"
+        "from tools.self_improvement_v2.runtime_bridge import LoopbackServer\n"
+        "config = load_runtime_config(\n"
+        f"    repository_root={root!r},\n"
+        f"    state_db={str(state_db.resolve())!r},\n"
+        f"    worker_token={TOKEN!r},\n"
+        "    worker_host='127.0.0.1',\n"
+        "    worker_port=0,\n"
+        ")\n"
+        "server = LoopbackServer(config)\n"
+        "server.start_background()\n"
+        "print('READY ' + server.base_url, flush=True)\n"
+        "server._thread.join()\n",
+        encoding="utf-8",
     )
-    server = LoopbackServer(config)
-    server.start_background()
+    env = {
+        **os.environ,
+        "SRL_REPOSITORY_ROOT": root,
+        "SRL_REVIEWED_HEAD": baseline,
+        "SRL_WORKER_TOKEN": TOKEN,
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": root + os.pathsep + os.environ.get("PYTHONPATH", ""),
+    }
+    proc = subprocess.Popen(
+        [sys.executable, str(boot)],
+        cwd=root,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    assert proc.stdout is not None
+    base = None
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        line = proc.stdout.readline()
+        if not line and proc.poll() is not None:
+            err = proc.stderr.read() if proc.stderr else ""
+            raise RuntimeError(f"bridge boot failed: rc={proc.returncode} err={err[:2000]}")
+        if line.startswith("READY "):
+            base = line.split(" ", 1)[1].strip()
+            break
+    if not base:
+        proc.kill()
+        err = proc.stderr.read() if proc.stderr else ""
+        raise RuntimeError(f"bridge boot timeout err={err[:2000]}")
     try:
         yield {
-            "server": server,
-            "base": server.base_url,
+            "proc": proc,
+            "base": base,
             "repo": repo,
             "baseline": baseline,
             "state_db": state_db,
-            "config": config,
             "token": TOKEN,
         }
     finally:
-        server.stop()
-        _purge_si2_modules()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
 
 
 def _request(
