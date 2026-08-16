@@ -365,3 +365,105 @@ def test_parse_strict_nodes_scalar_member_is_structured_fail(tmp_path: Path):
     report = _validate_data(root, mutated, tmp_path)
     assert report["status"] == "FAIL"
     assert any("nodes member must be object" in e["message"] for e in report["errors"])
+
+
+# --- Codex REPAIR_REQUIRED at 102a921: credential key identity / link index / closed-world ---
+
+
+def test_credential_key_identity_rejects_short_value(tmp_path: Path):
+    """Finding A: {"apiKey": "x"} must REJECT on key identity (not value length)."""
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    for node in mutated["nodes"]:
+        if node.get("name") == "Candidate Intake":
+            node.setdefault("parameters", {})["apiKey"] = "x"
+            break
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert ERROR_CODES["CREDENTIALS_IN_WORKFLOW"] in _codes(report)
+
+
+def test_credential_key_identity_rejects_placeholder_and_nested(tmp_path: Path):
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    for node in mutated["nodes"]:
+        if node.get("name") == "Candidate Intake":
+            node.setdefault("parameters", {})["apiKey"] = "placeholder-not-a-real-key-format"
+            break
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+
+    nested = copy.deepcopy(data)
+    for node in nested["nodes"]:
+        if node.get("name") == "Candidate Intake":
+            node.setdefault("parameters", {})["options"] = {"auth": {"ApI_KeY": "short"}}
+            break
+    report2 = _validate_data(root, nested, tmp_path)
+    assert report2["status"] == "FAIL"
+    assert ERROR_CODES["CREDENTIALS_IN_WORKFLOW"] in _codes(report2)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("tokenLimit", 100),
+        ("keyboardMode", "standard"),
+        ("authorizationMode", "manual"),
+    ],
+)
+def test_credential_key_identity_benign_fields_still_pass(field: str, value: object, tmp_path: Path):
+    """False-positive control: names containing key/token/auth substrings are not blanket-banned."""
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    for node in mutated["nodes"]:
+        if node.get("name") == "V2 Design Notes":
+            node.setdefault("parameters", {})[field] = value
+            break
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "PASS", report["errors"]
+
+
+@pytest.mark.parametrize("bad_index", [1, -1])
+def test_link_index_domain_rejects_non_reviewed_slots(bad_index: int, tmp_path: Path):
+    """Finding B: reviewed contract uses destination input index 0 only."""
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    source, out_i, link_i, _link = _first_main_link(mutated)
+    mutated["connections"][source]["main"][out_i][link_i]["index"] = bad_index
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert any("malformed connection link" in e["message"] for e in report["errors"])
+
+
+def test_link_index_zero_still_accepted_on_design(tmp_path: Path):
+    root, path, _data = _load()
+    report = validate_workflow(root, path)
+    assert report["status"] == "PASS", report["errors"]
+
+
+def test_link_index_participates_in_edge_identity(tmp_path: Path):
+    """Wrong input slot must not compare equal to the reviewed edge (even if typed int)."""
+    from tools.self_improvement_v2.workflow_validator import _enumerate_channel_edges
+
+    root, _path, data = _load()
+    ok_edges, ok_problems = _enumerate_channel_edges(data["connections"])
+    assert not ok_problems
+    assert all(len(e) == 5 and e[4] == 0 for e in ok_edges)
+
+    mutated = copy.deepcopy(data)
+    source, out_i, link_i, _link = _first_main_link(mutated)
+    mutated["connections"][source]["main"][out_i][link_i]["index"] = 1
+    bad_edges, bad_problems = _enumerate_channel_edges(mutated["connections"])
+    assert bad_problems  # rejected before enumeration as an edge
+    assert bad_edges != ok_edges or bad_problems
+
+
+def test_closed_world_unknown_link_member_rejected(tmp_path: Path):
+    """Finding C: unknown link members must REJECT, not be ignored."""
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    source, out_i, link_i, _link = _first_main_link(mutated)
+    mutated["connections"][source]["main"][out_i][link_i]["credential"] = "harmless-metadata"
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert any("unknown connection link member" in e["message"] for e in report["errors"])

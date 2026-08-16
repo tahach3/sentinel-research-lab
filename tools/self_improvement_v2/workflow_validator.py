@@ -49,10 +49,17 @@ def _safe_url_host_port_path(url: str) -> tuple[str | None, int | None, str]:
 CREDENTIAL_VALUE_RE = re.compile(
     r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*['\"][^'\"]{8,}"
 )
-# Dict keys that must not hold opaque secret strings (structured credential injection).
+# Dict keys that must not hold credential material (structured injection).
+# Anchored exact names only — substrings like tokenLimit / keyboardMode / authorizationMode
+# are intentionally outside this set (false-positive control).
 SENSITIVE_KEY_RE = re.compile(
     r"(?i)^(api[_-]?key|secret|password|token|authorization|access[_-]?token|bearer)$"
 )
+
+# Reviewed workflow contract: every connection link is exactly {node, type, index}.
+ALLOWED_CONNECTION_LINK_KEYS: frozenset[str] = frozenset({"node", "type", "index"})
+# Destination input slot for all reviewed edges (main + ai_languageModel) is 0.
+REVIEWED_CONNECTION_INPUT_INDEX: int = 0
 
 REQUIRED_NODE_SPECS: dict[str, str] = {
     "Manual Trigger": "n8n-nodes-base.manualTrigger",
@@ -250,15 +257,18 @@ def _nodes_by_name(nodes: list[Any]) -> tuple[dict[str, dict[str, Any]], list[st
 
 def _enumerate_channel_edges(
     connections: dict[str, Any],
-) -> tuple[list[tuple[str, str, int, str]], list[str]]:
+) -> tuple[list[tuple[str, str, int, str, int]], list[str]]:
     """Enumerate every connection-channel edge, or report uninterpretable shapes.
 
     Parse-strictly-or-reject: any channel body / output slot / link the walker
     cannot fully interpret becomes a problem string, never a silent skip.
-    Link ``type`` (destination channel) and ``index`` (input slot) are required
-    and typed — they are not ignored after reading ``node``.
+
+    Edge identity is ``(channel, source, output_index, dest, input_index)`` —
+    destination ``link.index`` participates, not only source output slot.
+    Reviewed contract: link members exactly ``{node, type, index}``; input index
+    is ``REVIEWED_CONNECTION_INPUT_INDEX`` (0) for every allowed channel.
     """
-    edges: list[tuple[str, str, int, str]] = []
+    edges: list[tuple[str, str, int, str, int]] = []
     problems: list[str] = []
     for source, block in connections.items():
         if not isinstance(source, str) or not source:
@@ -300,6 +310,13 @@ def _enumerate_channel_edges(
                             f"must be object, got {type(link).__name__}"
                         )
                         continue
+                    unknown = sorted(set(link.keys()) - ALLOWED_CONNECTION_LINK_KEYS)
+                    if unknown:
+                        problems.append(
+                            f"unknown connection link member: {source!r}.{channel}[{idx}][{link_i}] "
+                            f"keys {unknown} (allowed {sorted(ALLOWED_CONNECTION_LINK_KEYS)})"
+                        )
+                        continue
                     node = link.get("node")
                     if not isinstance(node, str) or not node:
                         problems.append(
@@ -328,13 +345,20 @@ def _enumerate_channel_edges(
                             f"index must be int, got {type(link_index).__name__}"
                         )
                         continue
-                    edges.append((channel, source, idx, node))
+                    if link_index != REVIEWED_CONNECTION_INPUT_INDEX:
+                        problems.append(
+                            f"malformed connection link: {source!r}.{channel}[{idx}][{link_i}] "
+                            f"index {link_index} is not a reviewed destination input slot "
+                            f"(required {REVIEWED_CONNECTION_INPUT_INDEX})"
+                        )
+                        continue
+                    edges.append((channel, source, idx, node, link_index))
     return edges, problems
 
 
 def _all_channel_edges(
     connections: dict[str, Any],
-) -> list[tuple[str, str, int, str]]:
+) -> list[tuple[str, str, int, str, int]]:
     """Enumerate edges only (shape problems discarded). Prefer ``_enumerate_channel_edges``."""
     edges, _problems = _enumerate_channel_edges(connections)
     return edges
@@ -342,19 +366,24 @@ def _all_channel_edges(
 
 def _all_main_edges(connections: dict[str, Any]) -> list[tuple[str, int, str]]:
     """Main-channel edges only — used by success-path / required-edge helpers."""
-    return [(src, idx, dest) for channel, src, idx, dest in _all_channel_edges(connections) if channel == "main"]
+    return [
+        (src, idx, dest)
+        for channel, src, idx, dest, _input_idx in _all_channel_edges(connections)
+        if channel == "main"
+    ]
 
 
-def _edge_multiset(connections: dict[str, Any]) -> Counter[tuple[str, str, int, str]]:
+def _edge_multiset(connections: dict[str, Any]) -> Counter[tuple[str, str, int, str, int]]:
     """Count all-channel edges as a multiset so duplicated links are visible."""
     return Counter(_all_channel_edges(connections))
 
 
 # Allowed non-main attachments (exactly once each). Agents may not gain ai_tool / ai_memory.
 ALLOWED_CONNECTION_CHANNELS: frozenset[str] = frozenset({"main", "ai_languageModel"})
-ALLOWED_AI_LANGUAGE_MODEL_EDGES: tuple[tuple[str, str, int, str], ...] = (
-    ("ai_languageModel", "Implementer Gemini Chat Model", 0, "Implementer Agent"),
-    ("ai_languageModel", "Independent Reviewer Groq Chat Model", 0, "Independent Reviewer Agent"),
+# (channel, source, source_output_index, dest, dest_input_index)
+ALLOWED_AI_LANGUAGE_MODEL_EDGES: tuple[tuple[str, str, int, str, int], ...] = (
+    ("ai_languageModel", "Implementer Gemini Chat Model", 0, "Implementer Agent", 0),
+    ("ai_languageModel", "Independent Reviewer Groq Chat Model", 0, "Independent Reviewer Agent", 0),
 )
 AGENT_ATTACHMENT_FORBIDDEN_CHANNELS: frozenset[str] = frozenset({"ai_tool", "ai_memory"})
 AGENT_NODE_NAMES: frozenset[str] = frozenset({"Implementer Agent", "Independent Reviewer Agent"})
@@ -421,19 +450,40 @@ def _reachable_from(
 def _scan_embedded_secrets(node: Any, *, path: str = "$") -> list[str]:
     """Find embedded credential material; reject uninterpretable JSON types.
 
-    Parse-strictly-or-reject for the credential walk: structured keys such as
-    ``{"apiKey": "sk-…"}`` are visible (keys are not discarded), and any value
-    type other than object/array/string/number/bool/null is a finding.
+    Credential-bearing structured keys are rejected by **key identity** (any string
+    value length, including short placeholders). Pattern matching on values remains
+    a secondary signal for free-form strings.
     """
     findings: list[str] = []
     if isinstance(node, dict):
         for key, value in node.items():
             key_s = str(key)
             child = f"{path}.{key_s}"
+            if SENSITIVE_KEY_RE.match(key_s):
+                if isinstance(value, str):
+                    findings.append(
+                        f"credential-bearing key {key_s!r} present at {child} "
+                        f"(rejected by key identity)"
+                    )
+                elif value is None or isinstance(value, (bool, int, float)):
+                    findings.append(
+                        f"credential-bearing key {key_s!r} present at {child} "
+                        f"(rejected by key identity; value type {type(value).__name__})"
+                    )
+                elif isinstance(value, (dict, list)):
+                    findings.append(
+                        f"credential-bearing key {key_s!r} present at {child} "
+                        f"(rejected by key identity; nested value)"
+                    )
+                    findings.extend(_scan_embedded_secrets(value, path=child))
+                else:
+                    findings.append(
+                        f"credential-bearing key {key_s!r} present at {child} "
+                        f"(uninterpretable value type {type(value).__name__})"
+                    )
+                continue
             if isinstance(value, str):
-                if SENSITIVE_KEY_RE.match(key_s) and len(value.strip()) >= 8:
-                    findings.append(f"credential-like key {key_s!r} holds a string value at {child}")
-                elif CREDENTIAL_VALUE_RE.search(value):
+                if CREDENTIAL_VALUE_RE.search(value):
                     findings.append(f"credential pattern in string at {child}")
             elif isinstance(value, (dict, list)):
                 findings.extend(_scan_embedded_secrets(value, path=child))
@@ -848,14 +898,17 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
         allowed_main_keys.add(("Worker Decision Router", out_idx, dest))
     for out_idx, dest in FAILURE_ROUTER_TARGETS.items():
         allowed_main_keys.add(("Failure Router", out_idx, dest))
-    allowed_all: Counter[tuple[str, str, int, str]] = Counter(
-        {("main", src, idx, dest): 1 for src, idx, dest in allowed_main_keys}
+    allowed_all: Counter[tuple[str, str, int, str, int]] = Counter(
+        {
+            ("main", src, idx, dest, REVIEWED_CONNECTION_INPUT_INDEX): 1
+            for src, idx, dest in allowed_main_keys
+        }
     )
     for edge in ALLOWED_AI_LANGUAGE_MODEL_EDGES:
         allowed_all[edge] = 1
     actual_all = Counter(actual_edges)
     for edge, count in actual_all.items():
-        channel, source, out_idx, dest = edge
+        channel, source, out_idx, dest, _input_idx = edge
         if channel not in ALLOWED_CONNECTION_CHANNELS:
             errors.append(
                 _err(
@@ -884,7 +937,7 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
 
     # Agent attachment set: exactly one ai_languageModel inbound; zero ai_tool/ai_memory.
     inbound: dict[str, Counter[str]] = {name: Counter() for name in AGENT_NODE_NAMES}
-    for channel, _source, _idx, dest in actual_edges:
+    for channel, _source, _idx, dest, _input_idx in actual_edges:
         if dest in inbound:
             inbound[dest][channel] += 1
     for agent in sorted(AGENT_NODE_NAMES):
