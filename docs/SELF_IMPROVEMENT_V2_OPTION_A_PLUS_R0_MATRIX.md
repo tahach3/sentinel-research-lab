@@ -2,7 +2,7 @@
 
 **Base (matrix key):** `e85c42ee434cf93346f14f3a890e5fb1385cb06d`  
 **Prior rejected tip:** `4ff870275c15ccc1d7e8672ac932e3d6d9f32246`  
-**This tip:** *(fill `git rev-parse HEAD` at ship — must match pushed tip)*  
+**This tip:** `05ecf407276d9fc40e8d40fe4fe310f71508d281`  
 
 Implementer-emitted. Reviewer verifies; do not re-derive arithmetic as the primary review cost.
 
