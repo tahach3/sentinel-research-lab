@@ -244,3 +244,55 @@ def test_parse_strict_design_workflow_still_passes():
     root, path, _data = _load()
     report = validate_workflow(root, path)
     assert report["status"] == "PASS", report["errors"]
+
+
+def test_positive_control_design_passes_both_validators():
+    """Blocking M7-style control: unchanged design must PASS workflow_validator + wiring."""
+    from tools.self_improvement_v2.agent_runtime_contract import (
+        assert_workflow_agent_wiring,
+        load_design_workflow,
+    )
+
+    root, path, _data = _load()
+    report = validate_workflow(root, path)
+    assert report["status"] == "PASS", report["errors"]
+    assert report["errors"] == []
+    wiring = assert_workflow_agent_wiring(workflow=load_design_workflow(root=root), root=root)
+    assert isinstance(wiring, dict)
+
+
+def test_positive_control_legitimate_unusual_shapes_still_pass(tmp_path: Path):
+    """Over-strict regression control: legitimate-but-unusual shapes must still PASS."""
+    root, _path, data = _load()
+
+    # optional keys absent + node with no parameters object (sticky note)
+    mutated = copy.deepcopy(data)
+    for node in mutated["nodes"]:
+        if node.get("name") == "V2 Design Notes":
+            node.pop("parameters", None)
+            node.pop("disabled", None)
+            node.pop("credentials", None)
+            node.pop("notes", None)
+            break
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "PASS", report["errors"]
+
+    # null where schema allows (notes=null on sticky) + empty parameters object
+    mutated2 = copy.deepcopy(data)
+    for node in mutated2["nodes"]:
+        if node.get("name") == "V2 Design Notes":
+            node["notes"] = None
+            node["parameters"] = {}
+            break
+    report2 = _validate_data(root, mutated2, tmp_path)
+    assert report2["status"] == "PASS", report2["errors"]
+
+    # channel present but empty ([]), and empty arrays in output slots
+    mutated3 = copy.deepcopy(data)
+    mutated3.setdefault("connections", {}).setdefault("V2 Design Notes", {})["main"] = []
+    # trailing empty output slot on an existing main channel
+    mains = mutated3["connections"]["Open Pilot Budget"]["main"]
+    assert isinstance(mains, list)
+    mains.append([])
+    report3 = _validate_data(root, mutated3, tmp_path)
+    assert report3["status"] == "PASS", report3["errors"]
