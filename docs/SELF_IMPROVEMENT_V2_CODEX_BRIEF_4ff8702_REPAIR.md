@@ -14,8 +14,8 @@
 | Workflow | inactive by design |
 | Matrix base (comparability) | `e85c42ee434cf93346f14f3a890e5fb1385cb06d` |
 | Prior REPAIR_REQUIRED tip | `4ff870275c15ccc1d7e8672ac932e3d6d9f32246` — **not** an approved floor |
-| Reviewed HEAD | *(paste `git rev-parse HEAD` at send)* |
-| Review range | `e85c42ee434cf93346f14f3a890e5fb1385cb06d` .. *(same tip)* |
+| Reviewed HEAD | `5dc61d4da01fe1baa271ba7b2200758098463e39` at brief-prep; **re-confirm** with `git rev-parse HEAD` at paste |
+| Review range | `e85c42ee434cf93346f14f3a890e5fb1385cb06d` .. *(tip from rev-parse)* |
 | Code-reading focus | `4ff870275c15ccc1d7e8672ac932e3d6d9f32246` .. tip |
 | Earlier segment `e85c42ee..4ff8702` | **probe-replay only** (do not re-read as primary code review) |
 | Push | OK for repair visibility |
@@ -80,6 +80,25 @@ Scope must be **exactly** D2-BYPASS, anchor-spoof, N12.
 If the text claims “trust is anchored by the launcher” as if the launcher were attestable against a local adversary, that **overclaims** — report it.
 Allowed statement class: *an attacker who can execute arbitrary code as the operator defeats this system; pin/launcher/digests defend misconfiguration/drift/accident.*
 
+### V-INSTALL — TRUST-ROOT PROVENANCE (required)
+
+`install_launcher.py` generates the out-of-repo launcher that authenticates the verifier. That means the **installer** writes the trust root.
+
+```text
+V-INSTALL  TRUST-ROOT PROVENANCE
+  install_launcher.py generates the launcher that authenticates the
+  verifier. Determine what governs when it runs.
+  Is re-installation gated on operator authorization, or can it be
+  re-run freely from any checkout state?
+  Probe: modify trusted_origin.py in a copy, re-run the installer from
+  that copy, and check whether the resulting launcher accepts the
+  modified verifier. If it does, the trust root is re-rootable from a
+  compromised tree and Finding 3 is closed only under an assumption
+  about operator discipline — report it as such.
+```
+
+Runtime doc claims refresh only at authorization-line time. Confirm whether that is **enforced** or **prose**. Unenforced discipline → report Finding 3 closed only under operator ritual.
+
 ---
 
 ## Interaction bet — strict HEAD × detached execution worktree
@@ -125,10 +144,10 @@ PASS | REPAIR_REQUIRED | BLOCKED | ESCALATE
 1. `git rev-parse HEAD`  
 2. Exact reviewed HEAD  
 3. Gate FULL|LESSER + same-family limitation  
-4. Absolute-origin / multiset / closure-negative / boundary-scope results  
+4. Absolute-origin / multiset / closure-negative / boundary-scope / **V-INSTALL** results  
 5. Worktree×HEAD interaction result  
-6. ≥5 novel probes + outcomes  
-7. Verified R0 matrix (confirm or dispute implementer table)  
+6. ≥5 novel probes + outcomes (full detail)  
+7. Verified R0 matrix (confirm or dispute implementer table — print verified rows)  
 8. PR #8 unmerged?  
 9. One terminal verdict  
 
