@@ -378,19 +378,30 @@ def assert_workflow_meta_bindings(
     base_url = meta.get(WORKER_BASE_URL_META_KEY)
     if not isinstance(base_url, str) or not base_url.strip():
         raise AgentRuntimeContractError("localWorkerBaseUrl missing")
-    # Base URL is origin only (no path); reject userinfo / non-loopback.
+    # Absolute origin pin — not mere agreement with node URLs (N2 self-consistency hole).
     from urllib.parse import urlparse
 
-    parsed = urlparse(base_url.strip())
+    parsed = urlparse(base_url.strip().rstrip("/"))
     if parsed.scheme != "http":
         raise AgentRuntimeContractError("localWorkerBaseUrl scheme must be http")
     if parsed.username is not None or parsed.password is not None or "@" in (parsed.netloc or ""):
         raise AgentRuntimeContractError("localWorkerBaseUrl must not include userinfo")
     host = (parsed.hostname or "").lower()
-    if host not in {"127.0.0.1", "localhost"}:
-        raise AgentRuntimeContractError("localWorkerBaseUrl must remain loopback")
+    if host != "127.0.0.1":
+        raise AgentRuntimeContractError("localWorkerBaseUrl host must be exactly 127.0.0.1")
+    if parsed.port != 8765:
+        raise AgentRuntimeContractError("localWorkerBaseUrl port must be exactly 8765")
     if parsed.path not in ("", "/"):
         raise AgentRuntimeContractError("localWorkerBaseUrl must not include a path")
+    if parsed.query or parsed.fragment:
+        raise AgentRuntimeContractError("localWorkerBaseUrl must not include query/fragment")
+    expected = urlparse(DEFAULT_LOCAL_WORKER_BASE_URL)
+    if f"{parsed.scheme}://{parsed.hostname}:{parsed.port}" != (
+        f"{expected.scheme}://{expected.hostname}:{expected.port}"
+    ):
+        raise AgentRuntimeContractError(
+            f"localWorkerBaseUrl must equal {DEFAULT_LOCAL_WORKER_BASE_URL}"
+        )
 
     _assert_no_secret_literals({"meta": meta})
     return meta
@@ -628,14 +639,15 @@ def assert_workflow_agent_wiring(
     method = str(auth_params.get("method") or "GET").upper()
     if method != "POST":
         raise AgentRuntimeContractError("Worker Authorize must POST")
-    from urllib.parse import urlparse as _urlparse
 
     meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
-    base_url = str(meta.get(WORKER_BASE_URL_META_KEY) or "").strip()
-    base_parsed = _urlparse(base_url)
-    if not base_parsed.scheme or not base_parsed.netloc:
-        raise AgentRuntimeContractError("localWorkerBaseUrl missing or invalid for URL origin pin")
-    expected_origin = f"{base_parsed.scheme}://{base_parsed.netloc}"
+    # Absolute pin — not mere agreement between meta and node URLs.
+    expected_origin = DEFAULT_LOCAL_WORKER_BASE_URL.rstrip("/")
+    base_url = str(meta.get(WORKER_BASE_URL_META_KEY) or "").strip().rstrip("/")
+    if base_url != expected_origin:
+        raise AgentRuntimeContractError(
+            f"localWorkerBaseUrl must equal absolute pin {expected_origin}"
+        )
 
     assert_loopback_worker_url(
         str(auth_params.get("url") or ""),

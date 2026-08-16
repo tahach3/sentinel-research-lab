@@ -506,14 +506,20 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 )
             )
 
-    # Worker HTTP node URL origins must equal meta.localWorkerBaseUrl (port pinned).
+    # Worker HTTP node URL origins must equal absolute pin AND meta.localWorkerBaseUrl.
+    # Absolute pin closes the "attacker sets both meta and nodes" self-consistency hole.
+    from tools.self_improvement_v2.agent_runtime_contract import DEFAULT_LOCAL_WORKER_BASE_URL
+
     meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
-    base_url = str(meta.get("localWorkerBaseUrl") or "").strip()
-    base_origin = ""
-    if base_url:
-        base_parsed = urlparse(base_url)
-        if base_parsed.scheme and base_parsed.netloc:
-            base_origin = f"{base_parsed.scheme}://{base_parsed.netloc}".lower()
+    base_url = str(meta.get("localWorkerBaseUrl") or "").strip().rstrip("/")
+    absolute = urlparse(DEFAULT_LOCAL_WORKER_BASE_URL)
+    absolute_origin = f"{absolute.scheme}://{absolute.hostname}:{absolute.port}".lower()
+    base_parsed = urlparse(base_url)
+    base_origin = (
+        f"{base_parsed.scheme}://{base_parsed.hostname}:{base_parsed.port}".lower()
+        if base_parsed.scheme and base_parsed.hostname and base_parsed.port
+        else ""
+    )
     if not base_origin:
         errors.append(
             _err(
@@ -521,22 +527,33 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 "meta.localWorkerBaseUrl missing or invalid (required to pin worker HTTP origins)",
             )
         )
-    else:
+    elif base_origin != absolute_origin:
+        errors.append(
+            _err(
+                ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                f"meta.localWorkerBaseUrl must equal absolute pin {DEFAULT_LOCAL_WORKER_BASE_URL} "
+                f"(not a self-chosen rogue origin)",
+            )
+        )
+    if base_origin == absolute_origin:
         for name, expected_path in WORKER_HTTP_NODES_WITH_PATH:
             node = by_name.get(name)
             if node is None:
                 continue
             url = str((node.get("parameters") or {}).get("url") or "").strip()
             parsed = urlparse(url)
-            origin = f"{parsed.scheme}://{parsed.netloc}".lower() if parsed.scheme and parsed.netloc else ""
-            if origin != base_origin:
+            if (
+                parsed.scheme != "http"
+                or (parsed.hostname or "").lower() != "127.0.0.1"
+                or parsed.port != 8765
+            ):
                 errors.append(
                     _err(
                         ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
-                        f"{name} URL origin must equal meta.localWorkerBaseUrl ({base_origin})",
+                        f"{name} URL origin must equal absolute pin {DEFAULT_LOCAL_WORKER_BASE_URL}",
                     )
                 )
-            if parsed.path != expected_path:
+            elif parsed.path != expected_path:
                 errors.append(
                     _err(
                         ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],

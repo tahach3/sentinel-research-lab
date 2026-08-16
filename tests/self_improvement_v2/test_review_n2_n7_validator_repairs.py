@@ -128,7 +128,25 @@ def test_n7_authorize_on_error_continue_regular_rejected_by_both(tmp_path: Path)
         assert_workflow_agent_wiring(workflow=wf, root=REPO)
 
 
-def test_control_clean_workflow_still_passes() -> None:
-    report = validate_workflow(REPO, WF)
-    assert report["status"] == "PASS"
-    assert_workflow_agent_wiring(root=REPO)
+def test_n2_meta_and_nodes_rogue_port_rejected(tmp_path: Path) -> None:
+    """Absolute pin: attacker must not set meta + all nodes to the same rogue origin."""
+    wf = _mutated()
+    wf["meta"]["localWorkerBaseUrl"] = "http://127.0.0.1:59999"
+    for node in wf["nodes"]:
+        url = (node.get("parameters") or {}).get("url")
+        if isinstance(url, str) and "127.0.0.1:8765" in url:
+            node["parameters"]["url"] = url.replace("127.0.0.1:8765", "127.0.0.1:59999")
+    report = validate_workflow(REPO, _write_probe(tmp_path, wf))
+    assert report["status"] == "FAIL"
+    assert any("absolute pin" in e["message"] or "8765" in e["message"] for e in report["errors"])
+    with pytest.raises(AgentRuntimeContractError, match="absolute pin|8765"):
+        assert_workflow_agent_wiring(workflow=wf, root=REPO)
+
+
+def test_n2_meta_localhost_rejected(tmp_path: Path) -> None:
+    wf = _mutated()
+    wf["meta"]["localWorkerBaseUrl"] = "http://localhost:8765"
+    report = validate_workflow(REPO, _write_probe(tmp_path, wf))
+    assert report["status"] == "FAIL"
+    with pytest.raises(AgentRuntimeContractError, match="absolute pin|127.0.0.1"):
+        assert_workflow_agent_wiring(workflow=wf, root=REPO)

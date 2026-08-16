@@ -1,9 +1,9 @@
 {
   "schema_version": "2.1.0",
   "description": "Content digests for closed Self-Improvement V2 bootstrap/execution manifest. Reviewed HEAD identity is supplied exclusively by SRL_REVIEWED_HEAD.",
-  "combined": "8b47aa545e3a11ffdd5223ac8b0533613e1db6d3056478168f40bba4559ec24f",
+  "combined": "ae549885f0b62262278032fe2b940fc216c7b11ee19b8dae2f0ccb9ade48451b",
   "modules": {
-    "tools.self_improvement_v2.agent_runtime_contract": "163e79e89d500acd4b65f065764b3c2a0f7ea7c084460b1848d84378c1706255",
+    "tools.self_improvement_v2.agent_runtime_contract": "1b0c40f245ec27853c33b0c39dbf3341c9e3225b61c99559a0cd00a5624280bf",
     "tools.self_improvement_v2.canonical": "eaac859f50435803bfd6b7155c94106167aff3812fdaf24a4d9bc754e69c21c8",
     "tools.self_improvement_v2.executor": "0c3269d759fd21777d91080c38adf53988271c33904d0c0c9bf4d7283c0116b0",
     "tools.self_improvement_v2.experience_store": "867ca675bb242850a03b178feece198cda64f38ea75fadd706a3b9a80a30a46d",

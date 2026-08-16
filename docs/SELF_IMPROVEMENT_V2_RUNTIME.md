@@ -56,7 +56,17 @@ The launcher is **unversioned and unreviewed by design** — it must live outsid
 
 It computes the actual verifier digest, **refuses on mismatch** (fail-closed only), sets `SRL_REPOSITORY_ROOT` / `SRL_REVIEWED_HEAD`, then execs the worker.
 
-Install / refresh (same operator action as issuing the authorization line for that HEAD):
+**Operator rule:** update the launcher’s expected verifier digest **and**
+`SRL_REVIEWED_HEAD` in the **same action** as issuing the authorization line
+for that HEAD. Both are attestations about one reviewed tip.
+
+**Never during development.** Strict HEAD equality means any new commit stops
+the worker until the launcher is refreshed. That friction is intentional and
+aligned with the authorization lock. Do **not** update the launcher on every
+dev commit, and do **not** disable the equality check to relieve it — refresh
+only when authorizing a reviewed HEAD.
+
+Install / refresh (authorization action only):
 
 ```powershell
 python -m tools.self_improvement_v2.launcher.install_launcher `
@@ -81,7 +91,7 @@ Inactive design workflow: `workflows/design/self_improvement_loop_v2.json` (`act
 
 Non-secret meta references (no credential values):
 
-- `meta.localWorkerBaseUrl` — configurable worker base URL (loopback or operator-selected Docker host mapping)
+- `meta.localWorkerBaseUrl` — **absolute pin** `http://127.0.0.1:8765` (not operator-configurable; self-consistency with node URLs is not enough)
 - `meta.workerHeaderAuthCredentialName` — named Header Auth credential reference for the worker bearer token
 - `meta.implementerAgentCredentialReference` / `meta.reviewerAgentCredentialReference` — distinct n8n credential **names**
 - `meta.implementerModel` / `meta.reviewerModel` — pinned non-secret model IDs
