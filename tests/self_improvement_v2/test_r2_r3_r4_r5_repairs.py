@@ -178,6 +178,53 @@ def test_r4_load_runtime_config_refuses_divergent_roots(
         )
 
 
+@pytest.mark.parametrize("blank", ["", "   ", "\t\n"])
+def test_r4_blank_srl_repository_root_refuses_like_missing(
+    blank: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Blank/whitespace SRL_REPOSITORY_ROOT ≡ absent: structured refuse at the loader.
+
+    Must not degrade the R4 equality gate open and rely on WorkerBridge construction
+    to fail closed by accident (traceback vs structured RuntimeConfigError).
+    """
+    from tests.self_improvement_v2.helpers import init_temp_repo
+
+    token = "test-worker-token-not-for-production"
+    rogue = tmp_path / "rogue" / "sentinel-research-lab"
+    init_temp_repo(rogue)
+    monkeypatch.setenv(ENV_REPOSITORY_ROOT, blank)
+    monkeypatch.setenv("SRL_WORKER_TOKEN", token)
+    with pytest.raises(RuntimeConfigError, match="SRL_REPOSITORY_ROOT is required"):
+        load_runtime_config(
+            repository_root=str(rogue.resolve()),
+            state_db=str(tmp_path / "db.sqlite"),
+            worker_token=token,
+            worker_host="127.0.0.1",
+            worker_port=8765,
+        )
+
+
+def test_r4_missing_srl_repository_root_with_cli_root_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Missing env + CLI --repository-root also refuses (same structured error)."""
+    from tests.self_improvement_v2.helpers import init_temp_repo
+
+    token = "test-worker-token-not-for-production"
+    rogue = tmp_path / "rogue" / "sentinel-research-lab"
+    init_temp_repo(rogue)
+    monkeypatch.delenv(ENV_REPOSITORY_ROOT, raising=False)
+    monkeypatch.setenv("SRL_WORKER_TOKEN", token)
+    with pytest.raises(RuntimeConfigError, match="SRL_REPOSITORY_ROOT is required"):
+        load_runtime_config(
+            repository_root=str(rogue.resolve()),
+            state_db=str(tmp_path / "db.sqlite"),
+            worker_token=token,
+            worker_host="127.0.0.1",
+            worker_port=8765,
+        )
+
+
 def test_r5_unknown_pin_keys_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Work against a local clone so production pin stays intact.
     clone = tmp_path / "sentinel-research-lab"

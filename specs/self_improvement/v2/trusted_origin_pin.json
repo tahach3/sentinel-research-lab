@@ -1,7 +1,7 @@
 {
   "schema_version": "2.1.0",
-  "description": "Content digests for closed Self-Improvement V2 bootstrap/execution manifest. Reviewed HEAD identity is supplied exclusively by SRL_REVIEWED_HEAD.",
-  "combined": "44ba9da8ccac206ac4da569513fd888591ade162abdd2ddc47ee3b417f9e83c2",
+  "description": "Content digests for Self-Improvement V2 modules closed under static AST imports. Does not cover dynamic importlib/__import__/string-built loaders. Reviewed HEAD identity is supplied exclusively by SRL_REVIEWED_HEAD.",
+  "combined": "4e0b4c71e78e20e2640ada419c859ae4299ba9fd570cce2e748ec87f9fcabb98",
   "modules": {
     "tools.self_improvement_v2.agent_runtime_contract": "18713360befa5c55713c70aff41dc3c24450c3253b0f6e4364eff1034e114cab",
     "tools.self_improvement_v2.canonical": "eaac859f50435803bfd6b7155c94106167aff3812fdaf24a4d9bc754e69c21c8",
@@ -19,9 +19,9 @@
     "tools.self_improvement_v2.review_gate": "50518cc7988ef2dc8bcc117380a1722a30dff6fa287c31834cf8d432577fab42",
     "tools.self_improvement_v2.risk_authority": "e71030d3f1461d7b570f5cf24c0c6c1e7999655ff9f6958805d76f1024d93ae3",
     "tools.self_improvement_v2.runtime_bridge": "6ff3a664a7ab0e34b8b4d73ffd82bf3d2476686b6ec11ae2ef91f1a2efbfc9cd",
-    "tools.self_improvement_v2.runtime_config": "64bc798c21c1ac7bc57be7659c1d5b3e8312b73bd588d4ee829f8a77149ef2a1",
+    "tools.self_improvement_v2.runtime_config": "15dce0f87a872d6413955fa5109648b6dc17e741beb9896a0de10dafb1d1c4da",
     "tools.self_improvement_v2.schema_loader": "864f4dcb4a2ae82d13fec941d5d368a9bf68b241afeee231d8e62108cf5bd78f",
-    "tools.self_improvement_v2.trusted_origin": "0dd12e3f8403df6b2f79b0d2de5d60244d5d1a3cc43cc646db34e2ecf323c023",
+    "tools.self_improvement_v2.trusted_origin": "e283c4f5273190e87ce0e7c37fd692ab09d415e7392d85dac1b0ca888a6a24b8",
     "tools.self_improvement_v2.validation_runner": "daf2e2cdaf65b86c9299e5970dd391792e4eebc30b8780fe27a3135af32f6479",
     "tools.self_improvement_v2.wall_reassert": "4961e116c14d17055a0341f50259ba7e72839b0cedffc21047ebe923529dfd05",
     "tools.self_improvement_v2.workflow_normalizer": "e9ec5c5ac53490c24c43ec66d049218e3997ebc344309ea5e0c5948804f8c744"

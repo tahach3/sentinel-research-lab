@@ -15,7 +15,7 @@ That is a **CRITICAL bootstrap/closure failure**, not a pin-metadata nit. Option
 
 | Finding | Disposition under A+ cycle |
 |---------|----------------------------|
-| F1 trust-set / bootstrap closure | **In scope for A+** (expanded closed bootstrap + content-only pin) |
+| F1 trust-set / bootstrap closure | **In scope for A+** (static-AST import closure + content-only pin; not dynamic loaders) |
 | F2 disabled authority / router semantics | **Companion blocker** — same candidate cycle; not “more pin repair” |
 | F3 consume / transport binding | **Companion blocker** — resurfaced prior Finding 4; outside residual |
 | F4 residual vs design contradiction | **Governance** — residual text reconciled; R5 alone does not close F1–3 |
@@ -40,7 +40,7 @@ Launcher supplies:
 
 No repository Python module may be treated as authoritative until that external boundary succeeds.
 
-### Closed bootstrap / execution manifest
+### Closed under static AST imports (execution pin)
 
 The content-only pin MUST equal the **static AST import closure** of
 `tools.self_improvement_v2.runtime_bridge` (plus the closure calculator module itself).
@@ -51,6 +51,11 @@ Computation is defined in `tools/self_improvement_v2/import_closure.py` and is
 `__import__(...)` (including literals), string-built names, or plugin loaders.
 `TYPE_CHECKING`-only imports **are** included (over-inclusive / fail-safe).
 A negative test must prove that adding a module to the closure breaks pin equality.
+
+Do **not** read “closed bootstrap / execution manifest” as stronger than this
+AST-only limit: an unpinned module loaded via literal-name dynamic import can
+still execute inside the worker. That is the documented calculator limit, not
+a missing pin entry.
 
 Pin = **content digests only** (per-module + combined). Pin must **not** claim reviewed HEAD.
 `SRL_REVIEWED_HEAD` is the sole HEAD claim and **must equal** the live `git rev-parse HEAD`

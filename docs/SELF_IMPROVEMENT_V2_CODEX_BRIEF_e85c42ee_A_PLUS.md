@@ -40,7 +40,7 @@ A PASS here is a precondition for a later authorization decision. It is **not** 
 
 ## Out-of-range tests (settled — do not re-spend review capacity)
 
-Exact **32** Round5A tests: **RED→RED** at `e85c42ee` and SI2 tips. Error class **`R5A-MANIFEST-HASH`**. Candidate does not touch Round5A paths. Ledgered as **INV-R5A-01 known-failing** (Round 5A), not an SI2 regression.
+Exact **32** Round5A suite failures (**RED→RED** at `e85c42ee` and SI2 tips; same count both ends), with validator error multiset `R5A-MANIFEST-HASH`×13 + provenance×3 + recreated×3. Candidate does not touch Round5A paths. Ledgered as **INV-R5A-01 known-failing** (Round 5A), not an SI2 regression.
 
 ---
 
@@ -99,7 +99,7 @@ Required. Prefer: launcher install inside repo, stale digest after verifier edit
 
 - Live P3-C1 / authorization / merge
 - Mid-review implementation
-- Re-deriving Round5A 32 arithmetic
+- Re-deriving Round5A **32-failure** arithmetic (known-failing; verify RED→RED identity, do not burn review budget)
 
 ## Split protocol
 

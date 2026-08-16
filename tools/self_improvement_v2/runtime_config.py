@@ -128,7 +128,14 @@ def load_runtime_config(
     environ: dict[str, str] | None = None,
 ) -> RuntimeConfig:
     env = environ if environ is not None else os.environ
-    root_raw = repository_root if repository_root is not None else env.get(_ENV_ROOT)
+    # Blank/whitespace SRL_REPOSITORY_ROOT is absent — never an open R4 gate.
+    env_root_raw = env.get(_ENV_ROOT)
+    if env_root_raw is not None and not str(env_root_raw).strip():
+        env_root_raw = None
+    elif env_root_raw is not None:
+        env_root_raw = str(env_root_raw).strip()
+
+    root_raw = repository_root if repository_root is not None else env_root_raw
     db_raw = state_db if state_db is not None else env.get(_ENV_DB)
     token_raw = worker_token if worker_token is not None else env.get(_ENV_TOKEN)
     host_raw = worker_host if worker_host is not None else env.get(_ENV_HOST, DEFAULT_HOST)
@@ -140,18 +147,20 @@ def load_runtime_config(
 
     # R4: refuse divergent roots at the config loader — not only in main().
     # Every caller (CLI, library, tests) hits this path; "main-only" guards decay.
-    env_root_raw = env.get(_ENV_ROOT)
-    if repository_root is not None and env_root_raw and str(env_root_raw).strip():
+    # Trusted install root must be present (blank ≡ missing) whenever a CLI/kwarg
+    # root is supplied; otherwise the equality gate would open by accident.
+    if repository_root is not None:
+        trusted_raw = _require_non_empty(_ENV_ROOT, env_root_raw)
         cli_root = Path(repository_root).expanduser().resolve()
-        trusted = Path(str(env_root_raw).strip()).expanduser().resolve()
+        trusted = Path(trusted_raw).expanduser().resolve()
         if cli_root != trusted:
             raise RuntimeConfigError(
                 "repository_root must equal SRL_REPOSITORY_ROOT (trusted install root)"
             )
 
     root = _assert_repository_root(Path(_require_non_empty(_ENV_ROOT, root_raw)))
-    if env_root_raw and str(env_root_raw).strip():
-        trusted = Path(str(env_root_raw).strip()).expanduser().resolve()
+    if env_root_raw is not None:
+        trusted = Path(env_root_raw).expanduser().resolve()
         if root != trusted:
             raise RuntimeConfigError(
                 "repository_root must equal SRL_REPOSITORY_ROOT (trusted install root)"

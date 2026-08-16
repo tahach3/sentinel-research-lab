@@ -24,9 +24,9 @@ from typing import Any, Iterable
 
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 
-# Closed bootstrap / execution manifest (Option A+).
-# Must equal the static import closure of runtime_bridge (+ import_closure itself).
-# See tools.self_improvement_v2.import_closure for the AST-only computation limit.
+# Closed under static AST imports (Option A+ execution pin).
+# Must equal the static AST import closure of runtime_bridge (+ import_closure itself).
+# Does NOT cover dynamic importlib/__import__/string-built loaders — see import_closure.
 TRUSTED_MODULE_NAMES = (
     "tools.self_improvement_v2.agent_runtime_contract",
     "tools.self_improvement_v2.canonical",
@@ -409,7 +409,8 @@ def build_content_only_pin(root: Path) -> dict[str, Any]:
     return {
         "schema_version": "2.1.0",
         "description": (
-            "Content digests for closed Self-Improvement V2 bootstrap/execution manifest. "
+            "Content digests for Self-Improvement V2 modules closed under static AST imports. "
+            "Does not cover dynamic importlib/__import__/string-built loaders. "
             "Reviewed HEAD identity is supplied exclusively by SRL_REVIEWED_HEAD."
         ),
         "combined": combined,

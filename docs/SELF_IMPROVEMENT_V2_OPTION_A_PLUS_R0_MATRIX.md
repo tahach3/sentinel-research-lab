@@ -53,13 +53,13 @@ Implementer-emitted. Reviewer verifies a **sample**; do not re-derive arithmetic
 | R1 P1d second ai_languageModel | ACCEPT | REFUSE | RED→GREEN (cost bound) |
 | R1 invented channel `ai_widget` | ACCEPT | REFUSE | RED→GREEN (deny-by-default) |
 | R2-A ambient GIT_DIR vs N11 | ACCEPT | REFUSE | RED→GREEN |
-| R3 dirty-tree install | ACCEPT | REFUSE | RED→GREEN |
+| R3 dirty-tree install | n/a | REFUSE | GREEN (installer absent at base; refuse at tip) |
 | R3 launcher pin==closure + negatives | n/a | HOLD | established |
 | R4 load_runtime_config root skew | ACCEPT | REFUSE | RED→GREEN (loader, not main-only) |
 | Launcher wrong digest | n/a | REFUSE | RED→GREEN |
 | Launcher wrong HEAD | n/a | REFUSE | RED→GREEN |
 | Launcher install inside repo | n/a | REFUSE | RED→GREEN |
 | R5 no-env shadow | REFUSE | REFUSE | GREEN→GREEN control |
-| INV-R5A-01 Round5A integrity | FAIL (19 errs: 13+3+3; 4/38 tests fail) | FAIL (same) | RED→RED known-failing Round5A |
+| INV-R5A-01 Round5A integrity | FAIL (19 errs: 13+3+3; **32** tests fail across Round5A suites) | FAIL (same) | RED→RED known-failing Round5A |
 
 Reviewer must re-execute mandatory rows and ≥5 novel probes; treat this table as a claim to verify, not a substitute for PASS.

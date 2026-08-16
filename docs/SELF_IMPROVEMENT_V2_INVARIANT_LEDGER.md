@@ -24,9 +24,9 @@
 | INV-TO-02 | CWD / package root / self-consistent pin inside an alternate checkout are **not** trust authority | Codex Finding 1 | established |
 | INV-TO-03 | Expected digest of `trusted_origin.py` is held **outside** the checkout by the launcher; mismatch ⇒ refuse (fail-closed). Launcher defends drift/misconfig; D2-BYPASS is a **documented local-code-execution boundary**, not a missing gadget | Option A+; `install_launcher`; residual-risk boundary | established + boundary stated |
 | INV-TO-05 | Pin is content-digest only; must not claim HEAD; `SRL_REVIEWED_HEAD` is sole HEAD claim and **must equal** live HEAD | Option A+; N11 repair | established |
-| INV-TO-06 | Pin set **equals** static AST import closure of `runtime_bridge` (AST-only limit stated; negative under-coverage test required) | N1 repair; `import_closure.py` | established |
+| INV-TO-06 | Pin set **equals** static AST import closure of `runtime_bridge` (**AST-only** limit stated; not a full closed bootstrap against dynamic importlib/`__import__`; negative under-coverage test required) | N1 repair; `import_closure.py` | established |
 | INV-TO-07 | Launcher installer has a **second** content pin (`launcher_pin.json`) equal to its own static import closure; negative under-coverage required; pin file digest recorded in out-of-repo attestation | R3 repair | established |
-| INV-TO-08 | `load_runtime_config` refuses `repository_root` ≠ `SRL_REPOSITORY_ROOT` (guard lives in the loader, not only `main`) | R4 / V-R4 | established |
+| INV-TO-08 | `load_runtime_config` refuses `repository_root` ≠ `SRL_REPOSITORY_ROOT` (guard lives in the loader, not only `main`); blank/whitespace `SRL_REPOSITORY_ROOT` ≡ absent (structured refuse, same as missing) | R4 / V-R4 | established |
 | INV-WF-01 | Absolute loopback origin pin is `http://127.0.0.1:8765` — **rigidity is the control**; making the port/host configurable reopens N2 | absolute-origin repair | established |
 | INV-WF-02 | Agent attachments: exactly one `ai_languageModel` per agent; `ai_tool` / `ai_memory` / unknown channels **deny-by-default** — **rigidity is the control**; making attachments configurable reopens R1 / P1d cost-bound bypass | R1 repair | established |
 | INV-BUD-01 | Boolean JSON must not coerce into pilot budget numeric fields | Codex Finding 5 | established |
@@ -34,14 +34,15 @@
 | INV-BUD-03 | Provider-call consume validates role-bound provider/model/credential atomically; omit does not burn nonce | Codex Finding 3/4 | established |
 | INV-BUD-04 | `/v2/provider-call-authorize` sits on the main path **immediately before** each role’s agent (model invocation); Agent→Authorize post-hoc is rejected by validators | V-TRANSPORT repair; `test_d1_*` | established |
 | INV-AUTH-01 | Risk authority is sole authorizer; agent nodes are inactive-by-design and non-authoritative | agent-runtime contract + workflow inactive flag | established (process) |
-| INV-AUTH-02 | Independent external PASS is required before written pilot authorization; Cursor cannot restore revoked auth via self-review; operator issues the auth line | residual-risk doc | established (process) |
-| INV-RES-01 | Residual acceptance of Findings 1–3 is one-run, docs-only, supervised, expires on use; withdraws if mandatory no-env R5 REJECTS at reviewed HEAD | `docs/SELF_IMPROVEMENT_V2_P3C1_ACCEPTED_RESIDUAL_RISK.md` | decision artifact |
+| INV-AUTH-02 | **Build-review independence:** independent external PASS (cross-family preferred; Codex when available) is required to *discharge* this invariant before written pilot authorization. Cursor cannot restore revoked auth via self-review; operator issues the auth line. Distinct from **loop independence** (Gemini implements / Groq reviews in pilot #1), which is intact regardless. Same-family build review may be accepted only as a **documented residual for pilot #1** — see INV-RES-02 | residual-risk doc | established (process) |
+| INV-RES-01 | Residual acceptance of Findings 1–3 (trusted-origin boundary) is one-run, docs-only, supervised, expires on use; withdraws if mandatory no-env R5 REJECTS at reviewed HEAD | `docs/SELF_IMPROVEMENT_V2_P3C1_ACCEPTED_RESIDUAL_RISK.md` | decision artifact |
+| INV-RES-02 | Residual acceptance of **same-family build review** for pilot #1 only (same scope shape as INV-RES-01): one supervised, manually-triggered, docs-only run at one HEAD; expires on use; re-decided in writing after; hard gate before unsupervised/code-touching. Does **not** waive loop independence. NC-1 remains blocking. Operator decision — not a reviewer PASS | residual-risk doc § build-review residual | decision artifact |
 
 ## Known-failing (out of SI2 scope)
 
 | ID | Property | Evidence | Status |
 |----|----------|----------|--------|
-| INV-R5A-01 | Round 5A Phase D manifest integrity: on-disk Round5A artifact digests must match registry expectations | Settled RED→RED at `e85c42ee` and SI2 candidate tips. Error-class multiset (identical at both ends): `R5A-MANIFEST-HASH`×13 + `R5A-PROV-SOURCE-PROVENANCE-HASH`×3 + `R5A-PROV-SOURCE-RECREATED-HASH`×3 (19 errors). `tests/test_validate_round5a.py` collects 38 tests of which 4 fail / 34 pass. SI2 candidate diffs do not touch Round5A paths | **known-failing** (Round 5A round; do not treat as SI2 regression) |
+| INV-R5A-01 | Round 5A Phase D manifest integrity: on-disk Round5A artifact digests must match registry expectations | Settled RED→RED at `e85c42ee` and SI2 candidate tips. Validator error-class multiset (identical at both ends): `R5A-MANIFEST-HASH`×13 + `R5A-PROV-SOURCE-PROVENANCE-HASH`×3 + `R5A-PROV-SOURCE-RECREATED-HASH`×3 (19 errors). Across Round5A suites (`test_generate_round5a_docs.py` + `test_validate_round5a.py` + `tests/round5a_kernel`) **32 tests fail** (identical at base and tip). Narrow `test_validate_round5a.py` alone is 4 fail / 34 pass of 38 collected — do not cite that slice as the integrity claim. SI2 candidate diffs do not touch Round5A paths | **known-failing** (Round 5A round; do not treat as SI2 regression) |
 
 ## Withdrawal hooks
 
