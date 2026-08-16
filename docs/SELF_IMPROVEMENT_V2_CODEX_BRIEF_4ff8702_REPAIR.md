@@ -14,10 +14,10 @@
 | Workflow | inactive by design |
 | Matrix base (comparability) | `e85c42ee434cf93346f14f3a890e5fb1385cb06d` |
 | Prior REPAIR_REQUIRED tip | `4ff870275c15ccc1d7e8672ac932e3d6d9f32246` — **not** an approved floor |
-| Reviewed HEAD | `5dc61d4da01fe1baa271ba7b2200758098463e39` at brief-prep; **re-confirm** with `git rev-parse HEAD` at paste |
-| Review range | `e85c42ee434cf93346f14f3a890e5fb1385cb06d` .. *(tip from rev-parse)* |
-| Code-reading focus | `4ff870275c15ccc1d7e8672ac932e3d6d9f32246` .. tip |
-| Earlier segment `e85c42ee..4ff8702` | **probe-replay only** (do not re-read as primary code review) |
+| Reviewed HEAD | *(paste `git rev-parse HEAD` at send)* |
+| Review range | `e85c42ee434cf93346f14f3a890e5fb1385cb06d` .. *(same tip)* |
+| Code-reading focus | `15b61f51e87cb2ee4fd90d14d72d644b492a83cc` .. tip (R1…R5 + V-R4) |
+| Earlier segment `e85c42ee..15b61f5` | **probe-replay / matrix continuity** |
 | Push | OK for repair visibility |
 | Merge PR #8 | **FORBIDDEN** |
 | Implementer R0 matrix | `docs/SELF_IMPROVEMENT_V2_OPTION_A_PLUS_R0_MATRIX.md` — **verify**, do not re-derive as primary cost |
@@ -99,6 +99,33 @@ V-INSTALL  TRUST-ROOT PROVENANCE
 
 Runtime doc claims refresh only at authorization-line time. Confirm whether that is **enforced** or **prose**. Unenforced discipline → report Finding 3 closed only under operator ritual.
 
+### V-R4 — REPOSITORY ROOT LOADER GUARD (required)
+
+```text
+V-R4  Re-run P4 verbatim: call load_runtime_config directly with a
+      repository_root pointing at a rogue tree while SRL_REPOSITORY_ROOT
+      names the attested install. Report whether divergence is accepted.
+      Required: REJECT inside load_runtime_config (not only main()).
+```
+
+### Unknown connection channels — deny by default (required)
+
+```text
+Probe: attach a sub-node over an INVENTED channel key (e.g. ai_widget).
+Required: REJECT as unknown, not ignored. Allow-listing known channels
+is not a closed world.
+```
+
+### Launcher pin second manifest (required)
+
+```text
+Confirm launcher_pin.json covers install_launcher.py and paths.py,
+equals its static import closure, has a negative under-coverage test
+mirroring N1, and that the pin file digest is recorded in the
+out-of-repo attestation (pin authenticates modules; attestation
+authenticates the pin file).
+```
+
 ---
 
 ## Interaction bet — strict HEAD × detached execution worktree
@@ -144,7 +171,7 @@ PASS | REPAIR_REQUIRED | BLOCKED | ESCALATE
 1. `git rev-parse HEAD`  
 2. Exact reviewed HEAD  
 3. Gate FULL|LESSER + same-family limitation  
-4. Absolute-origin / multiset / closure-negative / boundary-scope / **V-INSTALL** results  
+4. Absolute-origin / multiset / closure-negative / boundary-scope / **V-INSTALL** / **V-R4** / unknown-channel / launcher-pin results  
 5. Worktree×HEAD interaction result  
 6. ≥5 novel probes + outcomes (full detail)  
 7. Verified R0 matrix (confirm or dispute implementer table — print verified rows)  

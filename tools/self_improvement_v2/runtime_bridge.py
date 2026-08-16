@@ -782,11 +782,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     try:
-        from tools.self_improvement_v2.runtime_config import (
-            assert_cli_repository_root_matches_launcher,
-        )
-
-        assert_cli_repository_root_matches_launcher(args.repository_root)
         config = load_runtime_config(
             repository_root=args.repository_root,
             state_db=args.state_db,

@@ -2,10 +2,10 @@
   "schema_version": "1.0.0",
   "description": "Content digests for the SI2 launcher installer closure (entrypoint tools.self_improvement_v2.launcher.install_launcher). Separate from the worker pin.",
   "entrypoint": "tools.self_improvement_v2.launcher.install_launcher",
-  "combined": "f1814287e3b9fc572a5e7fd5173c08e2e343e6979ab003f1a52da862541d916d",
+  "combined": "c560f3630221fdb3e91a04f8960aaf8b367d5977075785963373ebb3a086b3a8",
   "modules": {
     "tools.self_improvement_v2.import_closure": "ec29485907a5ae0031bba9ce4e442e723d7c51f13079c8b79ffa9bda3efa683a",
-    "tools.self_improvement_v2.launcher.install_launcher": "172635ead8b39cad85c866bbbb51e742bd49b656fd96e7708d5fdda4246e5f28",
+    "tools.self_improvement_v2.launcher.install_launcher": "a5acae4374acd98f198889dc046baa346becb928d9eb015d068d4648704fa112",
     "tools.self_improvement_v2.launcher.paths": "9329d14f53f21404b8b65bc7e3ea9bdd438156b4b45555fee80792350663e745"
   }
 }

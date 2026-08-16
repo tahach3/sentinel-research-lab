@@ -149,6 +149,33 @@ def test_r1_p1e_ai_memory_rejected(tmp_path: Path) -> None:
     _fail_both(tmp_path, wf, structural_substr="ai_memory", contract_re="ai_memory|attachment")
 
 
+def test_r1_invented_connection_channel_denied_by_default(tmp_path: Path) -> None:
+    """Allow-listing known channels is not a closed world — unknown keys must REJECT."""
+    wf = _mutated()
+    widget = "Rogue Widget"
+    wf["nodes"].append(
+        {
+            "parameters": {},
+            "id": "rogue-widget",
+            "name": widget,
+            "type": "n8n-nodes-base.noOp",
+            "typeVersion": 1,
+            "position": [0, 0],
+        }
+    )
+    wf["connections"][widget] = {
+        "ai_widget": [
+            [{"node": IMPLEMENTER_NODE_NAME, "type": "ai_widget", "index": 0}]
+        ]
+    }
+    _fail_both(
+        tmp_path,
+        wf,
+        structural_substr="unknown connection channel",
+        contract_re="unknown connection channel|ai_widget",
+    )
+
+
 def test_r1_duplicate_legitimate_ai_language_model_edge_rejected(tmp_path: Path) -> None:
     wf = _mutated()
     edge = {

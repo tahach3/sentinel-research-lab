@@ -38,7 +38,7 @@ def run(cmd: list[str], cwd: Path, check: bool = True) -> subprocess.CompletedPr
     )
 
 
-def init_temp_repo(path: Path) -> str:
+def init_temp_repo(path: Path, *, include_worker_package: bool = False) -> str:
     path.mkdir(parents=True, exist_ok=True)
     run(["git", "init"], path)
     run(["git", "config", "user.email", "test@local"], path)
@@ -53,6 +53,17 @@ def init_temp_repo(path: Path) -> str:
     dst = path / "specs" / "self_improvement" / "v2"
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(REAL_ROOT / "specs" / "self_improvement" / "v2", dst)
+    if include_worker_package:
+        # Full SI2 package + pins so SRL_REPOSITORY_ROOT can equal the temp root
+        # under R4 without splitting trust from policy evaluation.
+        tools_dst = path / "tools"
+        tools_dst.mkdir(parents=True, exist_ok=True)
+        (tools_dst / "__init__.py").write_text("", encoding="utf-8")
+        shutil.copytree(
+            REAL_ROOT / "tools" / "self_improvement_v2",
+            tools_dst / "self_improvement_v2",
+            dirs_exist_ok=True,
+        )
     run(["git", "add", "-A"], path)
     run(["git", "commit", "-m", "baseline"], path)
     return run(["git", "rev-parse", "HEAD"], path).stdout.strip()

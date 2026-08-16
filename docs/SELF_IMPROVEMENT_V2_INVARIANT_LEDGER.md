@@ -25,6 +25,10 @@
 | INV-TO-03 | Expected digest of `trusted_origin.py` is held **outside** the checkout by the launcher; mismatch ⇒ refuse (fail-closed). Launcher defends drift/misconfig; D2-BYPASS is a **documented local-code-execution boundary**, not a missing gadget | Option A+; `install_launcher`; residual-risk boundary | established + boundary stated |
 | INV-TO-05 | Pin is content-digest only; must not claim HEAD; `SRL_REVIEWED_HEAD` is sole HEAD claim and **must equal** live HEAD | Option A+; N11 repair | established |
 | INV-TO-06 | Pin set **equals** static AST import closure of `runtime_bridge` (AST-only limit stated; negative under-coverage test required) | N1 repair; `import_closure.py` | established |
+| INV-TO-07 | Launcher installer has a **second** content pin (`launcher_pin.json`) equal to its own static import closure; negative under-coverage required; pin file digest recorded in out-of-repo attestation | R3 repair | established |
+| INV-TO-08 | `load_runtime_config` refuses `repository_root` ≠ `SRL_REPOSITORY_ROOT` (guard lives in the loader, not only `main`) | R4 / V-R4 | established |
+| INV-WF-01 | Absolute loopback origin pin is `http://127.0.0.1:8765` — **rigidity is the control**; making the port/host configurable reopens N2 | absolute-origin repair | established |
+| INV-WF-02 | Agent attachments: exactly one `ai_languageModel` per agent; `ai_tool` / `ai_memory` / unknown channels **deny-by-default** — **rigidity is the control**; making attachments configurable reopens R1 / P1d cost-bound bypass | R1 repair | established |
 | INV-BUD-01 | Boolean JSON must not coerce into pilot budget numeric fields | Codex Finding 5 | established |
 | INV-BUD-02 | Boolean `maxIterations` must not satisfy `maxIterations==1` via `int(True)` | Codex Finding 6 | established |
 | INV-BUD-03 | Provider-call consume validates role-bound provider/model/credential atomically; omit does not burn nonce | Codex Finding 3/4 | established |

@@ -111,26 +111,71 @@ def test_r3_launcher_pin_equals_installer_closure() -> None:
     )
     pin = json.loads((REPO / LAUNCHER_PIN_REL).read_text(encoding="utf-8"))
     assert set(pin["modules"]) == set(LAUNCHER_TRUSTED_MODULE_NAMES)
-    assert "launcher" in " ".join(pin["modules"])
+    assert "tools.self_improvement_v2.launcher.install_launcher" in pin["modules"]
+    assert "tools.self_improvement_v2.launcher.paths" in pin["modules"]
+    # Pin file authenticates itself via install-time byte match + attestation digest.
+    assert (REPO / LAUNCHER_PIN_REL).is_file()
 
 
-def test_r4_cli_repository_root_must_equal_env(
+def test_r3_launcher_pin_negative_under_coverage_fails() -> None:
+    under = tuple(m for m in LAUNCHER_TRUSTED_MODULE_NAMES if not m.endswith(".paths"))
+    with pytest.raises(AssertionError, match="missing|extra"):
+        assert_pin_covers_static_closure(REPO, under, entrypoint=LAUNCHER_ENTRYPOINT)
+
+
+def test_r3_launcher_pin_negative_extra_module_breaks_equality(tmp_path: Path) -> None:
+    pkg = tmp_path / "tools" / "self_improvement_v2" / "launcher"
+    pkg.mkdir(parents=True)
+    (tmp_path / "tools" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "tools" / "self_improvement_v2" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "install_launcher.py").write_text(
+        "from tools.self_improvement_v2.launcher import paths\n"
+        "from tools.self_improvement_v2.launcher import _extra_probe\n"
+        "from tools.self_improvement_v2 import import_closure\n",
+        encoding="utf-8",
+    )
+    (pkg / "paths.py").write_text("X=1\n", encoding="utf-8")
+    (pkg / "_extra_probe.py").write_text("Y=2\n", encoding="utf-8")
+    (tmp_path / "tools" / "self_improvement_v2" / "import_closure.py").write_text(
+        "ENTRYPOINT='x'\n", encoding="utf-8"
+    )
+    pinned = frozenset(
+        {
+            "tools.self_improvement_v2.launcher.install_launcher",
+            "tools.self_improvement_v2.launcher.paths",
+            "tools.self_improvement_v2.import_closure",
+        }
+    )
+    with pytest.raises(AssertionError, match="missing"):
+        assert_pin_covers_static_closure(
+            tmp_path,
+            pinned,
+            entrypoint="tools.self_improvement_v2.launcher.install_launcher",
+        )
+
+
+def test_r4_load_runtime_config_refuses_divergent_roots(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """V-R4: P4 verbatim — load_runtime_config directly must refuse divergence."""
     from tests.self_improvement_v2.helpers import init_temp_repo
-    from tools.self_improvement_v2.runtime_config import (
-        assert_cli_repository_root_matches_launcher,
-    )
 
-    repo_a = tmp_path / "a" / "sentinel-research-lab"
-    repo_b = tmp_path / "b" / "sentinel-research-lab"
-    init_temp_repo(repo_a)
-    init_temp_repo(repo_b)
-    monkeypatch.setenv(ENV_REPOSITORY_ROOT, str(repo_a.resolve()))
+    token = "test-worker-token-not-for-production"
+    attested = tmp_path / "attested" / "sentinel-research-lab"
+    rogue = tmp_path / "rogue" / "sentinel-research-lab"
+    init_temp_repo(attested)
+    init_temp_repo(rogue)
+    monkeypatch.setenv(ENV_REPOSITORY_ROOT, str(attested.resolve()))
+    monkeypatch.setenv("SRL_WORKER_TOKEN", token)
     with pytest.raises(RuntimeConfigError, match="must equal SRL_REPOSITORY_ROOT"):
-        assert_cli_repository_root_matches_launcher(str(repo_b))
-    # Matching CLI/env is accepted (launcher-forwarded argv equal to attested root).
-    assert_cli_repository_root_matches_launcher(str(repo_a.resolve()))
+        load_runtime_config(
+            repository_root=str(rogue.resolve()),
+            state_db=str(tmp_path / "db.sqlite"),
+            worker_token=token,
+            worker_host="127.0.0.1",
+            worker_port=8765,
+        )
 
 
 def test_r5_unknown_pin_keys_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

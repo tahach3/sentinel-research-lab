@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -13,7 +14,6 @@ import pytest
 
 from tests.self_improvement_v2.helpers import build_pass_review, build_proposal, init_temp_repo, run
 from tools.self_improvement_v2.git_worker import source_tree_fingerprint
-from tools.self_improvement_v2.runtime_bridge import LoopbackServer, configure_logging
 from tools.self_improvement_v2.runtime_config import MAX_REQUEST_BYTES, load_runtime_config, redact_log_text
 
 
@@ -21,22 +21,36 @@ TOKEN = "test-worker-token-not-for-production"
 ALT_TOKEN = "different-invalid-token-value"
 
 
+def _purge_si2_modules() -> None:
+    for name in list(sys.modules):
+        if name == "tools" or name.startswith("tools."):
+            del sys.modules[name]
+
+
 @pytest.fixture()
-def bridge_env(tmp_path: Path):
+def bridge_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Disposable checkout that is ALSO the trusted install root (R4)."""
     repo = tmp_path / "sentinel-research-lab"
-    baseline = init_temp_repo(repo)
+    baseline = init_temp_repo(repo, include_worker_package=True)
     state_db = tmp_path / "runtime" / "v2-state.sqlite"
-    config = load_runtime_config(
-        repository_root=str(repo),
+    root = str(repo.resolve())
+    monkeypatch.setenv("SRL_REPOSITORY_ROOT", root)
+    monkeypatch.setenv("SRL_REVIEWED_HEAD", baseline)
+    monkeypatch.setenv("SRL_WORKER_TOKEN", TOKEN)
+    monkeypatch.syspath_prepend(root)
+    _purge_si2_modules()
+    # Import after path/env bind so WorkerBridge + trusted_origin load from temp root.
+    from tools.self_improvement_v2.runtime_bridge import LoopbackServer
+    from tools.self_improvement_v2.runtime_config import load_runtime_config as _load
+
+    config = _load(
+        repository_root=root,
         state_db=str(state_db),
         worker_token=TOKEN,
         worker_host="127.0.0.1",
         worker_port=0,
     )
-    # Port 0 → ephemeral loopback port assigned by the OS.
     server = LoopbackServer(config)
-    # Rebind with port 0 through the underlying server (already constructed with config.port).
-    # RuntimeConfig is frozen with port 0; ThreadingHTTPServer accepts 0 and assigns a free port.
     server.start_background()
     try:
         yield {
@@ -50,6 +64,7 @@ def bridge_env(tmp_path: Path):
         }
     finally:
         server.stop()
+        _purge_si2_modules()
 
 
 def _request(
@@ -385,9 +400,10 @@ def test_20_token_absent_from_logs_and_responses(bridge_env, caplog):
         logger.removeHandler(handler)
 
 
-def test_bind_rejects_public_host(tmp_path: Path):
+def test_bind_rejects_public_host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     repo = tmp_path / "sentinel-research-lab"
     init_temp_repo(repo)
+    monkeypatch.setenv("SRL_REPOSITORY_ROOT", str(repo.resolve()))
     with pytest.raises(Exception):
         load_runtime_config(
             repository_root=str(repo),
@@ -398,9 +414,10 @@ def test_bind_rejects_public_host(tmp_path: Path):
         )
 
 
-def test_state_db_inside_repo_rejected(tmp_path: Path):
+def test_state_db_inside_repo_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     repo = tmp_path / "sentinel-research-lab"
     init_temp_repo(repo)
+    monkeypatch.setenv("SRL_REPOSITORY_ROOT", str(repo.resolve()))
     with pytest.raises(Exception):
         load_runtime_config(
             repository_root=str(repo),

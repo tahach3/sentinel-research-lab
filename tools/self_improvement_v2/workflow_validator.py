@@ -234,6 +234,7 @@ def _edge_multiset(connections: dict[str, Any]) -> Counter[tuple[str, str, int, 
 
 
 # Allowed non-main attachments (exactly once each). Agents may not gain ai_tool / ai_memory.
+ALLOWED_CONNECTION_CHANNELS: frozenset[str] = frozenset({"main", "ai_languageModel"})
 ALLOWED_AI_LANGUAGE_MODEL_EDGES: tuple[tuple[str, str, int, str], ...] = (
     ("ai_languageModel", "Implementer Gemini Chat Model", 0, "Implementer Agent"),
     ("ai_languageModel", "Independent Reviewer Groq Chat Model", 0, "Independent Reviewer Agent"),
@@ -670,6 +671,15 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
     actual_all = _edge_multiset(connections)
     for edge, count in actual_all.items():
         channel, source, out_idx, dest = edge
+        if channel not in ALLOWED_CONNECTION_CHANNELS:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"unknown connection channel rejected: {channel} "
+                    f"({source}[{out_idx}] → {dest}); deny-by-default",
+                )
+            )
+            continue
         allowed = allowed_all.get(edge, 0)
         if allowed == 0:
             errors.append(

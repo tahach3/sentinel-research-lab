@@ -369,6 +369,8 @@ def install_launcher(
         newline="\n",
     )
     sh_path.chmod(sh_path.stat().st_mode | 0o111)
+    launcher_pin_path = root / LAUNCHER_PIN_REL
+    launcher_pin_digest = _canonical_sha256(launcher_pin_path.read_bytes())
     attestation = {
         "schema": "srl.launcher_attestation.v1",
         "reviewed_head": head,
@@ -376,6 +378,8 @@ def install_launcher(
         "verifier_relpath": str(VERIFIER_REL).replace("\\", "/"),
         "expected_verifier_digest": digest,
         "git_executable": git_executable,
+        "launcher_pin_relpath": str(LAUNCHER_PIN_REL).replace("\\", "/"),
+        "launcher_pin_sha256": launcher_pin_digest,
         "note": "Update this attestation in the same operator action as the authorization line.",
     }
     att_path.write_text(json.dumps(attestation, indent=2) + "\n", encoding="utf-8")
@@ -387,6 +391,7 @@ def install_launcher(
         "reviewed_head": head,
         "expected_verifier_digest": digest,
         "git_executable": git_executable,
+        "launcher_pin_sha256": launcher_pin_digest,
     }
 
 

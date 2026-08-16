@@ -501,7 +501,9 @@ def _assert_agent_attachment_set(connections: dict[str, Any]) -> None:
                     dest = link["node"]
                     if channel != CHAT_MODEL_ATTACHMENT or (source, dest) not in allowed:
                         raise AgentRuntimeContractError(
-                            f"forbidden agent attachment rejected: {channel}:{source} → {dest}"
+                            f"unknown connection channel rejected: {channel}:{source} → {dest}"
+                            if channel not in {"main", CHAT_MODEL_ATTACHMENT}
+                            else f"forbidden agent attachment rejected: {channel}:{source} → {dest}"
                         )
 
     for chat_name, agent_name in (
