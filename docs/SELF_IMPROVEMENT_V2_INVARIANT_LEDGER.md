@@ -34,9 +34,9 @@
 | INV-BUD-03 | Provider-call consume validates role-bound provider/model/credential atomically; omit does not burn nonce | Codex Finding 3/4 | established |
 | INV-BUD-04 | `/v2/provider-call-authorize` sits on the main path **immediately before** each role’s agent (model invocation); Agent→Authorize post-hoc is rejected by validators | V-TRANSPORT repair; `test_d1_*` | established |
 | INV-AUTH-01 | Risk authority is sole authorizer; agent nodes are inactive-by-design and non-authoritative | agent-runtime contract + workflow inactive flag | established (process) |
-| INV-AUTH-02 | **Build-review independence:** independent external PASS (cross-family preferred; Codex when available) is required to *discharge* this invariant before written pilot authorization. Cursor cannot restore revoked auth via self-review; operator issues the auth line. Distinct from **loop independence** (Gemini implements / Groq reviews in pilot #1), which is intact regardless. Same-family build review may be accepted only as a **documented residual for pilot #1** — see INV-RES-02 | residual-risk doc | established (process) |
+| INV-AUTH-02 | **Build-review independence:** cross-family independent review required to *discharge* before written pilot authorization. Cursor cannot restore revoked auth via self-review; operator issues the auth line. Distinct from **loop independence** (Gemini/Groq). **Discharged** for the Codex-reviewed range ending `1a1c48e6fcf1abffebfefd1001505aaf83c02cf3` (verdict `REPAIR_REQUIRED` — independence yes; technical PASS still open on repaired tip). Same-family residual (INV-RES-02) is **unnecessary while Codex is working** | residual-risk doc; Codex wide review `2026-08-16` | established (process); discharged for that range |
 | INV-RES-01 | Residual acceptance of Findings 1–3 (trusted-origin boundary) is one-run, docs-only, supervised, expires on use; withdraws if mandatory no-env R5 REJECTS at reviewed HEAD | `docs/SELF_IMPROVEMENT_V2_P3C1_ACCEPTED_RESIDUAL_RISK.md` | decision artifact |
-| INV-RES-02 | Residual acceptance of **same-family build review** for pilot #1 only (same scope shape as INV-RES-01): one supervised, manually-triggered, docs-only run at one HEAD; expires on use; re-decided in writing after; hard gate before unsupervised/code-touching. Does **not** waive loop independence. NC-1 remains blocking. Operator decision — not a reviewer PASS | residual-risk doc § build-review residual | decision artifact |
+| INV-RES-02 | Residual acceptance of **same-family build review** for pilot #1 only — **dormant / unnecessary while non-family reviewer is working.** Do not authorize under this residual when Codex (or equivalent) is dispatchable. Re-activation requires a new written operator decision if cross-family review becomes unavailable | residual-risk doc § build-review residual | dormant (Codex path active) |
 
 ## Known-failing (out of SI2 scope)
 
@@ -51,6 +51,7 @@
 
 ## Explicitly not established
 
-- Codex **PASS** on the current A+ range — **open** until independent review returns.
+- Codex **technical PASS** on the post-repair tip (parse-strictly-or-reject at `1c8e2b9536861fff8b42dc2228c32c23cdd3549a` or later) — **open** until the next Codex round returns clean. Prior Codex at `1a1c48e6fcf1abffebfefd1001505aaf83c02cf3` was `REPAIR_REQUIRED` (validator class) with V-ROOT / V-ABSENT / V-PRESENT / V-TRANSPORT PASS.
 - Any P3-C1 authorization line — **absent**.
 - Unsupervised / code-touching pilots while assurance is open — **forbidden** (hard gate).
+- Launcher attestation HEAD equality / hash stability and n8n credential **name-binding** (store re-point with stable reference name) — **held** for a later brief; not claimed closed by the NP-2 embedded-value fix.

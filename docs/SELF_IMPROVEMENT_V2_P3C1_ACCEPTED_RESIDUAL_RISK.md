@@ -58,7 +58,7 @@ Findings that were **outside** the original residual and required code (not boun
 | PATH-git (R2-B) | Replace the `git` binary recorded in the launcher attestation | Arbitrary code execution as the operator; ambient `GIT_*` is closed in code (R2-A) |
 | V-INSTALL re-root | Re-run `install_launcher` from a compromised tree to mint a matching digest | Requires write access to the checkout (conceded adversary); dirty/HEAD/pin accident cases are closed in code |
 
-**Not accepted as residual / must stay closed in code:** incomplete pin vs closure (N1 + launcher pin), N11 HEAD drift tolerance, ambient `GIT_*` rebinding, dirty/drifted reinstall accidents, `repository_root` divergence (R4), validator multi-dispatch / port / disabled / **non-`main` attachment** gaps (N2–N7, R1), transport omit/burn bugs.
+**Not accepted as residual / must stay closed in code:** incomplete pin vs closure (N1 + launcher pin), N11 HEAD drift tolerance, ambient `GIT_*` rebinding, dirty/drifted reinstall accidents, `repository_root` divergence (R4), validator multi-dispatch / port / disabled / **non-`main` attachment** gaps (N2–N7, R1), transport omit/burn bugs, **parse-strictly-or-reject** on every workflow JSON walk (Codex NP-2/3/4 cluster: credential key discard, non-list channel bodies, open node set).
 
 OS-level privilege separation (service account the operator shell cannot impersonate) remains **Option B** — a real boundary if ever needed; not required for supervised docs-only pilot #1.
 
@@ -72,28 +72,26 @@ Accepted **only** for:
 
 After that one run completes (success or failure), this acceptance **expires**. Any subsequent run requires a **new written decision**.
 
-Same-model-family assurance (Claude reviewing Claude-implemented code) carries correlated blindness for **build-review independence** (INV-AUTH-02). It is at most evidence toward this supervised docs-only pilot #1, not toward unsupervised or code-touching runs.
+Same-model-family assurance (Claude reviewing Claude-implemented code) carries correlated blindness for **build-review independence** (INV-AUTH-02). With Codex producing independent verdicts, that residual path is **not** the authorization route — see INV-RES-02 status below.
 
 ## Two independence claims (do not collapse)
 
 | Claim | What it protects | Pilot #1 status |
 |-------|------------------|-----------------|
 | **Loop independence** | Gemini implements / Groq reviews inside the pilot; different providers/families; content-hash bound | Intact — what pilot #1 is designed to test |
-| **Build-review independence** (INV-AUTH-02) | Who reviewed the code that *implements* the loop | Not discharged by same-family Claude rounds; Codex/Trusted Access preferred |
+| **Build-review independence** (INV-AUTH-02) | Who reviewed the code that *implements* the loop | **Discharged for the Codex-reviewed range** ending at `1a1c48e6fcf1abffebfefd1001505aaf83c02cf3` (verdict `REPAIR_REQUIRED` on validator parse class — independence satisfied; technical PASS still required on the repaired tip). Same-family Claude rounds alone do **not** discharge this invariant |
 
-Waiving build-review independence for one scoped run does **not** waive loop independence. Correlated blindness of the build reviewer is a real theoretical concern; the empirical record of three same-family rounds (manufactured PASS, D2-BYPASS, anchor spoof, unpinned closures, port swap, duplicate edges, executeOnce, HEAD drift, `ai_*` gadgets, ambient `GIT_*`, installer re-root, config-root divergence, blank-env loader gate, …) is not the signature of a reviewer sharing the implementer's blind spots — but that does not *discharge* INV-AUTH-02.
+Waiving build-review independence for one scoped run does **not** waive loop independence. Correlated blindness of the build reviewer remains a real theoretical concern when only same-family review is available.
 
 **Built-in safety net:** NC-1 is blocking. If the review path is broken in a way three reviews missed, NC-1 fails to reject a known-bad package and the pilot stops before Zone B.
 
 ## Same-family build-review residual (pilot #1 only) — INV-RES-02
 
-**Status:** Operator decision artifact (same structure as trusted-origin residual above). This section does **not** authorize a HEAD and does not convert an `ESCALATE` into a reviewer `PASS`.
+**Status:** **Unnecessary while a non-family reviewer is working.** Operator ruling after Codex wide review at tip `1a1c48e6fcf1abffebfefd1001505aaf83c02cf3` (artifacts `2026-08-16`): INV-AUTH-02 is discharged for that reviewed range by the successful Codex dispatch; do **not** authorize under a same-family residual when Codex (or equivalent cross-family review) is available and producing verdicts. This section is retained only as a dormant fallback if cross-family review becomes unavailable again — it does **not** authorize a HEAD and does not convert an `ESCALATE` / `REPAIR_REQUIRED` into a reviewer `PASS`.
 
-Pursue Codex / Trusted Access when available. Do **not** hold the supervised docs-only pilot indefinitely on an uncertain Trusted Access timeline.
+**Normative rule:** When Codex (or Trusted Access / other non-Claude-family reviewer) is authenticated and dispatchable, pursue that path to a clean technical PASS. Do **not** issue a pilot authorization line under INV-RES-02 in parallel with an active non-family review track.
 
-If the next review at the tip returns technical merits that would be `PASS` but escalates solely for same-family / INV-AUTH-02, the operator **may** authorize under this residual:
-
-Accepted **only** for:
+If cross-family review is again unavailable and a same-family review returns technical merits that would be `PASS` but escalates solely for INV-AUTH-02, the operator **may** re-activate this residual in a **new written decision** for:
 
 - **Exactly one** supervised, manually-triggered, docs-only **P3-C1** pilot
 - At whichever repository HEAD is **later authorized in writing**
@@ -101,7 +99,7 @@ Accepted **only** for:
 
 After that one run completes (success or failure), this acceptance **expires**. Any subsequent run requires a **new written decision**.
 
-Hard gate before unsupervised / code-touching / operator-absent runs: this residual alone is insufficient; prefer a cross-family independent PASS to discharge INV-AUTH-02 cleanly.
+Hard gate before unsupervised / code-touching / operator-absent runs: INV-RES-02 alone is insufficient even if re-activated.
 
 ## What the mandatory no-env R5 probe does and does not close
 
@@ -114,13 +112,13 @@ The mandatory no-environment external-process R5 attack (arbitrary-name shadow c
 1. **Written record in the repository** — this file; boundary and source ranges named here; build-review residual (INV-RES-02) scoped here.
 2. **Scoped to one run** — candidate P3-C1, docs-only, supervised, one authorized HEAD; expires on use.
 3. **Re-decided in writing** for any subsequent run — no silent extension.
-4. **Hard gate before escalation** — code-closed items (closure pin, HEAD equality, transport/validator repairs, blank-env loader refuse) must remain PASS; unsupervised / code-touching / operator-absent runs require a **new** written decision (and preferably a non-Claude-family reviewer discharging INV-AUTH-02).
+4. **Hard gate before escalation** — code-closed items (closure pin, HEAD equality, transport/validator repairs, blank-env loader refuse, parse-strictly-or-reject) must remain PASS; unsupervised / code-touching / operator-absent runs require a **new** written decision. Prefer a clean non-family technical PASS so authorization needs **no** INV-RES-02 residual at all.
 
 ## Reasoning (supervised docs-only measurement)
 
 The remaining accepted trusted-origin shapes require a local adversary with code execution who already owns the operator identity. Pilot #1 has no such adversary: manually triggered, inactive loopback workflow, docs-only, operator-supervised, no auto-merge.
 
-What P3-C1 is meant to prove (end-to-end loop execution, reviewer behavior, promotion boundary) does **not** depend on defeating that local adversary — and does **not** depend on discharging build-review independence via Codex, provided the operator accepts INV-RES-02 in writing for that one HEAD. A residual trusted-origin *boundary* and a residual same-family *build review* weaken what an *unsupervised* or *code-touching* pilot would prove; they do not invalidate the supervised docs-only measurement — **provided** the code-closed HIGH items remain closed and NC-1 stays blocking.
+What P3-C1 is meant to prove (end-to-end loop execution, reviewer behavior, promotion boundary) does **not** depend on defeating that local adversary. **Build-review independence is already discharged** for the Codex-reviewed range (`1a1c48e6fcf1abffebfefd1001505aaf83c02cf3`); the remaining gate is a **technical** non-family PASS on the repaired tip (parse-strictly-or-reject + suite). Do **not** fall back to INV-RES-02 while that path is live. INV-RES-01 (trusted-origin boundary) still weakens what an *unsupervised* or *code-touching* pilot would prove; it does not invalidate the supervised docs-only measurement — **provided** the code-closed HIGH items remain closed and NC-1 stays blocking.
 
 ## Hard gate (normative)
 
