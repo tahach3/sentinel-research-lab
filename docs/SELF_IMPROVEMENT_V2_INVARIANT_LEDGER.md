@@ -52,7 +52,8 @@
 
 ## Explicitly not established
 
-- Codex **technical PASS** on the post-repair tip (parse-strictly-or-reject at `1c8e2b9536861fff8b42dc2228c32c23cdd3549a` or later) — **open** until the next Codex round returns clean. Prior Codex at `1a1c48e6fcf1abffebfefd1001505aaf83c02cf3` was `REPAIR_REQUIRED` (validator class) with V-ROOT / V-ABSENT / V-PRESENT / V-TRANSPORT PASS.
+- Codex **technical PASS** on the post-repair tip (link-field parse-strict + pinned `workflow_validator`) — **open** until the next Codex round returns clean. Prior Codex at `481ac490bc17db0112dd2084c6f5d9fe96c0801b` was `REPAIR_REQUIRED` (unparsed `link.type`/`link.index`; unpinned validator).
 - Any P3-C1 authorization line — **absent**.
 - Unsupervised / code-touching pilots while assurance is open — **forbidden** (hard gate).
 - Launcher attestation HEAD equality / hash stability and n8n credential **name-binding** (store re-point with stable reference name) — **held** for a later brief; not claimed closed by the NP-2 embedded-value fix.
+- **Credential secret independence from distinct n8n reference names alone** — **not established**. The contract binds reference **names**; names do not prove resolved-secret identity (two names can hold the same key). Pilot #1 independence rests on **provider choice** (Gemini vs Groq), not on the name-level control. Do not read “distinct credential references” as proof of secret independence.
