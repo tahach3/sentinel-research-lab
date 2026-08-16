@@ -229,16 +229,23 @@ def _err(code: str, message: str) -> dict[str, str]:
     return {"code": code, "message": message}
 
 
-def _nodes_by_name(nodes: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+def _nodes_by_name(nodes: list[Any]) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """Index nodes by name, or report uninterpretable members (never AttributeError)."""
     out: dict[str, dict[str, Any]] = {}
-    for node in nodes:
+    problems: list[str] = []
+    for i, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            problems.append(
+                f"nodes member must be object at $.nodes[{i}], got {type(node).__name__}"
+            )
+            continue
         name = str(node.get("name") or "")
         if name:
             if name in out:
                 # Duplicate names are rejected by validate_workflow; keep first for diagnostics.
                 continue
             out[name] = node
-    return out
+    return out, problems
 
 
 def _enumerate_channel_edges(
@@ -248,6 +255,8 @@ def _enumerate_channel_edges(
 
     Parse-strictly-or-reject: any channel body / output slot / link the walker
     cannot fully interpret becomes a problem string, never a silent skip.
+    Link ``type`` (destination channel) and ``index`` (input slot) are required
+    and typed — they are not ignored after reading ``node``.
     """
     edges: list[tuple[str, str, int, str]] = []
     problems: list[str] = []
@@ -296,6 +305,27 @@ def _enumerate_channel_edges(
                         problems.append(
                             f"malformed connection link: {source!r}.{channel}[{idx}][{link_i}] "
                             f"missing non-empty string node"
+                        )
+                        continue
+                    link_type = link.get("type")
+                    if not isinstance(link_type, str) or not link_type:
+                        problems.append(
+                            f"malformed connection link: {source!r}.{channel}[{idx}][{link_i}] "
+                            f"type must be non-empty string, got {type(link_type).__name__}"
+                        )
+                        continue
+                    if link_type != channel:
+                        problems.append(
+                            f"malformed connection link: {source!r}.{channel}[{idx}][{link_i}] "
+                            f"type {link_type!r} does not match channel {channel!r}"
+                        )
+                        continue
+                    link_index = link.get("index")
+                    # bool is a subclass of int — reject explicitly.
+                    if isinstance(link_index, bool) or not isinstance(link_index, int):
+                        problems.append(
+                            f"malformed connection link: {source!r}.{channel}[{idx}][{link_i}] "
+                            f"index must be int, got {type(link_index).__name__}"
                         )
                         continue
                     edges.append((channel, source, idx, node))
@@ -431,6 +461,15 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
     data = json.loads(workflow_path.read_text(encoding="utf-8"))
     errors: list[dict[str, str]] = []
 
+    if not isinstance(data, dict):
+        errors.append(
+            _err(
+                ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                f"workflow root must be object, got {type(data).__name__}",
+            )
+        )
+        return {"status": "FAIL", "errors": errors, "nodes": []}
+
     if data.get("active") is not False:
         errors.append(_err(ERROR_CODES["WORKFLOW_ACTIVE"], "active must be false"))
 
@@ -444,13 +483,18 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
         errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "nodes must be list"))
         return {"status": "FAIL", "errors": errors, "nodes": []}
 
+    by_name, node_shape_problems = _nodes_by_name(nodes)
+    for problem in node_shape_problems:
+        errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], problem))
+    if node_shape_problems:
+        return {"status": "FAIL", "errors": errors, "nodes": sorted(by_name)}
+
     names = [str(n.get("name") or "") for n in nodes]
     if any(not n for n in names):
         errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "node names must be non-empty"))
     if len(names) != len(set(names)):
         errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "duplicate node names rejected (closed-world)"))
 
-    by_name = _nodes_by_name(nodes)
     ids = [str(n.get("id") or "") for n in nodes]
     if len(ids) != len(set(ids)) or any(not i for i in ids):
         errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], "node IDs must be unique and non-empty"))

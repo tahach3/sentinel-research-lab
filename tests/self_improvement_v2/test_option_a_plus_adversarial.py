@@ -122,6 +122,38 @@ def test_a2_dirty_git_worker_rejects_before_sentinel(tmp_path: Path) -> None:
     assert "ATTACK_ACCEPTED" not in proc.stdout
 
 
+def test_dirty_workflow_validator_rejects_before_sentinel(tmp_path: Path) -> None:
+    """Pinned workflow_validator must dirty-refuse (Codex ABSENT→PRESENT)."""
+    clone = _clone_reviewed(tmp_path)
+    head = _git(clone, "rev-parse", "HEAD").stdout.strip()
+    target = clone / "tools/self_improvement_v2/workflow_validator.py"
+    target.write_text(
+        target.read_text(encoding="utf-8") + "\nprint('SENTINEL_WORKFLOW_VALIDATOR')\n",
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env[ENV_REPOSITORY_ROOT] = str(clone)
+    env[ENV_REVIEWED_HEAD] = head
+    env["PYTHONPATH"] = str(clone)
+    probe = textwrap.dedent(
+        """
+        from tools.self_improvement_v2.trusted_origin import gated_assert_trusted_code_origin
+        gated_assert_trusted_code_origin()
+        print('ATTACK_ACCEPTED')
+        """
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=str(clone),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "SENTINEL_WORKFLOW_VALIDATOR" not in proc.stdout
+    assert "ATTACK_ACCEPTED" not in proc.stdout
+
+
 def test_a3_preloaded_forged_verifier_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = worker_package_root()
     head = _git(root, "rev-parse", "HEAD").stdout.strip()

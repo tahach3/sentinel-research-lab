@@ -51,6 +51,7 @@ TRUSTED_MODULE_NAMES = (
     "tools.self_improvement_v2.validation_runner",
     "tools.self_improvement_v2.wall_reassert",
     "tools.self_improvement_v2.workflow_normalizer",
+    "tools.self_improvement_v2.workflow_validator",
 )
 
 PIN_REL = Path("specs/self_improvement/v2/trusted_origin_pin.json")

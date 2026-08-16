@@ -10,6 +10,8 @@ from typing import Any
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 from tools.self_improvement_v2.path_policy import get_validation_profile
 from tools.self_improvement_v2.schema_loader import worker_package_root
+# Static import keeps workflow_validator inside the trusted-origin pin closure.
+from tools.self_improvement_v2 import workflow_validator as workflow_validator  # noqa: F401
 
 ALLOWED_EXECUTABLES = frozenset({"python", "python.exe"})
 

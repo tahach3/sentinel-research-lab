@@ -296,3 +296,72 @@ def test_positive_control_legitimate_unusual_shapes_still_pass(tmp_path: Path):
     mains.append([])
     report3 = _validate_data(root, mutated3, tmp_path)
     assert report3["status"] == "PASS", report3["errors"]
+
+
+def _first_main_link(data: dict) -> tuple[str, int, int, dict]:
+    """Return (source, output_idx, link_idx, link) for the first main-channel link."""
+    for source, block in data["connections"].items():
+        mains = block.get("main")
+        if not isinstance(mains, list):
+            continue
+        for out_i, outputs in enumerate(mains):
+            if not outputs:
+                continue
+            return source, out_i, 0, outputs[0]
+    raise AssertionError("no main link found")
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("type", {}),
+        ("type", None),
+        ("type", 42),
+        ("type", True),
+        ("index", {}),
+        ("index", None),
+        ("index", "0"),
+        ("index", True),
+        ("index", 0.0),
+    ],
+)
+def test_parse_strict_link_type_and_index_rejected(field: str, value: object, tmp_path: Path):
+    """link.type / link.index must be parsed; wrong types reject (Codex novel probe)."""
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    source, out_i, link_i, _link = _first_main_link(mutated)
+    mutated["connections"][source]["main"][out_i][link_i][field] = value
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert any("malformed connection link" in e["message"] for e in report["errors"])
+
+
+def test_parse_strict_link_type_must_match_channel(tmp_path: Path):
+    """link.type that disagrees with the parent channel is uninterpretable as that edge."""
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    source, out_i, link_i, _link = _first_main_link(mutated)
+    mutated["connections"][source]["main"][out_i][link_i]["type"] = "ai_tool"
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert any("malformed connection link" in e["message"] for e in report["errors"])
+
+
+def test_parse_strict_top_level_array_is_structured_fail(tmp_path: Path):
+    root, _path, _data = _load()
+    path = tmp_path / "wf.json"
+    path.write_text("[]", encoding="utf-8")
+    report = validate_workflow(root, path)
+    assert report["status"] == "FAIL"
+    assert report["errors"]
+    assert all("AttributeError" not in e["message"] for e in report["errors"])
+    assert any("workflow root must be object" in e["message"] for e in report["errors"])
+
+
+def test_parse_strict_nodes_scalar_member_is_structured_fail(tmp_path: Path):
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    mutated["nodes"] = list(mutated["nodes"]) + ["not-a-node"]
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert any("nodes member must be object" in e["message"] for e in report["errors"])
