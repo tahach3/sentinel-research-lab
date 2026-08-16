@@ -453,6 +453,84 @@ def _has_main_edge(connections: dict[str, Any], source: str, dest: str) -> bool:
     return False
 
 
+def _channel_edge_count(
+    connections: dict[str, Any], *, channel: str, source: str | None = None, dest: str | None = None
+) -> int:
+    n = 0
+    for src, block in connections.items():
+        if source is not None and src != source:
+            continue
+        if not isinstance(block, dict):
+            continue
+        groups = block.get(channel) or []
+        if not isinstance(groups, list):
+            continue
+        for group in groups:
+            if not group:
+                continue
+            for link in group:
+                if not isinstance(link, dict):
+                    continue
+                if dest is not None and link.get("node") != dest:
+                    continue
+                n += 1
+    return n
+
+
+def _assert_agent_attachment_set(connections: dict[str, Any]) -> None:
+    """Pin allowed LangChain attachments: exactly one ai_languageModel per agent; no tools/memory."""
+    allowed = {
+        (IMPLEMENTER_CHAT_MODEL_NODE_NAME, IMPLEMENTER_NODE_NAME),
+        (REVIEWER_CHAT_MODEL_NODE_NAME, REVIEWER_NODE_NAME),
+    }
+    # Reject any non-main channel except the two allowed ai_languageModel edges.
+    for source, block in connections.items():
+        if not isinstance(block, dict):
+            continue
+        for channel, groups in block.items():
+            if channel == "main":
+                continue
+            if not isinstance(groups, list):
+                continue
+            for group in groups or []:
+                if not group:
+                    continue
+                for link in group:
+                    if not isinstance(link, dict) or not isinstance(link.get("node"), str):
+                        continue
+                    dest = link["node"]
+                    if channel != CHAT_MODEL_ATTACHMENT or (source, dest) not in allowed:
+                        raise AgentRuntimeContractError(
+                            f"forbidden agent attachment rejected: {channel}:{source} → {dest}"
+                        )
+
+    for chat_name, agent_name in (
+        (IMPLEMENTER_CHAT_MODEL_NODE_NAME, IMPLEMENTER_NODE_NAME),
+        (REVIEWER_CHAT_MODEL_NODE_NAME, REVIEWER_NODE_NAME),
+    ):
+        count = _channel_edge_count(
+            connections, channel=CHAT_MODEL_ATTACHMENT, source=chat_name, dest=agent_name
+        )
+        if count != 1:
+            raise AgentRuntimeContractError(
+                f"{chat_name} → {agent_name} ai_languageModel must appear exactly once "
+                f"(count={count})"
+            )
+        inbound = _channel_edge_count(
+            connections, channel=CHAT_MODEL_ATTACHMENT, dest=agent_name
+        )
+        if inbound != 1:
+            raise AgentRuntimeContractError(
+                f"{agent_name} must have exactly one ai_languageModel attachment "
+                f"(count={inbound})"
+            )
+        for forbidden in ("ai_tool", "ai_memory"):
+            if _channel_edge_count(connections, channel=forbidden, dest=agent_name) > 0:
+                raise AgentRuntimeContractError(
+                    f"{agent_name} must not have {forbidden} attachment"
+                )
+
+
 def assert_loopback_worker_url(
     url: str,
     path: str,
@@ -834,6 +912,7 @@ def assert_workflow_agent_wiring(
         connections, REVIEWER_CHAT_MODEL_NODE_NAME, REVIEWER_NODE_NAME
     ):
         raise AgentRuntimeContractError("Reviewer chat model must attach via ai_languageModel")
+    _assert_agent_attachment_set(connections)
 
     # Provider-controlled path: open → permit → consume → authorize → agent.
     # Authorize must run on the main path immediately before the agent (model

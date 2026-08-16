@@ -197,24 +197,49 @@ def _nodes_by_name(nodes: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return out
 
 
-def _all_main_edges(connections: dict[str, Any]) -> list[tuple[str, int, str]]:
-    edges: list[tuple[str, int, str]] = []
+def _all_channel_edges(
+    connections: dict[str, Any],
+) -> list[tuple[str, str, int, str]]:
+    """Enumerate every connection-channel edge as (channel, source, out_idx, dest).
+
+    Closed-world must cover non-main keys (ai_languageModel / ai_tool / ai_memory / …);
+    reading only ``main`` left the cost-bound attachment surface ungated.
+    """
+    edges: list[tuple[str, str, int, str]] = []
     for source, block in connections.items():
         if not isinstance(block, dict):
             continue
-        mains = block.get("main") or []
-        for idx, outputs in enumerate(mains):
-            if not outputs:
+        for channel, groups in block.items():
+            if not isinstance(channel, str) or not channel:
                 continue
-            for link in outputs:
-                if isinstance(link, dict) and isinstance(link.get("node"), str) and link["node"]:
-                    edges.append((source, idx, link["node"]))
+            if not isinstance(groups, list):
+                continue
+            for idx, outputs in enumerate(groups):
+                if not outputs:
+                    continue
+                for link in outputs:
+                    if isinstance(link, dict) and isinstance(link.get("node"), str) and link["node"]:
+                        edges.append((channel, source, idx, link["node"]))
     return edges
 
 
-def _edge_multiset(connections: dict[str, Any]) -> Counter[tuple[str, int, str]]:
-    """Count main edges as a multiset so duplicated links are visible."""
-    return Counter(_all_main_edges(connections))
+def _all_main_edges(connections: dict[str, Any]) -> list[tuple[str, int, str]]:
+    """Main-channel edges only — used by success-path / required-edge helpers."""
+    return [(src, idx, dest) for channel, src, idx, dest in _all_channel_edges(connections) if channel == "main"]
+
+
+def _edge_multiset(connections: dict[str, Any]) -> Counter[tuple[str, str, int, str]]:
+    """Count all-channel edges as a multiset so duplicated links are visible."""
+    return Counter(_all_channel_edges(connections))
+
+
+# Allowed non-main attachments (exactly once each). Agents may not gain ai_tool / ai_memory.
+ALLOWED_AI_LANGUAGE_MODEL_EDGES: tuple[tuple[str, str, int, str], ...] = (
+    ("ai_languageModel", "Implementer Gemini Chat Model", 0, "Implementer Agent"),
+    ("ai_languageModel", "Independent Reviewer Groq Chat Model", 0, "Independent Reviewer Agent"),
+)
+AGENT_ATTACHMENT_FORBIDDEN_CHANNELS: frozenset[str] = frozenset({"ai_tool", "ai_memory"})
+AGENT_NODE_NAMES: frozenset[str] = frozenset({"Implementer Agent", "Independent Reviewer Agent"})
 
 
 def _outgoing(
@@ -631,32 +656,61 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 )
             )
 
-    # Closed-world graph: reject extra OR duplicated main edges (multiset).
-    allowed_keys = set(REQUIRED_EDGES) | set(success_edges)
+    # Closed-world graph: every connection channel (not just main). Multiset.
+    allowed_main_keys = set(REQUIRED_EDGES) | set(success_edges)
     for out_idx, dest in WORKER_DECISION_TARGETS.items():
-        allowed_keys.add(("Worker Decision Router", out_idx, dest))
+        allowed_main_keys.add(("Worker Decision Router", out_idx, dest))
     for out_idx, dest in FAILURE_ROUTER_TARGETS.items():
-        allowed_keys.add(("Failure Router", out_idx, dest))
-    allowed_main: Counter[tuple[str, int, str]] = Counter({edge: 1 for edge in allowed_keys})
-    actual_main = _edge_multiset(connections)
-    for edge, count in actual_main.items():
-        source, out_idx, dest = edge
-        allowed = allowed_main.get(edge, 0)
+        allowed_main_keys.add(("Failure Router", out_idx, dest))
+    allowed_all: Counter[tuple[str, str, int, str]] = Counter(
+        {("main", src, idx, dest): 1 for src, idx, dest in allowed_main_keys}
+    )
+    for edge in ALLOWED_AI_LANGUAGE_MODEL_EDGES:
+        allowed_all[edge] = 1
+    actual_all = _edge_multiset(connections)
+    for edge, count in actual_all.items():
+        channel, source, out_idx, dest = edge
+        allowed = allowed_all.get(edge, 0)
         if allowed == 0:
             errors.append(
                 _err(
                     ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
-                    f"extra closed-world edge rejected: {source}[{out_idx}] → {dest}",
+                    f"extra closed-world edge rejected: {channel}:{source}[{out_idx}] → {dest}",
                 )
             )
         elif count > allowed:
             errors.append(
                 _err(
                     ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
-                    f"duplicate closed-world edge rejected: {source}[{out_idx}] → {dest} "
+                    f"duplicate closed-world edge rejected: {channel}:{source}[{out_idx}] → {dest} "
                     f"(count={count}, allowed={allowed})",
                 )
             )
+
+    # Agent attachment set: exactly one ai_languageModel inbound; zero ai_tool/ai_memory.
+    inbound: dict[str, Counter[str]] = {name: Counter() for name in AGENT_NODE_NAMES}
+    for channel, _source, _idx, dest in _all_channel_edges(connections):
+        if dest in inbound:
+            inbound[dest][channel] += 1
+    for agent in sorted(AGENT_NODE_NAMES):
+        lm_count = inbound[agent].get("ai_languageModel", 0)
+        if lm_count != 1:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"agent attachment pin: {agent} must have exactly one ai_languageModel "
+                    f"(count={lm_count})",
+                )
+            )
+        for forbidden in sorted(AGENT_ATTACHMENT_FORBIDDEN_CHANNELS):
+            if inbound[agent].get(forbidden, 0) > 0:
+                errors.append(
+                    _err(
+                        ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                        f"agent attachment pin: {agent} must not have {forbidden} "
+                        f"(count={inbound[agent][forbidden]})",
+                    )
+                )
 
     # Credential / live endpoint / push-merge checks use node parameter strings only
     # (not whole-file routing certification).
