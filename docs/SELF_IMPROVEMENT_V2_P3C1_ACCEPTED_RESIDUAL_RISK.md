@@ -30,7 +30,7 @@ e85c42ee434cf93346f14f3a890e5fb1385cb06d..4ff870275c15ccc1d7e8672ac932e3d6d9f322
 |---|----------|---------|---------|----------------------------------------|
 | 1 | CRITICAL | trusted-origin | Arbitrary-checkout self-pin when external identity is absent / spoofable | **No-anchor** path: fail-closed. **With-anchor spoof / D2-BYPASS:** accepted as **local-code-execution boundary** (below), not a fourth attestation gadget |
 | 2 | HIGH | trusted-origin | Pin must not claim HEAD | **Closed in code** (content-only pin; `SRL_REVIEWED_HEAD` sole HEAD claim; live HEAD must equal reviewed HEAD) |
-| 3 | HIGH | trusted-origin | Bootstrap set not closed | **Closed in code** for static import closure of `runtime_bridge` (N1); launcher digest root remains out-of-repo |
+| 3 | HIGH | trusted-origin | Bootstrap set not closed | **Closed in code** for static import closure of `runtime_bridge` (N1) and launcher-installer closure (`launcher_pin.json`). Launcher digest **artifact** remains out-of-repo. **Adversary re-root:** the trust root is re-rootable by anyone who can write repository files and re-run the installer; mitigation is operator discipline (unenforced against that adversary) — see named boundary `V-INSTALL` |
 
 Findings that were **outside** the original residual and required code (not boundary prose):
 
@@ -55,8 +55,10 @@ Findings that were **outside** the original residual and required code (not boun
 | D2-BYPASS | Direct `runtime_bridge` start with hand-set env anchors | No in-repo secret/token/ancestry check distinguishes launcher without moving the trust problem |
 | Anchor spoof | Anchors point at attacker checkout with self-consistent pin | Same as forging operator-supplied identity |
 | N12 | Post-start in-process object replacement after byte attestation | Expected limit of byte-level attestation |
+| PATH-git (R2-B) | Replace the `git` binary recorded in the launcher attestation | Arbitrary code execution as the operator; ambient `GIT_*` is closed in code (R2-A) |
+| V-INSTALL re-root | Re-run `install_launcher` from a compromised tree to mint a matching digest | Requires write access to the checkout (conceded adversary); dirty/HEAD/pin accident cases are closed in code |
 
-**Not accepted as residual / must stay closed in code:** incomplete pin vs closure (N1), N11 HEAD drift tolerance, validator multi-dispatch / port / disabled gaps (N2–N7), transport omit/burn bugs.
+**Not accepted as residual / must stay closed in code:** incomplete pin vs closure (N1 + launcher pin), N11 HEAD drift tolerance, ambient `GIT_*` rebinding, dirty/drifted reinstall accidents, `repository_root` divergence (R4), validator multi-dispatch / port / disabled / **non-`main` attachment** gaps (N2–N7, R1), transport omit/burn bugs.
 
 OS-level privilege separation (service account the operator shell cannot impersonate) remains **Option B** — a real boundary if ever needed; not required for supervised docs-only pilot #1.
 

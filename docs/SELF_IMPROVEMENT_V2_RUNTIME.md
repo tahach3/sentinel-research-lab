@@ -66,6 +66,13 @@ aligned with the authorization lock. Do **not** update the launcher on every
 dev commit, and do **not** disable the equality check to relieve it — refresh
 only when authorizing a reviewed HEAD.
 
+**Install preconditions (enforced):** the installer refuses a dirty worktree,
+a `--reviewed-head` that is not live `HEAD`, an in-repo worker/launcher pin
+that does not match on-disk bytes, and an `--expected-digest` that does not
+match on-disk `trusted_origin.py`. These close accident-class re-roots.
+Re-installation from a deliberately compromised tree remains a named local-
+adversary boundary (operator discipline), not a fourth attestation gadget.
+
 Install / refresh (authorization action only):
 
 ```powershell

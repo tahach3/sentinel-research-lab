@@ -78,12 +78,32 @@ in-repo “launcher attestation” gadget for them):
   owning the operator shell / forging the auth line).
 - **N12 post-start in-process replacement:** mutating already-loaded Python
   objects after a successful byte attestation.
+- **PATH-git replacement (R2-B):** after ambient `GIT_*` sanitization and
+  explicit `--git-dir` / `--work-tree`, defeating git attestation requires
+  replacing the `git` binary the launcher recorded. That is arbitrary code
+  execution as the operator. The resolved git path is recorded in the
+  out-of-repo launcher attestation for audit visibility; it is **not**
+  hard-pinned (portability; an attacker who can replace `/usr/bin/git` owns
+  the box).
+- **Trust-root re-root (V-INSTALL adversary half):** anyone who can write
+  repository files can re-run `install_launcher` from a compromised tree and
+  mint a launcher whose expected verifier digest matches the backdoor. The
+  artifact (out-of-repo digest gate) remains sound against post-install drift;
+  the **generator** is re-rootable. Mitigation is **operator discipline**
+  (refresh only in the authorization ritual from a reviewed tree) — enforced
+  for accident-class cases (dirty tree, HEAD≠live, pin mismatch) but **not**
+  for a local adversary who already owns the checkout.
 
 What is **not** part of this boundary and must remain closed in code:
 
-- Incomplete pin vs import closure (N1)
-- Workflow validator gaps (duplicate edges, executeOnce, port/origin, disabled coverage)
-- `SRL_REVIEWED_HEAD != live HEAD` tolerance (N11 — fixed by requiring equality)
+- Incomplete pin vs import closure (N1), including the **launcher installer**
+  second manifest (`launcher_pin.json`)
+- Workflow validator gaps (duplicate edges, executeOnce, port/origin, disabled
+  coverage, **non-`main` attachment channels** / second `ai_languageModel`)
+- `SRL_REVIEWED_HEAD != live HEAD` tolerance (N11)
+- Ambient `GIT_DIR` / `GIT_WORK_TREE` defeat of N11 (R2-A — sanitized)
+- Dirty-tree / drifted launcher reinstall (R3 accident half)
+- `repository_root` ≠ trusted install root (R4)
 
 An attacker who can **modify the external launcher** or **forge the operator
 authorization line** also wins — same trust class as the operator shell.
