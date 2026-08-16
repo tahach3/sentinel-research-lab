@@ -138,22 +138,7 @@ def load_runtime_config(
     if any(ch.isspace() for ch in token):
         raise RuntimeConfigError("SRL_WORKER_TOKEN must not contain whitespace")
 
-    env_root_raw = env.get(_ENV_ROOT)
-    if repository_root is not None and env_root_raw and str(env_root_raw).strip():
-        cli_root = Path(repository_root).expanduser().resolve()
-        env_root = Path(str(env_root_raw).strip()).expanduser().resolve()
-        if cli_root != env_root:
-            raise RuntimeConfigError(
-                "repository_root must equal SRL_REPOSITORY_ROOT (trusted install root)"
-            )
-
     root = _assert_repository_root(Path(_require_non_empty(_ENV_ROOT, root_raw)))
-    if env_root_raw and str(env_root_raw).strip():
-        trusted = Path(str(env_root_raw).strip()).expanduser().resolve()
-        if root != trusted:
-            raise RuntimeConfigError(
-                "repository_root must equal SRL_REPOSITORY_ROOT (trusted install root)"
-            )
     db = _assert_state_db(Path(_require_non_empty(_ENV_DB, db_raw)), root)
     host = _assert_loopback_host(_require_non_empty(_ENV_HOST, host_raw))
     port = _assert_port(str(port_raw))
@@ -165,6 +150,26 @@ def load_runtime_config(
         worker_host=host,
         worker_port=port,
     )
+
+
+def assert_cli_repository_root_matches_launcher(
+    cli_repository_root: str | None,
+    *,
+    environ: dict[str, str] | None = None,
+) -> None:
+    """Refuse --repository-root that diverges from launcher SRL_REPOSITORY_ROOT (R4)."""
+    if cli_repository_root is None or not str(cli_repository_root).strip():
+        return
+    env = environ if environ is not None else os.environ
+    env_root = env.get(_ENV_ROOT)
+    if not env_root or not str(env_root).strip():
+        return
+    cli = Path(cli_repository_root).expanduser().resolve()
+    trusted = Path(str(env_root).strip()).expanduser().resolve()
+    if cli != trusted:
+        raise RuntimeConfigError(
+            "repository_root must equal SRL_REPOSITORY_ROOT (trusted install root)"
+        )
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

@@ -118,22 +118,19 @@ def test_r4_cli_repository_root_must_equal_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from tests.self_improvement_v2.helpers import init_temp_repo
+    from tools.self_improvement_v2.runtime_config import (
+        assert_cli_repository_root_matches_launcher,
+    )
 
-    token = "test-worker-token-not-for-production"
     repo_a = tmp_path / "a" / "sentinel-research-lab"
     repo_b = tmp_path / "b" / "sentinel-research-lab"
     init_temp_repo(repo_a)
     init_temp_repo(repo_b)
-    monkeypatch.setenv(ENV_REPOSITORY_ROOT, str(repo_a))
-    monkeypatch.setenv("SRL_WORKER_TOKEN", token)
+    monkeypatch.setenv(ENV_REPOSITORY_ROOT, str(repo_a.resolve()))
     with pytest.raises(RuntimeConfigError, match="must equal SRL_REPOSITORY_ROOT"):
-        load_runtime_config(
-            repository_root=str(repo_b),
-            state_db=str(tmp_path / "db.sqlite"),
-            worker_token=token,
-            worker_host="127.0.0.1",
-            worker_port=8765,
-        )
+        assert_cli_repository_root_matches_launcher(str(repo_b))
+    # Matching CLI/env is accepted (launcher-forwarded argv equal to attested root).
+    assert_cli_repository_root_matches_launcher(str(repo_a.resolve()))
 
 
 def test_r5_unknown_pin_keys_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
