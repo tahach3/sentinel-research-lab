@@ -76,7 +76,12 @@ def test_d1_posthoc_authorize_after_agent_rejected() -> None:
     ]
     with pytest.raises(
         AgentRuntimeContractError,
-        match="must not run after Implementer Agent|must not bypass provider-call-authorize|must follow Provider Call Consume",
+        match=(
+            "must not run after Implementer Agent|"
+            "must not bypass provider-call-authorize|"
+            "must follow Provider Call Consume|"
+            "must appear exactly once"
+        ),
     ):
         assert_workflow_agent_wiring(workflow=mutated, root=REPO)
 

@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import json
 import re
-from collections import deque
+from collections import Counter, deque
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from tools.self_improvement_v2.models import ERROR_CODES
 
@@ -157,9 +158,27 @@ MUST_ENABLE_AUTHORITY_NODES = (
     "Failure Router",
 )
 
+# HTTP authority nodes whose retryOnFail / executeOnce must stay false.
+NO_RETRY_EXECUTE_ONCE_NODES = MUST_ENABLE_AUTHORITY_NODES + (
+    "Implementer Agent",
+    "Independent Reviewer Agent",
+)
+
+# Worker HTTP nodes whose URL origin must equal meta.localWorkerBaseUrl.
+WORKER_HTTP_NODES_WITH_PATH: tuple[tuple[str, str], ...] = (
+    ("Open Pilot Budget", "/v2/budget/open"),
+    ("Provider Call Permit (Implementer)", "/v2/provider-call-permit"),
+    ("Provider Call Consume (Implementer)", "/v2/provider-call-consume"),
+    ("Provider Call Authorize (Implementer)", "/v2/provider-call-authorize"),
+    ("Provider Call Permit (Reviewer)", "/v2/provider-call-permit"),
+    ("Provider Call Consume (Reviewer)", "/v2/provider-call-consume"),
+    ("Provider Call Authorize (Reviewer)", "/v2/provider-call-authorize"),
+    ("Worker Authorize", "/v2/validate-proposal"),
+    ("Independent Review Bind", "/v2/bind-review"),
+)
+
 WORKER_DECISION_OUTPUT_EXPR = "={{$json.worker_decision}}"
 WORKER_DECISION_RULE_VALUES = ("AUTHORIZED", "DECISION_REQUIRED", "POLICY_REJECTED")
-
 
 
 def _err(code: str, message: str) -> dict[str, str]:
@@ -191,6 +210,11 @@ def _all_main_edges(connections: dict[str, Any]) -> list[tuple[str, int, str]]:
                 if isinstance(link, dict) and isinstance(link.get("node"), str) and link["node"]:
                     edges.append((source, idx, link["node"]))
     return edges
+
+
+def _edge_multiset(connections: dict[str, Any]) -> Counter[tuple[str, int, str]]:
+    """Count main edges as a multiset so duplicated links are visible."""
+    return Counter(_all_main_edges(connections))
 
 
 def _outgoing(
@@ -462,6 +486,64 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                     )
                 )
 
+    # executeOnce / retryOnFail on authority or agent nodes enable multi-dispatch / burn.
+    for name in NO_RETRY_EXECUTE_ONCE_NODES:
+        node = by_name.get(name)
+        if node is None:
+            continue
+        if node.get("executeOnce") is True:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{name} executeOnce must be false (single authorize must not cover N dispatches)",
+                )
+            )
+        if node.get("retryOnFail") is True:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{name} retryOnFail must be false",
+                )
+            )
+
+    # Worker HTTP node URL origins must equal meta.localWorkerBaseUrl (port pinned).
+    meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+    base_url = str(meta.get("localWorkerBaseUrl") or "").strip()
+    base_origin = ""
+    if base_url:
+        base_parsed = urlparse(base_url)
+        if base_parsed.scheme and base_parsed.netloc:
+            base_origin = f"{base_parsed.scheme}://{base_parsed.netloc}".lower()
+    if not base_origin:
+        errors.append(
+            _err(
+                ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                "meta.localWorkerBaseUrl missing or invalid (required to pin worker HTTP origins)",
+            )
+        )
+    else:
+        for name, expected_path in WORKER_HTTP_NODES_WITH_PATH:
+            node = by_name.get(name)
+            if node is None:
+                continue
+            url = str((node.get("parameters") or {}).get("url") or "").strip()
+            parsed = urlparse(url)
+            origin = f"{parsed.scheme}://{parsed.netloc}".lower() if parsed.scheme and parsed.netloc else ""
+            if origin != base_origin:
+                errors.append(
+                    _err(
+                        ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                        f"{name} URL origin must equal meta.localWorkerBaseUrl ({base_origin})",
+                    )
+                )
+            if parsed.path != expected_path:
+                errors.append(
+                    _err(
+                        ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                        f"{name} URL path must be exactly {expected_path}",
+                    )
+                )
+
     # Worker Decision Router selector + ordered rules (not destinations alone).
     decision_node = by_name.get("Worker Decision Router")
     if decision_node is not None:
@@ -532,18 +614,30 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                 )
             )
 
-    # Closed-world graph: reject extra main edges not in the allowlist.
-    allowed_main = set(REQUIRED_EDGES) | set(success_edges)
+    # Closed-world graph: reject extra OR duplicated main edges (multiset).
+    allowed_keys = set(REQUIRED_EDGES) | set(success_edges)
     for out_idx, dest in WORKER_DECISION_TARGETS.items():
-        allowed_main.add(("Worker Decision Router", out_idx, dest))
+        allowed_keys.add(("Worker Decision Router", out_idx, dest))
     for out_idx, dest in FAILURE_ROUTER_TARGETS.items():
-        allowed_main.add(("Failure Router", out_idx, dest))
-    for source, out_idx, dest in _all_main_edges(connections):
-        if (source, out_idx, dest) not in allowed_main:
+        allowed_keys.add(("Failure Router", out_idx, dest))
+    allowed_main: Counter[tuple[str, int, str]] = Counter({edge: 1 for edge in allowed_keys})
+    actual_main = _edge_multiset(connections)
+    for edge, count in actual_main.items():
+        source, out_idx, dest = edge
+        allowed = allowed_main.get(edge, 0)
+        if allowed == 0:
             errors.append(
                 _err(
                     ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
                     f"extra closed-world edge rejected: {source}[{out_idx}] → {dest}",
+                )
+            )
+        elif count > allowed:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"duplicate closed-world edge rejected: {source}[{out_idx}] → {dest} "
+                    f"(count={count}, allowed={allowed})",
                 )
             )
 

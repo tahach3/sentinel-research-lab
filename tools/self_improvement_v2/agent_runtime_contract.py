@@ -442,7 +442,13 @@ def _has_main_edge(connections: dict[str, Any], source: str, dest: str) -> bool:
     return False
 
 
-def assert_loopback_worker_url(url: str, path: str, label: str) -> None:
+def assert_loopback_worker_url(
+    url: str,
+    path: str,
+    label: str,
+    *,
+    expected_origin: str | None = None,
+) -> None:
     """Exact scheme/host/port/path loopback check — rejects userinfo / host confusion."""
     from urllib.parse import urlparse
 
@@ -460,18 +466,29 @@ def assert_loopback_worker_url(url: str, path: str, label: str) -> None:
         raise AgentRuntimeContractError(f"{label} URL path must be exactly {path}")
     if parsed.query or parsed.fragment:
         raise AgentRuntimeContractError(f"{label} URL must not include query/fragment")
-    # Port optional; when present must be numeric (urlparse already validates).
     if parsed.port is not None and not (1 <= int(parsed.port) <= 65535):
         raise AgentRuntimeContractError(f"{label} URL port out of range")
+    if expected_origin is not None:
+        origin = f"{parsed.scheme}://{parsed.netloc}".lower()
+        if origin != expected_origin.lower().rstrip("/"):
+            raise AgentRuntimeContractError(
+                f"{label} URL origin must equal meta.localWorkerBaseUrl ({expected_origin})"
+            )
 
 
-def _assert_http_post_loopback_path(node: dict[str, Any], path: str, label: str) -> None:
+def _assert_http_post_loopback_path(
+    node: dict[str, Any],
+    path: str,
+    label: str,
+    *,
+    expected_origin: str | None = None,
+) -> None:
     params = node.get("parameters") or {}
     url = str(params.get("url") or "")
     method = str(params.get("method") or "GET").upper()
     if method != "POST":
         raise AgentRuntimeContractError(f"{label} must POST")
-    assert_loopback_worker_url(url, path, label)
+    assert_loopback_worker_url(url, path, label, expected_origin=expected_origin)
 
 
 def _assert_agent_max_iterations(node: dict[str, Any], label: str) -> None:
@@ -611,29 +628,63 @@ def assert_workflow_agent_wiring(
     method = str(auth_params.get("method") or "GET").upper()
     if method != "POST":
         raise AgentRuntimeContractError("Worker Authorize must POST")
-    assert_loopback_worker_url(str(auth_params.get("url") or ""), AUTHORIZE_PATH, WORKER_AUTHORIZE_NODE_NAME)
+    from urllib.parse import urlparse as _urlparse
 
-    _assert_http_post_loopback_path(open_budget, BUDGET_OPEN_PATH, OPEN_PILOT_BUDGET_NODE_NAME)
+    meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+    base_url = str(meta.get(WORKER_BASE_URL_META_KEY) or "").strip()
+    base_parsed = _urlparse(base_url)
+    if not base_parsed.scheme or not base_parsed.netloc:
+        raise AgentRuntimeContractError("localWorkerBaseUrl missing or invalid for URL origin pin")
+    expected_origin = f"{base_parsed.scheme}://{base_parsed.netloc}"
+
+    assert_loopback_worker_url(
+        str(auth_params.get("url") or ""),
+        AUTHORIZE_PATH,
+        WORKER_AUTHORIZE_NODE_NAME,
+        expected_origin=expected_origin,
+    )
+
     _assert_http_post_loopback_path(
-        permit_impl, PROVIDER_CALL_PERMIT_PATH, PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME
+        open_budget, BUDGET_OPEN_PATH, OPEN_PILOT_BUDGET_NODE_NAME, expected_origin=expected_origin
     )
     _assert_http_post_loopback_path(
-        permit_rev, PROVIDER_CALL_PERMIT_PATH, PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME
+        permit_impl,
+        PROVIDER_CALL_PERMIT_PATH,
+        PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME,
+        expected_origin=expected_origin,
     )
     _assert_http_post_loopback_path(
-        consume_impl, PROVIDER_CALL_CONSUME_PATH, PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME
+        permit_rev,
+        PROVIDER_CALL_PERMIT_PATH,
+        PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME,
+        expected_origin=expected_origin,
     )
     _assert_http_post_loopback_path(
-        consume_rev, PROVIDER_CALL_CONSUME_PATH, PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME
+        consume_impl,
+        PROVIDER_CALL_CONSUME_PATH,
+        PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME,
+        expected_origin=expected_origin,
     )
     _assert_http_post_loopback_path(
-        authorize_impl, PROVIDER_CALL_AUTHORIZE_PATH, PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME
+        consume_rev,
+        PROVIDER_CALL_CONSUME_PATH,
+        PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME,
+        expected_origin=expected_origin,
     )
     _assert_http_post_loopback_path(
-        authorize_rev, PROVIDER_CALL_AUTHORIZE_PATH, PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME
+        authorize_impl,
+        PROVIDER_CALL_AUTHORIZE_PATH,
+        PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME,
+        expected_origin=expected_origin,
     )
     _assert_http_post_loopback_path(
-        bind_review, BIND_REVIEW_PATH, INDEPENDENT_REVIEW_BIND_NODE_NAME
+        authorize_rev,
+        PROVIDER_CALL_AUTHORIZE_PATH,
+        PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME,
+        expected_origin=expected_origin,
+    )
+    _assert_http_post_loopback_path(
+        bind_review, BIND_REVIEW_PATH, INDEPENDENT_REVIEW_BIND_NODE_NAME, expected_origin=expected_origin
     )
     # Hardcoded review_ok must never appear — Groq/review_gate verdict must matter.
     if "review_ok:true" in json.dumps(bind_review):
@@ -648,6 +699,8 @@ def assert_workflow_agent_wiring(
         (PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME, permit_rev),
         (PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME, consume_impl),
         (PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME, consume_rev),
+        (PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, authorize_impl),
+        (PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, authorize_rev),
         (WORKER_AUTHORIZE_NODE_NAME, authorize),
         (INDEPENDENT_REVIEW_BIND_NODE_NAME, bind_review),
         (IMPLEMENTER_NODE_NAME, implementer),
@@ -658,6 +711,61 @@ def assert_workflow_agent_wiring(
                 raise AgentRuntimeContractError(f"{label} disabled must be boolean when present")
             if node.get("disabled") is True:
                 raise AgentRuntimeContractError(f"{label} must not be disabled (authority/control node)")
+
+    # executeOnce / retryOnFail / onError on authority HTTP and agents.
+    for label, node in (
+        (OPEN_PILOT_BUDGET_NODE_NAME, open_budget),
+        (PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME, permit_impl),
+        (PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME, permit_rev),
+        (PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME, consume_impl),
+        (PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME, consume_rev),
+        (PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, authorize_impl),
+        (PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, authorize_rev),
+        (WORKER_AUTHORIZE_NODE_NAME, authorize),
+        (INDEPENDENT_REVIEW_BIND_NODE_NAME, bind_review),
+        (IMPLEMENTER_NODE_NAME, implementer),
+        (REVIEWER_NODE_NAME, reviewer),
+    ):
+        if node.get("executeOnce") is True:
+            raise AgentRuntimeContractError(
+                f"{label} executeOnce must be false (single authorize must not cover N dispatches)"
+            )
+        if node.get("retryOnFail") is True:
+            raise AgentRuntimeContractError(f"{label} retryOnFail must be false")
+        if label in {
+            OPEN_PILOT_BUDGET_NODE_NAME,
+            PROVIDER_CALL_PERMIT_IMPLEMENTER_NODE_NAME,
+            PROVIDER_CALL_PERMIT_REVIEWER_NODE_NAME,
+            PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME,
+            PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME,
+            PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME,
+            PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME,
+            WORKER_AUTHORIZE_NODE_NAME,
+            INDEPENDENT_REVIEW_BIND_NODE_NAME,
+        } and node.get("onError") != "continueErrorOutput":
+            raise AgentRuntimeContractError(f"{label} must set onError=continueErrorOutput")
+
+    # Duplicate Authorize→Agent (or any main) edges: count links, not set membership.
+    def _main_edge_count(source: str, dest: str) -> int:
+        block = connections.get(source) or {}
+        mains = block.get("main") or []
+        n = 0
+        for group in mains:
+            if not group:
+                continue
+            for link in group:
+                if isinstance(link, dict) and link.get("node") == dest and link.get("type") == "main":
+                    n += 1
+        return n
+
+    if _main_edge_count(PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, IMPLEMENTER_NODE_NAME) != 1:
+        raise AgentRuntimeContractError(
+            "Provider Call Authorize (Implementer) → Implementer Agent must appear exactly once"
+        )
+    if _main_edge_count(PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, REVIEWER_NODE_NAME) != 1:
+        raise AgentRuntimeContractError(
+            "Provider Call Authorize (Reviewer) → Independent Reviewer Agent must appear exactly once"
+        )
 
     decision = by_name.get("Worker Decision Router")
     if decision is None:

@@ -1,7 +1,7 @@
 {
   "schema_version": "2.1.0",
   "description": "Content digests for closed Self-Improvement V2 bootstrap/execution manifest. Reviewed HEAD identity is supplied exclusively by SRL_REVIEWED_HEAD.",
-  "combined": "641ccb59aadead0873bbd5aa6e123755fb7744c86282247ef0136218fd081795",
+  "combined": "a256bd5b1a326956d7fdc60c3e8446a78f4f0550c6843feb98450b49cef6783e",
   "modules": {
     "tools.self_improvement_v2.trusted_origin": "ed58d6d2489d822b72f705e1bca605a59954d342e1b649627725bf35c65daa62",
     "tools.self_improvement_v2.runtime_bridge": "6ff3a664a7ab0e34b8b4d73ffd82bf3d2476686b6ec11ae2ef91f1a2efbfc9cd",
@@ -10,8 +10,8 @@
     "tools.self_improvement_v2.review_gate": "50518cc7988ef2dc8bcc117380a1722a30dff6fa287c31834cf8d432577fab42",
     "tools.self_improvement_v2.patch_validator": "91f821683d976c0e32c997d34276a631b176a38e2bd993c8dd45c31715c9bbc0",
     "tools.self_improvement_v2.finalizer": "bf80dd9dd1879a1a9e8bb7bff0573658133fc94b34a73ea3a94551da5dc2492b",
-    "tools.self_improvement_v2.workflow_validator": "ef782fa53bda35f65ffeb786481c1ac6d42ca404d4f91d27b848a053857bea92",
-    "tools.self_improvement_v2.agent_runtime_contract": "82458fd60e853371f449e190d241a257125127d39d97b61d139a18fa5e28be8e",
+    "tools.self_improvement_v2.workflow_validator": "d986c1930d67dda947dbd20d6933993252300ee2cfddaaecde69abff9877540c",
+    "tools.self_improvement_v2.agent_runtime_contract": "163e79e89d500acd4b65f065764b3c2a0f7ea7c084460b1848d84378c1706255",
     "tools.self_improvement_v2.path_policy": "558bab192216c5c32fcde032bc8d2e8349a66f07616b905d0ae2d9cfa6a54390",
     "tools.self_improvement_v2.pilot_budget": "03c191158a3149d3dd47fc89d0776ccb5be5bb2b2f5c470876ed955bb2226da7",
     "tools.self_improvement_v2.runtime_config": "d617e80773f5378fd48a07ac9e5dab724217a54ba0587a14a30c5cf6525900ef",
