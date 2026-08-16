@@ -25,22 +25,31 @@ from typing import Any, Iterable
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 
 # Closed bootstrap / execution manifest (Option A+).
+# Must equal the static import closure of runtime_bridge (+ import_closure itself).
+# See tools.self_improvement_v2.import_closure for the AST-only computation limit.
 TRUSTED_MODULE_NAMES = (
-    "tools.self_improvement_v2.trusted_origin",
-    "tools.self_improvement_v2.runtime_bridge",
-    "tools.self_improvement_v2.git_worker",
-    "tools.self_improvement_v2.risk_authority",
-    "tools.self_improvement_v2.review_gate",
-    "tools.self_improvement_v2.patch_validator",
-    "tools.self_improvement_v2.finalizer",
-    "tools.self_improvement_v2.workflow_validator",
     "tools.self_improvement_v2.agent_runtime_contract",
+    "tools.self_improvement_v2.canonical",
+    "tools.self_improvement_v2.executor",
+    "tools.self_improvement_v2.experience_store",
+    "tools.self_improvement_v2.finalizer",
+    "tools.self_improvement_v2.git_worker",
+    "tools.self_improvement_v2.import_closure",
+    "tools.self_improvement_v2.models",
+    "tools.self_improvement_v2.patch_parser",
+    "tools.self_improvement_v2.patch_validator",
     "tools.self_improvement_v2.path_policy",
     "tools.self_improvement_v2.pilot_budget",
+    "tools.self_improvement_v2.repair_policy",
+    "tools.self_improvement_v2.review_gate",
+    "tools.self_improvement_v2.risk_authority",
+    "tools.self_improvement_v2.runtime_bridge",
     "tools.self_improvement_v2.runtime_config",
     "tools.self_improvement_v2.schema_loader",
-    "tools.self_improvement_v2.canonical",
-    "tools.self_improvement_v2.models",
+    "tools.self_improvement_v2.trusted_origin",
+    "tools.self_improvement_v2.validation_runner",
+    "tools.self_improvement_v2.wall_reassert",
+    "tools.self_improvement_v2.workflow_normalizer",
 )
 
 PIN_REL = Path("specs/self_improvement/v2/trusted_origin_pin.json")
@@ -278,20 +287,20 @@ def assert_trusted_code_origin(
 
     live_head = _git_head(root)
     names = tuple(dict.fromkeys((*module_names, *TRUSTED_MODULE_NAMES)))
-    rels = [_module_relpath(name) for name in TRUSTED_MODULE_NAMES]
 
-    def _no_trusted_module_drift(left: str, right: str) -> bool:
-        drifted = _raw_git(["diff", "--quiet", left, right, "--", *rels], cwd=root, check=False)
-        return drifted.returncode == 0
-
-    if env_head == live_head:
-        pass
-    elif _no_trusted_module_drift(env_head, live_head):
-        pass
-    else:
+    # N11: authorization line binds the live checkout HEAD — no drift tolerance.
+    if env_head != live_head:
         raise TrustedOriginError(
-            "reviewed HEAD identity mismatch (SRL_REVIEWED_HEAD vs install HEAD / module drift)"
+            "reviewed HEAD identity mismatch "
+            f"(SRL_REVIEWED_HEAD={env_head} != live HEAD={live_head})"
         )
+
+    from tools.self_improvement_v2.import_closure import assert_pin_covers_static_closure
+
+    try:
+        assert_pin_covers_static_closure(root, TRUSTED_MODULE_NAMES)
+    except AssertionError as exc:
+        raise TrustedOriginError(str(exc)) from exc
 
     combined, per = module_tree_digest_at(root, TRUSTED_MODULE_NAMES)
     expected_combined = pin.get("combined")
