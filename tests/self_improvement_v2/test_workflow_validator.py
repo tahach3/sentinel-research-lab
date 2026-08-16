@@ -6,6 +6,8 @@ import copy
 import json
 from pathlib import Path
 
+import pytest
+
 from tools.self_improvement_v2.models import ERROR_CODES
 from tools.self_improvement_v2.schema_loader import worker_package_root
 from tools.self_improvement_v2.workflow_validator import validate_workflow
@@ -139,3 +141,106 @@ def test_malformed_worker_port_is_structured_fail(tmp_path: Path):
     report2 = _validate_data(root, mutated2, tmp_path)
     assert report2["status"] == "FAIL"
     assert ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"] in _codes(report2)
+
+
+def test_parse_strict_structured_credential_key_rejected(tmp_path: Path):
+    """{"apiKey": "sk-…"} must FAIL — keys are not discarded (Codex NP-2)."""
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    for node in mutated["nodes"]:
+        if node.get("name") == "Candidate Intake":
+            node.setdefault("parameters", {})["apiKey"] = "sk-probe-12345678901234567890"
+            break
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert ERROR_CODES["CREDENTIALS_IN_WORKFLOW"] in _codes(report)
+
+
+def test_parse_strict_credential_inline_string_still_rejected(tmp_path: Path):
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    for node in mutated["nodes"]:
+        if node.get("name") == "Candidate Intake":
+            node.setdefault("parameters", {})["jsCode"] = 'const x = "apiKey=\'sk-abcdefghijklmnop\'";'
+            break
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert ERROR_CODES["CREDENTIALS_IN_WORKFLOW"] in _codes(report)
+
+
+def test_parse_strict_malformed_channel_body_object_rejected(tmp_path: Path):
+    """Non-list channel body must REJECT, not disappear (Codex NP-4)."""
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    mutated.setdefault("connections", {}).setdefault("Implementer Agent", {})["ai_tool"] = {
+        "rogue": True
+    }
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert any("malformed connection channel body" in e["message"] for e in report["errors"])
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["not-a-list", 42, None, True],
+)
+def test_parse_strict_malformed_channel_body_types_rejected(body: object, tmp_path: Path):
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    mutated.setdefault("connections", {}).setdefault("Implementer Agent", {})["ai_memory"] = body
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert any("malformed connection channel body" in e["message"] for e in report["errors"])
+
+
+def test_parse_strict_malformed_link_and_outputs_rejected(tmp_path: Path):
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    # outputs slot is a dict instead of a list of links
+    mutated["connections"]["Manual Trigger"]["main"] = [{"node": "Candidate Intake"}]
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert any("malformed connection outputs" in e["message"] for e in report["errors"])
+
+    mutated2 = copy.deepcopy(data)
+    mutated2["connections"]["Manual Trigger"]["main"] = [["not-a-link-object"]]
+    report2 = _validate_data(root, mutated2, tmp_path)
+    assert report2["status"] == "FAIL"
+    assert any("malformed connection link" in e["message"] for e in report2["errors"])
+
+
+def test_parse_strict_extra_unconnected_code_node_rejected(tmp_path: Path):
+    """Rogue unconnected executable node must FAIL node-set closure (Codex NP-3)."""
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    mutated["nodes"].append(
+        {
+            "id": "rogue-code-node",
+            "name": "Rogue Code",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [0, 0],
+            "parameters": {"jsCode": "return items;"},
+        }
+    )
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert any("extra closed-world node rejected: Rogue Code" in e["message"] for e in report["errors"])
+
+
+def test_parse_strict_unknown_channel_name_still_rejected(tmp_path: Path):
+    """Well-formed invent channel remains deny-by-default (prior repair still holds)."""
+    root, _path, data = _load()
+    mutated = copy.deepcopy(data)
+    mutated.setdefault("connections", {}).setdefault("Implementer Gemini Chat Model", {})[
+        "ai_widget"
+    ] = [[{"node": "Implementer Agent", "type": "ai_widget", "index": 0}]]
+    report = _validate_data(root, mutated, tmp_path)
+    assert report["status"] == "FAIL"
+    assert any("unknown connection channel rejected: ai_widget" in e["message"] for e in report["errors"])
+
+
+def test_parse_strict_design_workflow_still_passes():
+    root, path, _data = _load()
+    report = validate_workflow(root, path)
+    assert report["status"] == "PASS", report["errors"]

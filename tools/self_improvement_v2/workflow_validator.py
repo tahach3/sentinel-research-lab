@@ -49,6 +49,10 @@ def _safe_url_host_port_path(url: str) -> tuple[str | None, int | None, str]:
 CREDENTIAL_VALUE_RE = re.compile(
     r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*['\"][^'\"]{8,}"
 )
+# Dict keys that must not hold opaque secret strings (structured credential injection).
+SENSITIVE_KEY_RE = re.compile(
+    r"(?i)^(api[_-]?key|secret|password|token|authorization|access[_-]?token|bearer)$"
+)
 
 REQUIRED_NODE_SPECS: dict[str, str] = {
     "Manual Trigger": "n8n-nodes-base.manualTrigger",
@@ -95,6 +99,15 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Terminal PATCH_REJECTED": "n8n-nodes-base.code",
     "Terminal BASELINE_MISMATCH": "n8n-nodes-base.code",
     "Terminal IMMUTABILITY_VIOLATION": "n8n-nodes-base.code",
+}
+
+# Closed node world: required nodes plus pinned attachments and the design sticky note.
+# Extra executable nodes (even unconnected) are rejected — same class as edge closure.
+ALLOWED_NODE_SPECS: dict[str, str] = {
+    **REQUIRED_NODE_SPECS,
+    "Implementer Gemini Chat Model": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+    "Independent Reviewer Groq Chat Model": "@n8n/n8n-nodes-langchain.lmChatGroq",
+    "V2 Design Notes": "n8n-nodes-base.stickyNote",
 }
 
 # Worker Decision Router switch output index → required destination (direct).
@@ -228,29 +241,72 @@ def _nodes_by_name(nodes: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return out
 
 
-def _all_channel_edges(
+def _enumerate_channel_edges(
     connections: dict[str, Any],
-) -> list[tuple[str, str, int, str]]:
-    """Enumerate every connection-channel edge as (channel, source, out_idx, dest).
+) -> tuple[list[tuple[str, str, int, str]], list[str]]:
+    """Enumerate every connection-channel edge, or report uninterpretable shapes.
 
-    Closed-world must cover non-main keys (ai_languageModel / ai_tool / ai_memory / …);
-    reading only ``main`` left the cost-bound attachment surface ungated.
+    Parse-strictly-or-reject: any channel body / output slot / link the walker
+    cannot fully interpret becomes a problem string, never a silent skip.
     """
     edges: list[tuple[str, str, int, str]] = []
+    problems: list[str] = []
     for source, block in connections.items():
+        if not isinstance(source, str) or not source:
+            problems.append(
+                f"connection source must be non-empty string, got {type(source).__name__}"
+            )
+            continue
         if not isinstance(block, dict):
+            problems.append(
+                f"connection block for {source!r} must be object, got {type(block).__name__}"
+            )
             continue
         for channel, groups in block.items():
             if not isinstance(channel, str) or not channel:
+                problems.append(
+                    f"connection channel name under {source!r} must be non-empty string, "
+                    f"got {type(channel).__name__}"
+                )
                 continue
             if not isinstance(groups, list):
+                problems.append(
+                    f"malformed connection channel body: {source!r}.{channel} "
+                    f"must be list, got {type(groups).__name__}"
+                )
                 continue
             for idx, outputs in enumerate(groups):
-                if not outputs:
+                if outputs is None or outputs == []:
                     continue
-                for link in outputs:
-                    if isinstance(link, dict) and isinstance(link.get("node"), str) and link["node"]:
-                        edges.append((channel, source, idx, link["node"]))
+                if not isinstance(outputs, list):
+                    problems.append(
+                        f"malformed connection outputs: {source!r}.{channel}[{idx}] "
+                        f"must be list, got {type(outputs).__name__}"
+                    )
+                    continue
+                for link_i, link in enumerate(outputs):
+                    if not isinstance(link, dict):
+                        problems.append(
+                            f"malformed connection link: {source!r}.{channel}[{idx}][{link_i}] "
+                            f"must be object, got {type(link).__name__}"
+                        )
+                        continue
+                    node = link.get("node")
+                    if not isinstance(node, str) or not node:
+                        problems.append(
+                            f"malformed connection link: {source!r}.{channel}[{idx}][{link_i}] "
+                            f"missing non-empty string node"
+                        )
+                        continue
+                    edges.append((channel, source, idx, node))
+    return edges, problems
+
+
+def _all_channel_edges(
+    connections: dict[str, Any],
+) -> list[tuple[str, str, int, str]]:
+    """Enumerate edges only (shape problems discarded). Prefer ``_enumerate_channel_edges``."""
+    edges, _problems = _enumerate_channel_edges(connections)
     return edges
 
 
@@ -279,10 +335,19 @@ def _outgoing(
 ) -> list[tuple[int, str]]:
     """Return list of (output_index, destination_name) for structural edges."""
     block = connections.get(source) or {}
-    mains = block.get("main") or []
+    if not isinstance(block, dict):
+        return []
+    mains = block.get("main")
+    if mains is None:
+        return []
+    if not isinstance(mains, list):
+        # Malformed shape is reported by _enumerate_channel_edges; do not invent edges.
+        return []
     edges: list[tuple[int, str]] = []
     for idx, outputs in enumerate(mains):
         if not outputs:
+            continue
+        if not isinstance(outputs, list):
             continue
         for link in outputs:
             if not isinstance(link, dict):
@@ -323,15 +388,42 @@ def _reachable_from(
     return seen
 
 
-def _collect_credential_strings(node: Any, out: list[str]) -> None:
+def _scan_embedded_secrets(node: Any, *, path: str = "$") -> list[str]:
+    """Find embedded credential material; reject uninterpretable JSON types.
+
+    Parse-strictly-or-reject for the credential walk: structured keys such as
+    ``{"apiKey": "sk-…"}`` are visible (keys are not discarded), and any value
+    type other than object/array/string/number/bool/null is a finding.
+    """
+    findings: list[str] = []
     if isinstance(node, dict):
-        for value in node.values():
-            _collect_credential_strings(value, out)
+        for key, value in node.items():
+            key_s = str(key)
+            child = f"{path}.{key_s}"
+            if isinstance(value, str):
+                if SENSITIVE_KEY_RE.match(key_s) and len(value.strip()) >= 8:
+                    findings.append(f"credential-like key {key_s!r} holds a string value at {child}")
+                elif CREDENTIAL_VALUE_RE.search(value):
+                    findings.append(f"credential pattern in string at {child}")
+            elif isinstance(value, (dict, list)):
+                findings.extend(_scan_embedded_secrets(value, path=child))
+            elif value is None or isinstance(value, (bool, int, float)):
+                continue
+            else:
+                findings.append(
+                    f"uninterpretable JSON type {type(value).__name__} at {child}"
+                )
     elif isinstance(node, list):
-        for value in node:
-            _collect_credential_strings(value, out)
+        for i, value in enumerate(node):
+            findings.extend(_scan_embedded_secrets(value, path=f"{path}[{i}]"))
     elif isinstance(node, str):
-        out.append(node)
+        if CREDENTIAL_VALUE_RE.search(node):
+            findings.append(f"credential pattern in string at {path}")
+    elif node is None or isinstance(node, (bool, int, float)):
+        return findings
+    else:
+        findings.append(f"uninterpretable JSON type {type(node).__name__} at {path}")
+    return findings
 
 
 def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
@@ -384,6 +476,29 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
         if node is None:
             errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], f"missing node: {name}"))
             continue
+        actual_type = str(node.get("type") or "")
+        if actual_type != expected_type:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MARKER-NOT-ROUTE"],
+                    f"node {name} type {actual_type} != {expected_type}",
+                )
+            )
+
+    # Node-set closure (matches edge closure): every declared node must be allow-listed.
+    for name, node in sorted(by_name.items()):
+        expected_type = ALLOWED_NODE_SPECS.get(name)
+        if expected_type is None:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"extra closed-world node rejected: {name} "
+                    f"(type={node.get('type')!r}); deny-by-default",
+                )
+            )
+            continue
+        if name in REQUIRED_NODE_SPECS:
+            continue  # type already checked above
         actual_type = str(node.get("type") or "")
         if actual_type != expected_type:
             errors.append(
@@ -680,6 +795,10 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
             )
 
     # Closed-world graph: every connection channel (not just main). Multiset.
+    # Parse-strictly-or-reject first: uninterpretable channel shapes are findings.
+    actual_edges, shape_problems = _enumerate_channel_edges(connections)
+    for problem in shape_problems:
+        errors.append(_err(ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"], problem))
     allowed_main_keys = set(REQUIRED_EDGES) | set(success_edges)
     for out_idx, dest in WORKER_DECISION_TARGETS.items():
         allowed_main_keys.add(("Worker Decision Router", out_idx, dest))
@@ -690,7 +809,7 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
     )
     for edge in ALLOWED_AI_LANGUAGE_MODEL_EDGES:
         allowed_all[edge] = 1
-    actual_all = _edge_multiset(connections)
+    actual_all = Counter(actual_edges)
     for edge, count in actual_all.items():
         channel, source, out_idx, dest = edge
         if channel not in ALLOWED_CONNECTION_CHANNELS:
@@ -721,7 +840,7 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
 
     # Agent attachment set: exactly one ai_languageModel inbound; zero ai_tool/ai_memory.
     inbound: dict[str, Counter[str]] = {name: Counter() for name in AGENT_NODE_NAMES}
-    for channel, _source, _idx, dest in _all_channel_edges(connections):
+    for channel, _source, _idx, dest in actual_edges:
         if dest in inbound:
             inbound[dest][channel] += 1
     for agent in sorted(AGENT_NODE_NAMES):
@@ -744,13 +863,30 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                     )
                 )
 
-    # Credential / live endpoint / push-merge checks use node parameter strings only
-    # (not whole-file routing certification).
+    # Credential / live endpoint / push-merge checks — walk nodes strictly.
+    secret_hits = _scan_embedded_secrets(nodes, path="$.nodes")
+    if secret_hits:
+        errors.append(
+            _err(
+                ERROR_CODES["CREDENTIALS_IN_WORKFLOW"],
+                "credential values embedded: " + "; ".join(secret_hits[:5]),
+            )
+        )
+    # Endpoint / push / merge still need a string corpus; collect only after type walk.
     strings: list[str] = []
-    _collect_credential_strings(nodes, strings)
+
+    def _collect_strings(node: Any) -> None:
+        if isinstance(node, dict):
+            for value in node.values():
+                _collect_strings(value)
+        elif isinstance(node, list):
+            for value in node:
+                _collect_strings(value)
+        elif isinstance(node, str):
+            strings.append(node)
+
+    _collect_strings(nodes)
     blob = "\n".join(strings)
-    if CREDENTIAL_VALUE_RE.search(blob):
-        errors.append(_err(ERROR_CODES["CREDENTIALS_IN_WORKFLOW"], "credential values embedded"))
     if re.search(r"(?i)git\s+push", blob):
         errors.append(_err(ERROR_CODES["PUSH_ATTEMPT"], "workflow encodes push"))
     if re.search(r"(?i)git\s+merge", blob):
