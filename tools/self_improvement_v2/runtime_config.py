@@ -20,10 +20,18 @@ LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost"})
 FORBIDDEN_BIND_HOSTS = frozenset({"0.0.0.0", "::", "[::]", "*"})
 
 _ENV_TOKEN = "SRL_WORKER_TOKEN"
+_ENV_TOKEN_FILE = "SRL_WORKER_TOKEN_FILE"
+_ENV_CONSUME_TOKEN_FILE = "SRL_TOPOLOGY_CONSUME_TOKEN_FILE"
+_ENV_ATTESTOR_ORIGIN = "SRL_TOPOLOGY_ATTESTOR_ORIGIN"
 _ENV_ROOT = "SRL_REPOSITORY_ROOT"
 _ENV_DB = "SRL_STATE_DB"
 _ENV_HOST = "SRL_WORKER_HOST"
 _ENV_PORT = "SRL_WORKER_PORT"
+_ENV_RUNTIME_MODE = "SRL_RUNTIME_MODE"
+
+DEFAULT_TOKEN_FILE = "/run/secrets/srl_worker_token"
+DEFAULT_CONSUME_TOKEN_FILE = "/run/secrets/srl_topology_consume_token"
+DEFAULT_ATTESTOR_ORIGIN = "http://host.docker.internal:8764"
 
 _FORBIDDEN_ROOT_NAMES = frozenset({"equitify-machine", "ai-development-os"})
 _ABS_PATH_RE = re.compile(r"(?i)[A-Za-z]:[\\/]|/(?:Users|home|var|tmp|private)/")
@@ -48,6 +56,9 @@ class RuntimeConfig:
     worker_port: int
     max_request_bytes: int = MAX_REQUEST_BYTES
     request_timeout_seconds: int = REQUEST_TIMEOUT_SECONDS
+    topology_attestor_origin: str = DEFAULT_ATTESTOR_ORIGIN
+    topology_consume_credential: str = ""
+    runtime_mode: str = ""
 
     @property
     def repository_id(self) -> str:
@@ -118,6 +129,16 @@ def _assert_state_db(state_db: Path, repository_root: Path) -> Path:
     return resolved
 
 
+def _read_secret_file(path_raw: str, name: str) -> str:
+    path = Path(path_raw).expanduser()
+    if not path.is_file():
+        raise RuntimeConfigError(f"{name} is not a readable secret file")
+    token = path.read_text(encoding="utf-8").strip()
+    if not token or any(ch.isspace() for ch in token):
+        raise RuntimeConfigError(f"{name} must contain a single-line secret")
+    return token
+
+
 def load_runtime_config(
     *,
     repository_root: str | None = None,
@@ -137,13 +158,21 @@ def load_runtime_config(
 
     root_raw = repository_root if repository_root is not None else env_root_raw
     db_raw = state_db if state_db is not None else env.get(_ENV_DB)
-    token_raw = worker_token if worker_token is not None else env.get(_ENV_TOKEN)
+    token_file = str(env.get(_ENV_TOKEN_FILE) or "").strip()
+    if token_file:
+        token = _read_secret_file(token_file, _ENV_TOKEN_FILE)
+    else:
+        token_raw = worker_token if worker_token is not None else env.get(_ENV_TOKEN)
+        token = _require_non_empty(_ENV_TOKEN, token_raw)
+        if any(ch.isspace() for ch in token):
+            raise RuntimeConfigError("SRL_WORKER_TOKEN must not contain whitespace")
+    consume_file = str(env.get(_ENV_CONSUME_TOKEN_FILE) or "").strip()
+    consume_cred = _read_secret_file(consume_file, _ENV_CONSUME_TOKEN_FILE) if consume_file else ""
+    attestor_origin = str(env.get(_ENV_ATTESTOR_ORIGIN) or DEFAULT_ATTESTOR_ORIGIN).strip().rstrip("/")
+    if attestor_origin != DEFAULT_ATTESTOR_ORIGIN:
+        raise RuntimeConfigError("SRL_TOPOLOGY_ATTESTOR_ORIGIN must equal the pinned host-gateway origin")
     host_raw = worker_host if worker_host is not None else env.get(_ENV_HOST, DEFAULT_HOST)
     port_raw = worker_port if worker_port is not None else env.get(_ENV_PORT, str(DEFAULT_PORT))
-
-    token = _require_non_empty(_ENV_TOKEN, token_raw)
-    if any(ch.isspace() for ch in token):
-        raise RuntimeConfigError("SRL_WORKER_TOKEN must not contain whitespace")
 
     # R4: refuse divergent roots at the config loader — not only in main().
     # Every caller (CLI, library, tests) hits this path; "main-only" guards decay.
@@ -175,6 +204,9 @@ def load_runtime_config(
         worker_token=token,
         worker_host=host,
         worker_port=port,
+        topology_attestor_origin=attestor_origin,
+        topology_consume_credential=consume_cred,
+        runtime_mode=str(env.get(_ENV_RUNTIME_MODE) or "").strip(),
     )
 
 

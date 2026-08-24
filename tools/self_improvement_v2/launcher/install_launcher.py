@@ -45,16 +45,25 @@ from tools.self_improvement_v2.launcher.paths import (
     assert_outside_repository,
     default_launcher_dir,
 )
+from tools.self_improvement_v2.topology_attest import (
+    env_boolean_is_not_authority,
+    sanitized_docker_env,
+    validate_docker_endpoint,
+    write_protected_secret,
+)
 
 WORKER_PIN_REL = Path("specs/self_improvement/v2/trusted_origin_pin.json")
 LAUNCHER_PIN_REL = Path("specs/self_improvement/v2/launcher_pin.json")
 LAUNCHER_ENTRYPOINT = "tools.self_improvement_v2.launcher.install_launcher"
 LAUNCHER_TRUSTED_MODULE_NAMES = (
     "tools.self_improvement_v2",
+    "tools.self_improvement_v2.canonical",
     "tools.self_improvement_v2.import_closure",
     "tools.self_improvement_v2.launcher",
     "tools.self_improvement_v2.launcher.install_launcher",
     "tools.self_improvement_v2.launcher.paths",
+    "tools.self_improvement_v2.topology_attest",
+    "tools.self_improvement_v2.topology_identity",
 )
 WORKER_PIN_ALLOWED_KEYS = frozenset({"schema_version", "description", "combined", "modules"})
 LAUNCHER_PIN_ALLOWED_KEYS = frozenset({"schema_version", "description", "combined", "modules", "entrypoint"})
@@ -352,6 +361,7 @@ def install_launcher(
     reviewed_head: str,
     install_dir: Path | None = None,
     expected_digest: str | None = None,
+    docker_endpoint: str | None = None,
 ) -> dict[str, str]:
     root = repository_root.resolve()
     if not root.is_dir():
@@ -359,6 +369,14 @@ def install_launcher(
     head = reviewed_head.strip().lower()
     if len(head) != 40 or any(c not in "0123456789abcdef" for c in head):
         raise ValueError("reviewed_head must be a full 40-char lowercase hex SHA")
+    try:
+        endpoint = validate_docker_endpoint(docker_endpoint)
+    except Exception as exc:
+        raise ValueError(str(exc)) from exc
+    env_boolean_is_not_authority()
+    sanitized = sanitized_docker_env({"DOCKER_HOST": "tcp://127.0.0.1:1", "PATH": "/usr/bin"})
+    if "DOCKER_HOST" in sanitized:
+        raise ValueError("docker environment sanitizer failed closed")
     assert_install_preconditions(root, head)
     digest = expected_digest or compute_verifier_digest(root)
     if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
@@ -410,6 +428,7 @@ def install_launcher(
         "git_executable": git_executable,
         "launcher_pin_relpath": str(LAUNCHER_PIN_REL).replace("\\", "/"),
         "launcher_pin_sha256": launcher_pin_digest,
+        "docker_endpoint": endpoint,
         "note": "Update this attestation in the same operator action as the authorization line.",
     }
     att_path.write_text(json.dumps(attestation, indent=2) + "\n", encoding="utf-8")
@@ -422,6 +441,7 @@ def install_launcher(
         "expected_verifier_digest": digest,
         "git_executable": git_executable,
         "launcher_pin_sha256": launcher_pin_digest,
+        "docker_endpoint": endpoint,
     }
 
 
@@ -448,6 +468,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Optional override; must still match on-disk trusted_origin.py",
     )
     parser.add_argument(
+        "--docker-endpoint",
+        required=False,
+        default=None,
+        help="Mandatory docker endpoint (npipe:// or unix://). Required to install.",
+    )
+    parser.add_argument(
         "--write-launcher-pin",
         action="store_true",
         help="Regenerate specs/self_improvement/v2/launcher_pin.json and exit",
@@ -466,6 +492,7 @@ def main(argv: list[str] | None = None) -> int:
         reviewed_head=args.reviewed_head,
         install_dir=Path(args.install_dir) if args.install_dir else None,
         expected_digest=args.expected_digest,
+        docker_endpoint=args.docker_endpoint,
     )
     print(json.dumps(result, indent=2))
     return 0

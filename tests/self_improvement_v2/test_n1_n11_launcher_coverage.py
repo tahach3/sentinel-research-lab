@@ -119,6 +119,7 @@ def test_launcher_path_starts_worker_health(tmp_path: Path, monkeypatch: pytest.
     digest = compute_verifier_digest(REPO)
     installed = install_launcher(
         repository_root=REPO,
+        docker_endpoint="unix:///var/run/docker.sock",
         reviewed_head=head,
         install_dir=tmp_path / "SentinelResearchLab",
         expected_digest=digest,
@@ -168,6 +169,7 @@ def test_launcher_wrong_digest_refuses(tmp_path: Path) -> None:
     digest = compute_verifier_digest(REPO)
     installed = install_launcher(
         repository_root=REPO,
+        docker_endpoint="unix:///var/run/docker.sock",
         reviewed_head=head,
         install_dir=tmp_path / "SentinelResearchLab",
         expected_digest=digest,
@@ -190,6 +192,7 @@ def test_launcher_wrong_head_refuses_after_digest_ok(tmp_path: Path) -> None:
     digest = compute_verifier_digest(REPO)
     installed = install_launcher(
         repository_root=REPO,
+        docker_endpoint="unix:///var/run/docker.sock",
         reviewed_head=head,
         install_dir=tmp_path / "SentinelResearchLab",
         expected_digest=digest,

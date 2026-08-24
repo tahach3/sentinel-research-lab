@@ -70,6 +70,10 @@ REQUIRED_NODE_SPECS: dict[str, str] = {
     "Provider Call Consume (Implementer)": "n8n-nodes-base.httpRequest",
     "Proposal Schema Validation": "n8n-nodes-base.if",
     "Proposal Freeze": "n8n-nodes-base.code",
+    "Topology Attest (Implementer)": "n8n-nodes-base.httpRequest",
+    "Topology Attest (Reviewer)": "n8n-nodes-base.httpRequest",
+    "Topology Attest (Worker Authorize)": "n8n-nodes-base.httpRequest",
+    "Topology Attest (Execute)": "n8n-nodes-base.httpRequest",
     "Implementer Agent": "@n8n/n8n-nodes-langchain.agent",
     "Worker Authorize": "n8n-nodes-base.httpRequest",
     "Worker Decision Router": "n8n-nodes-base.switch",
@@ -145,17 +149,21 @@ REQUIRED_EDGES: list[tuple[str, int, str]] = [
     ("Open Pilot Budget", 1, "Annotate Budget Denied"),
     ("Provider Call Permit (Implementer)", 1, "Annotate Budget Denied"),
     ("Provider Call Consume (Implementer)", 1, "Annotate Budget Denied"),
+    ("Topology Attest (Implementer)", 1, "Annotate Budget Denied"),
     ("Provider Call Permit (Reviewer)", 1, "Annotate Budget Denied"),
     ("Provider Call Consume (Reviewer)", 1, "Annotate Budget Denied"),
+    ("Topology Attest (Reviewer)", 1, "Annotate Budget Denied"),
     ("Provider Call Authorize (Implementer)", 1, "Annotate Budget Denied"),
     ("Provider Call Authorize (Reviewer)", 1, "Annotate Budget Denied"),
     ("Annotate Budget Denied", 0, "Failure Router"),
     ("Proposal Schema Validation", 1, "Invalid Proposal"),
     ("Invalid Proposal", 0, "Failure Router"),
+    ("Topology Attest (Worker Authorize)", 1, "Annotate Budget Denied"),
     ("Worker Authorize", 1, "Annotate Authorize Failure"),
     ("Annotate Authorize Failure", 0, "Failure Router"),
     ("Worker Decision Router", 1, "Terminal DECISION_REQUIRED"),
     ("Worker Decision Router", 2, "Terminal POLICY_REJECTED"),
+    ("Topology Attest (Execute)", 1, "Annotate Budget Denied"),
     ("Detached Worker Execute", 1, "Annotate Worker Failure"),
     ("Annotate Worker Failure", 0, "Failure Router"),
     ("Execution Result Validation", 1, "Annotate Validation Failure"),
@@ -173,11 +181,15 @@ ERROR_OUTPUT_NODES = (
     "Open Pilot Budget",
     "Provider Call Permit (Implementer)",
     "Provider Call Consume (Implementer)",
+    "Topology Attest (Implementer)",
     "Provider Call Permit (Reviewer)",
     "Provider Call Consume (Reviewer)",
+    "Topology Attest (Reviewer)",
     "Provider Call Authorize (Implementer)",
     "Provider Call Authorize (Reviewer)",
+    "Topology Attest (Worker Authorize)",
     "Worker Authorize",
+    "Topology Attest (Execute)",
     "Detached Worker Execute",
     "Independent Review Bind",
     "Finalization",
@@ -194,10 +206,14 @@ MUST_ENABLE_AUTHORITY_NODES = (
     "Open Pilot Budget",
     "Provider Call Permit (Implementer)",
     "Provider Call Consume (Implementer)",
+    "Topology Attest (Implementer)",
     "Provider Call Permit (Reviewer)",
     "Provider Call Consume (Reviewer)",
+    "Topology Attest (Reviewer)",
     "Provider Call Authorize (Implementer)",
     "Provider Call Authorize (Reviewer)",
+    "Topology Attest (Worker Authorize)",
+    "Topology Attest (Execute)",
     "Proposal Schema Validation",
     "Worker Authorize",
     "Worker Decision Router",
@@ -227,6 +243,21 @@ WORKER_HTTP_NODES_WITH_PATH: tuple[tuple[str, str], ...] = (
     ("Worker Authorize", "/v2/validate-proposal"),
     ("Independent Review Bind", "/v2/bind-review"),
 )
+
+TOPOLOGY_ATTEST_NODES_WITH_PATH: tuple[tuple[str, str], ...] = (
+    ("Topology Attest (Implementer)", "/v2/topology-attest"),
+    ("Topology Attest (Reviewer)", "/v2/topology-attest"),
+    ("Topology Attest (Worker Authorize)", "/v2/topology-attest"),
+    ("Topology Attest (Execute)", "/v2/topology-attest"),
+)
+
+TOPOLOGY_ATTESTOR_ORIGIN = "http://host.docker.internal:8764"
+TOPOLOGY_ATTEST_CREDENTIAL_NAME = "srl-v2-topology-attest-header-auth"
+TOPOLOGY_TOKEN_EXPR = {
+    "Topology Attest (Implementer)": "$('Topology Attest (Implementer)').item.json.topology_binding_token",
+    "Topology Attest (Reviewer)": "$('Topology Attest (Reviewer)').item.json.topology_binding_token",
+    "Topology Attest (Worker Authorize)": "$('Topology Attest (Worker Authorize)').item.json.topology_binding_token",
+}
 
 WORKER_DECISION_OUTPUT_EXPR = "={{$json.worker_decision}}"
 WORKER_DECISION_RULE_VALUES = ("AUTHORIZED", "DECISION_REQUIRED", "POLICY_REJECTED")
@@ -818,6 +849,83 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
                     )
                 )
 
+    attest_base = str(meta.get("topologyAttestorBaseUrl") or "").strip().rstrip("/")
+    if attest_base != TOPOLOGY_ATTESTOR_ORIGIN:
+        errors.append(
+            _err(
+                ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                f"meta.topologyAttestorBaseUrl must equal {TOPOLOGY_ATTESTOR_ORIGIN}",
+            )
+        )
+    for name, expected_path in TOPOLOGY_ATTEST_NODES_WITH_PATH:
+        node = by_name.get(name)
+        if node is None:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"missing topology attest node: {name}",
+                )
+            )
+            continue
+        url = str((node.get("parameters") or {}).get("url") or "").strip()
+        host, port, path = _safe_url_host_port_path(url)
+        if host != "host.docker.internal" or port != 8764 or not url.lower().startswith("http://"):
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{name} URL origin must equal {TOPOLOGY_ATTESTOR_ORIGIN}",
+                )
+            )
+        elif path != expected_path:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{name} URL path must be exactly {expected_path}",
+                )
+            )
+        creds = node.get("credentials") if isinstance(node.get("credentials"), dict) else {}
+        header = creds.get("httpHeaderAuth") if isinstance(creds.get("httpHeaderAuth"), dict) else {}
+        cred_name = str(header.get("name") or "")
+        if cred_name != TOPOLOGY_ATTEST_CREDENTIAL_NAME:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{name} must use {TOPOLOGY_ATTEST_CREDENTIAL_NAME}",
+                )
+            )
+        body = str((node.get("parameters") or {}).get("jsonBody") or "")
+        purpose_by_name = {
+            "Topology Attest (Implementer)": "provider_implementer",
+            "Topology Attest (Reviewer)": "provider_reviewer",
+            "Topology Attest (Worker Authorize)": "worker_authorize",
+            "Topology Attest (Execute)": "execute_probe",
+        }
+        expected_purpose = purpose_by_name[name]
+        if expected_purpose not in body:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{name} jsonBody must include purpose {expected_purpose}",
+                )
+            )
+
+    for consumer, expr in (
+        ("Provider Call Authorize (Implementer)", TOPOLOGY_TOKEN_EXPR["Topology Attest (Implementer)"]),
+        ("Provider Call Authorize (Reviewer)", TOPOLOGY_TOKEN_EXPR["Topology Attest (Reviewer)"]),
+        ("Worker Authorize", TOPOLOGY_TOKEN_EXPR["Topology Attest (Worker Authorize)"]),
+    ):
+        node = by_name.get(consumer)
+        if node is None:
+            continue
+        body = str((node.get("parameters") or {}).get("jsonBody") or "")
+        if "topology_binding_token" not in body or expr not in body:
+            errors.append(
+                _err(
+                    ERROR_CODES["SI2-WF-MISSING-FAILURE-EDGE"],
+                    f"{consumer} jsonBody must include matching topology_binding_token expression",
+                )
+            )
+
     # Worker Decision Router selector + ordered rules (not destinations alone).
     decision_node = by_name.get("Worker Decision Router")
     if decision_node is not None:
@@ -860,18 +968,22 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
         ("Candidate Schema Validation", 0, "Open Pilot Budget"),
         ("Open Pilot Budget", 0, "Provider Call Permit (Implementer)"),
         ("Provider Call Permit (Implementer)", 0, "Provider Call Consume (Implementer)"),
-        ("Provider Call Consume (Implementer)", 0, "Provider Call Authorize (Implementer)"),
+        ("Provider Call Consume (Implementer)", 0, "Topology Attest (Implementer)"),
+        ("Topology Attest (Implementer)", 0, "Provider Call Authorize (Implementer)"),
         ("Provider Call Authorize (Implementer)", 0, "Implementer Agent"),
         ("Implementer Agent", 0, "Proposal Schema Validation"),
         ("Proposal Schema Validation", 0, "Proposal Freeze"),
-        ("Proposal Freeze", 0, "Worker Authorize"),
+        ("Proposal Freeze", 0, "Topology Attest (Worker Authorize)"),
+        ("Topology Attest (Worker Authorize)", 0, "Worker Authorize"),
         ("Worker Authorize", 0, "Worker Decision Router"),
         ("Worker Decision Router", 0, "Worker AUTHORIZED Continue"),
-        ("Worker AUTHORIZED Continue", 0, "Detached Worker Execute"),
+        ("Worker AUTHORIZED Continue", 0, "Topology Attest (Execute)"),
+        ("Topology Attest (Execute)", 0, "Detached Worker Execute"),
         ("Detached Worker Execute", 0, "Execution Result Validation"),
         ("Execution Result Validation", 0, "Provider Call Permit (Reviewer)"),
         ("Provider Call Permit (Reviewer)", 0, "Provider Call Consume (Reviewer)"),
-        ("Provider Call Consume (Reviewer)", 0, "Provider Call Authorize (Reviewer)"),
+        ("Provider Call Consume (Reviewer)", 0, "Topology Attest (Reviewer)"),
+        ("Topology Attest (Reviewer)", 0, "Provider Call Authorize (Reviewer)"),
         ("Provider Call Authorize (Reviewer)", 0, "Independent Reviewer Agent"),
         ("Independent Reviewer Agent", 0, "Independent Review Bind"),
         ("Independent Review Bind", 0, "Review Result Validation"),
@@ -988,7 +1100,9 @@ def validate_workflow(root: Path, workflow_path: Path) -> dict[str, Any]:
         errors.append(_err(ERROR_CODES["PUSH_ATTEMPT"], "workflow encodes push"))
     if re.search(r"(?i)git\s+merge", blob):
         errors.append(_err(ERROR_CODES["MERGE_ATTEMPT"], "workflow encodes merge"))
-    if re.search(r"https?://(?!127\.0\.0\.1|localhost|example\.invalid)", blob, re.I):
+    # The attestor pin is the only non-loopback URL the reviewed graph may carry.
+    blob_for_live = blob.replace(TOPOLOGY_ATTESTOR_ORIGIN, "")
+    if re.search(r"https?://(?!127\.0\.0\.1|localhost|example\.invalid)", blob_for_live, re.I):
         errors.append(_err("LIVE_ENDPOINT", "non-local endpoint present"))
 
     status = "PASS" if not errors else "FAIL"

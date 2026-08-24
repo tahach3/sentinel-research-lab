@@ -86,6 +86,45 @@ services:
     mem_limit: 1610612736
     cpus: 1.5
 
+  srl-worker:
+    image: srl-worker:si2-option-a@sha256:46bcb0fcfb524746d95b97800c8b7a7ca9964a30bd039ac22697750b393e9936
+    restart: unless-stopped
+    depends_on:
+      n8n:
+        condition: service_healthy
+    network_mode: "service:n8n"
+    read_only: true
+    working_dir: /srl/sentinel-research-lab
+    command: ["python", "-B", "-m", "tools.self_improvement_v2.runtime_bridge"]
+    environment:
+      SRL_REPOSITORY_ROOT: /srl/sentinel-research-lab
+      SRL_REVIEWED_HEAD: ${SRL_REVIEWED_HEAD}
+      SRL_WORKER_HOST: 127.0.0.1
+      SRL_WORKER_PORT: "8765"
+      SRL_RUNTIME_MODE: P3C1
+      SRL_STATE_DB: /srl/state/self-improvement-v2.sqlite
+      TMPDIR: /tmp/srl-exec/runtime-tmp
+      PYTHONDONTWRITEBYTECODE: "1"
+      SRL_WORKER_TOKEN_FILE: /run/secrets/srl_worker_token
+      SRL_TOPOLOGY_CONSUME_TOKEN_FILE: /run/secrets/srl_topology_consume_token
+      SRL_TOPOLOGY_ATTESTOR_ORIGIN: http://host.docker.internal:8764
+    volumes:
+      - type: bind
+        source: ${SRL_REPOSITORY_ROOT}
+        target: /srl/sentinel-research-lab
+        read_only: true
+      - type: volume
+        source: srl_exec
+        target: /tmp/srl-exec
+      - type: bind
+        source: ${SRL_STATE_DIR}
+        target: /srl/state
+    secrets:
+      - srl_worker_token
+      - srl_topology_consume_token
+    mem_limit: 1073741824
+    cpus: 1.0
+
 networks:
   srl_net:
     driver: bridge
@@ -93,3 +132,12 @@ networks:
 volumes:
   srl_postgres_data:
   srl_n8n_data:
+  srl_exec:
+    name: ${SRL_EXEC_VOLUME_NAME:-srl-exec-local}
+    driver: local
+
+secrets:
+  srl_worker_token:
+    file: ${SRL_WORKER_TOKEN_FILE}
+  srl_topology_consume_token:
+    file: ${SRL_TOPOLOGY_CONSUME_TOKEN_FILE}

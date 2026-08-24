@@ -57,6 +57,14 @@ WORKER_HEADER_AUTH_CREDENTIAL_TYPE = "httpHeaderAuth"
 WORKER_BASE_URL_META_KEY = "localWorkerBaseUrl"
 WORKER_HEADER_AUTH_CREDENTIAL_NAME = "srl-v2-worker-header-auth"
 DEFAULT_LOCAL_WORKER_BASE_URL = "http://127.0.0.1:8765"
+TOPOLOGY_ATTESTOR_BASE_URL_META_KEY = "topologyAttestorBaseUrl"
+DEFAULT_TOPOLOGY_ATTESTOR_BASE_URL = "http://host.docker.internal:8764"
+TOPOLOGY_ATTEST_HEADER_AUTH_CREDENTIAL_NAME = "srl-v2-topology-attest-header-auth"
+TOPOLOGY_ATTEST_IMPLEMENTER_NODE_NAME = "Topology Attest (Implementer)"
+TOPOLOGY_ATTEST_REVIEWER_NODE_NAME = "Topology Attest (Reviewer)"
+TOPOLOGY_ATTEST_WORKER_AUTHORIZE_NODE_NAME = "Topology Attest (Worker Authorize)"
+TOPOLOGY_ATTEST_EXECUTE_NODE_NAME = "Topology Attest (Execute)"
+TOPOLOGY_ATTEST_PATH = "/v2/topology-attest"
 
 AUTHORIZE_PATH = "/v2/validate-proposal"
 EXECUTE_PATH = "/v2/execute"
@@ -375,6 +383,11 @@ def assert_workflow_meta_bindings(
 
     if meta.get("workerHeaderAuthCredentialName") != WORKER_HEADER_AUTH_CREDENTIAL_NAME:
         raise AgentRuntimeContractError("workerHeaderAuthCredentialName mismatch")
+    attest_url = meta.get(TOPOLOGY_ATTESTOR_BASE_URL_META_KEY)
+    if attest_url != DEFAULT_TOPOLOGY_ATTESTOR_BASE_URL:
+        raise AgentRuntimeContractError(
+            f"topologyAttestorBaseUrl must equal {DEFAULT_TOPOLOGY_ATTESTOR_BASE_URL}"
+        )
     base_url = meta.get(WORKER_BASE_URL_META_KEY)
     if not isinstance(base_url, str) or not base_url.strip():
         raise AgentRuntimeContractError("localWorkerBaseUrl missing")
@@ -623,6 +636,10 @@ def assert_workflow_agent_wiring(
     consume_rev = by_name.get(PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME)
     authorize_impl = by_name.get(PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME)
     authorize_rev = by_name.get(PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME)
+    attest_impl = by_name.get(TOPOLOGY_ATTEST_IMPLEMENTER_NODE_NAME)
+    attest_rev = by_name.get(TOPOLOGY_ATTEST_REVIEWER_NODE_NAME)
+    attest_worker = by_name.get(TOPOLOGY_ATTEST_WORKER_AUTHORIZE_NODE_NAME)
+    attest_execute = by_name.get(TOPOLOGY_ATTEST_EXECUTE_NODE_NAME)
     budget_denied = by_name.get(ANNOTATE_BUDGET_DENIED_NODE_NAME)
     bind_review = by_name.get(INDEPENDENT_REVIEW_BIND_NODE_NAME)
 
@@ -639,6 +656,10 @@ def assert_workflow_agent_wiring(
         (PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME, consume_rev),
         (PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, authorize_impl),
         (PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, authorize_rev),
+        (TOPOLOGY_ATTEST_IMPLEMENTER_NODE_NAME, attest_impl),
+        (TOPOLOGY_ATTEST_REVIEWER_NODE_NAME, attest_rev),
+        (TOPOLOGY_ATTEST_WORKER_AUTHORIZE_NODE_NAME, attest_worker),
+        (TOPOLOGY_ATTEST_EXECUTE_NODE_NAME, attest_execute),
         (ANNOTATE_BUDGET_DENIED_NODE_NAME, budget_denied),
         (INDEPENDENT_REVIEW_BIND_NODE_NAME, bind_review),
     ):
@@ -669,6 +690,10 @@ def assert_workflow_agent_wiring(
         (PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME, consume_rev),
         (PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, authorize_impl),
         (PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, authorize_rev),
+        (TOPOLOGY_ATTEST_IMPLEMENTER_NODE_NAME, attest_impl),
+        (TOPOLOGY_ATTEST_REVIEWER_NODE_NAME, attest_rev),
+        (TOPOLOGY_ATTEST_WORKER_AUTHORIZE_NODE_NAME, attest_worker),
+        (TOPOLOGY_ATTEST_EXECUTE_NODE_NAME, attest_execute),
     ):
         if node.get("type") != HTTP_REQUEST_NODE_TYPE:
             raise AgentRuntimeContractError(f"{label} must be HTTP Request")
@@ -714,6 +739,18 @@ def assert_workflow_agent_wiring(
         cred = _credential_name(node, WORKER_HEADER_AUTH_CREDENTIAL_TYPE)
         if cred != WORKER_HEADER_AUTH_CREDENTIAL_NAME:
             raise AgentRuntimeContractError(f"{label} header auth credential name mismatch")
+
+    for label, node in (
+        (TOPOLOGY_ATTEST_IMPLEMENTER_NODE_NAME, attest_impl),
+        (TOPOLOGY_ATTEST_REVIEWER_NODE_NAME, attest_rev),
+        (TOPOLOGY_ATTEST_WORKER_AUTHORIZE_NODE_NAME, attest_worker),
+        (TOPOLOGY_ATTEST_EXECUTE_NODE_NAME, attest_execute),
+    ):
+        cred = _credential_name(node, WORKER_HEADER_AUTH_CREDENTIAL_TYPE)
+        if cred != TOPOLOGY_ATTEST_HEADER_AUTH_CREDENTIAL_NAME:
+            raise AgentRuntimeContractError(f"{label} must use topology attest header auth")
+        if cred == WORKER_HEADER_AUTH_CREDENTIAL_NAME:
+            raise AgentRuntimeContractError(f"{label} must not use the worker consume/worker token")
 
     auth_params = authorize.get("parameters") or {}
     method = str(auth_params.get("method") or "GET").upper()
@@ -778,6 +815,41 @@ def assert_workflow_agent_wiring(
     _assert_http_post_loopback_path(
         bind_review, BIND_REVIEW_PATH, INDEPENDENT_REVIEW_BIND_NODE_NAME, expected_origin=expected_origin
     )
+    attest_origin = DEFAULT_TOPOLOGY_ATTESTOR_BASE_URL.rstrip("/")
+    if str(meta.get(TOPOLOGY_ATTESTOR_BASE_URL_META_KEY) or "").strip().rstrip("/") != attest_origin:
+        raise AgentRuntimeContractError(
+            f"topologyAttestorBaseUrl must equal {DEFAULT_TOPOLOGY_ATTESTOR_BASE_URL}"
+        )
+    for label, node, purpose in (
+        (TOPOLOGY_ATTEST_IMPLEMENTER_NODE_NAME, attest_impl, "provider_implementer"),
+        (TOPOLOGY_ATTEST_REVIEWER_NODE_NAME, attest_rev, "provider_reviewer"),
+        (TOPOLOGY_ATTEST_WORKER_AUTHORIZE_NODE_NAME, attest_worker, "worker_authorize"),
+        (TOPOLOGY_ATTEST_EXECUTE_NODE_NAME, attest_execute, "execute_probe"),
+    ):
+        params = node.get("parameters") or {}
+        if str(params.get("method") or "GET").upper() != "POST":
+            raise AgentRuntimeContractError(f"{label} must POST")
+        url = str(params.get("url") or "")
+        from urllib.parse import urlparse as _urlparse
+
+        parsed = _urlparse(url)
+        if parsed.scheme != "http" or (parsed.hostname or "") != "host.docker.internal" or parsed.port != 8764:
+            raise AgentRuntimeContractError(f"{label} URL origin must equal {attest_origin}")
+        if parsed.path != TOPOLOGY_ATTEST_PATH:
+            raise AgentRuntimeContractError(f"{label} URL path must be exactly {TOPOLOGY_ATTEST_PATH}")
+        body = str(params.get("jsonBody") or "")
+        if purpose not in body:
+            raise AgentRuntimeContractError(f"{label} jsonBody must include purpose {purpose}")
+
+    authorize_impl_body = str((authorize_impl.get("parameters") or {}).get("jsonBody") or "")
+    authorize_rev_body = str((authorize_rev.get("parameters") or {}).get("jsonBody") or "")
+    worker_auth_body = str((authorize.get("parameters") or {}).get("jsonBody") or "")
+    if "$('Topology Attest (Implementer)').item.json.topology_binding_token" not in authorize_impl_body:
+        raise AgentRuntimeContractError("Implementer authorize must consume Topology Attest (Implementer) token")
+    if "$('Topology Attest (Reviewer)').item.json.topology_binding_token" not in authorize_rev_body:
+        raise AgentRuntimeContractError("Reviewer authorize must consume Topology Attest (Reviewer) token")
+    if "$('Topology Attest (Worker Authorize)').item.json.topology_binding_token" not in worker_auth_body:
+        raise AgentRuntimeContractError("Worker Authorize must consume Topology Attest (Worker Authorize) token")
     # Hardcoded review_ok must never appear — Groq/review_gate verdict must matter.
     if "review_ok:true" in json.dumps(bind_review):
         raise AgentRuntimeContractError(
@@ -938,10 +1010,26 @@ def assert_workflow_agent_wiring(
     if not _has_main_edge(
         connections,
         PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME,
+        TOPOLOGY_ATTEST_IMPLEMENTER_NODE_NAME,
+    ):
+        raise AgentRuntimeContractError(
+            "Topology Attest (Implementer) must follow Provider Call Consume (Implementer)"
+        )
+    if not _has_main_edge(
+        connections,
+        TOPOLOGY_ATTEST_IMPLEMENTER_NODE_NAME,
         PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME,
     ):
         raise AgentRuntimeContractError(
-            "Provider Call Authorize (Implementer) must follow Provider Call Consume (Implementer)"
+            "Provider Call Authorize (Implementer) must follow Topology Attest (Implementer)"
+        )
+    if _has_main_edge(
+        connections,
+        PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME,
+        PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME,
+    ):
+        raise AgentRuntimeContractError(
+            "Provider Call Authorize (Implementer) must not skip Topology Attest (Implementer)"
         )
     if not _has_main_edge(
         connections, PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME, IMPLEMENTER_NODE_NAME
@@ -990,10 +1078,26 @@ def assert_workflow_agent_wiring(
     if not _has_main_edge(
         connections,
         PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME,
+        TOPOLOGY_ATTEST_REVIEWER_NODE_NAME,
+    ):
+        raise AgentRuntimeContractError(
+            "Topology Attest (Reviewer) must follow Provider Call Consume (Reviewer)"
+        )
+    if not _has_main_edge(
+        connections,
+        TOPOLOGY_ATTEST_REVIEWER_NODE_NAME,
         PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME,
     ):
         raise AgentRuntimeContractError(
-            "Provider Call Authorize (Reviewer) must follow Provider Call Consume (Reviewer)"
+            "Provider Call Authorize (Reviewer) must follow Topology Attest (Reviewer)"
+        )
+    if _has_main_edge(
+        connections,
+        PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME,
+        PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME,
+    ):
+        raise AgentRuntimeContractError(
+            "Provider Call Authorize (Reviewer) must not skip Topology Attest (Reviewer)"
         )
     if not _has_main_edge(
         connections, PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME, REVIEWER_NODE_NAME
@@ -1025,6 +1129,22 @@ def assert_workflow_agent_wiring(
         raise AgentRuntimeContractError(
             "Independent Reviewer Agent must not bypass provider-call-permit"
         )
+    if _has_main_edge(connections, TOPOLOGY_ATTEST_IMPLEMENTER_NODE_NAME, IMPLEMENTER_NODE_NAME):
+        raise AgentRuntimeContractError("Implementer Agent must not follow Topology Attest directly")
+    if _has_main_edge(connections, TOPOLOGY_ATTEST_REVIEWER_NODE_NAME, REVIEWER_NODE_NAME):
+        raise AgentRuntimeContractError("Independent Reviewer Agent must not follow Topology Attest directly")
+    if not _has_main_edge(connections, "Proposal Freeze", TOPOLOGY_ATTEST_WORKER_AUTHORIZE_NODE_NAME):
+        raise AgentRuntimeContractError("Topology Attest (Worker Authorize) must follow Proposal Freeze")
+    if not _has_main_edge(connections, TOPOLOGY_ATTEST_WORKER_AUTHORIZE_NODE_NAME, WORKER_AUTHORIZE_NODE_NAME):
+        raise AgentRuntimeContractError("Worker Authorize must follow Topology Attest (Worker Authorize)")
+    if _has_main_edge(connections, "Proposal Freeze", WORKER_AUTHORIZE_NODE_NAME):
+        raise AgentRuntimeContractError("Worker Authorize must not skip Topology Attest (Worker Authorize)")
+    if not _has_main_edge(connections, "Worker AUTHORIZED Continue", TOPOLOGY_ATTEST_EXECUTE_NODE_NAME):
+        raise AgentRuntimeContractError("Topology Attest (Execute) must follow Worker AUTHORIZED Continue")
+    if not _has_main_edge(connections, TOPOLOGY_ATTEST_EXECUTE_NODE_NAME, "Detached Worker Execute"):
+        raise AgentRuntimeContractError("Detached Worker Execute must follow Topology Attest (Execute)")
+    if _has_main_edge(connections, "Worker AUTHORIZED Continue", "Detached Worker Execute"):
+        raise AgentRuntimeContractError("Detached Worker Execute must not skip Topology Attest (Execute)")
     if not _has_main_edge(connections, OPEN_PILOT_BUDGET_NODE_NAME, ANNOTATE_BUDGET_DENIED_NODE_NAME):
         raise AgentRuntimeContractError("budget open deny must route to Annotate Budget Denied")
     if not _has_main_edge(
