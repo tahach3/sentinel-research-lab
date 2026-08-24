@@ -73,6 +73,7 @@ MATERIAL_FIELDS_META = frozenset(
         "reviewerAgentId",
         "localWorkerBaseUrl",
         "topologyAttestorBaseUrl",
+        "topologyAttestHeaderAuthCredentialName",
         "workerHeaderAuthCredentialName",
         "implementerAgentCredentialReference",
         "reviewerAgentCredentialReference",

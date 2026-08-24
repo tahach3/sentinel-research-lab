@@ -1,7 +1,7 @@
 {
   "schema_version": "2.1.0",
   "description": "Content digests for Self-Improvement V2 modules closed under static AST imports. Does not cover dynamic importlib/__import__/string-built loaders. Reviewed HEAD identity is supplied exclusively by SRL_REVIEWED_HEAD.",
-  "combined": "7ef9f08247714dd07481aa449e9c352a01b07bc17b3c2af7f6f002c68cbb70f7",
+  "combined": "409690f8d220e51b380d86e7fc552850b6f0fc79bda1146a20a6b42016ecd41e",
   "modules": {
     "tools.self_improvement_v2": "af8381dad1d02cfac8c60e5803916dd568029ea1d12caecef0507502e6e43a39",
     "tools.self_improvement_v2.agent_runtime_contract": "1ee87f18523a4f2d3adb50c2ca59a4751aba391baa2300302f20cd5a6d640d1a",
@@ -27,7 +27,7 @@
     "tools.self_improvement_v2.trusted_origin": "bb867a542b89b0dc0295f46df64824b61a3242f5eb10a5af35a7b7f575a07cb2",
     "tools.self_improvement_v2.validation_runner": "66df54a6dd6bbd2e2c718be41b33b2f07fd9db9f28e289d7f26d3ccc4c82d704",
     "tools.self_improvement_v2.wall_reassert": "4961e116c14d17055a0341f50259ba7e72839b0cedffc21047ebe923529dfd05",
-    "tools.self_improvement_v2.workflow_normalizer": "214e8ba65af28f2107726cf088fb5321baeb1a47749f3d42732bb6a39044e175",
+    "tools.self_improvement_v2.workflow_normalizer": "aad7813d052319d05666b08012fa632e5a2f2773f9cbafed84aa33ee057d3765",
     "tools.self_improvement_v2.workflow_validator": "a3526714d23df09fbd487875f19c4cc1a6b51c299080c6a710f94838a9af799a"
   }
 }
