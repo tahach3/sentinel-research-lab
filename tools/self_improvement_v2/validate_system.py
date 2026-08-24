@@ -412,7 +412,7 @@ class SystemValidator:
         try:
             repo = tmp / "repo"
             baseline = _init_temp_repo(repo)
-            wt = DetachedWorktree(repo, baseline, "probehooks01abcdef")
+            wt = DetachedWorktree(repo, baseline, "aa" * 16)
             worktree = wt.prepare()
             marker = tmp / "hook-fired.txt"
 

@@ -11,7 +11,6 @@ import difflib
 import hashlib
 import os
 import re
-import tempfile
 from pathlib import Path
 from typing import Any, Literal
 
@@ -25,6 +24,7 @@ TARGET_PATH = "docs/SELF_IMPROVEMENT_V2_RUNTIME.md"
 DURABLE_STATE_DB_BASENAME = "self-improvement-v2.sqlite"
 ZONE_P_DB_PREFIX = "srl-zone-p-"
 ZONE_P_DB_RE = re.compile(r"^srl-zone-p-[A-Za-z0-9_-]+\.sqlite$")
+ZONE_P_TMPDIR = Path("/tmp/srl-zone-p")
 
 DefectKind = Literal["repair_limit_contradiction", "temp_state_db_contradiction"]
 
@@ -99,25 +99,23 @@ def assert_throwaway_zone_p_state_db(state_db: Path | str) -> Path:
         raise ZonePHarnessError(
             f"Zone P state DB must match {ZONE_P_DB_PREFIX}<id>.sqlite; got {name}"
         )
-    # Prefer %TEMP% / tempfile.gettempdir(); allow any path outside repo that matches name.
-    temp_root = Path(tempfile.gettempdir()).resolve()
-    try:
-        path.resolve().relative_to(temp_root)
-    except ValueError:
-        # Also accept explicit env override for tests (TMP/TEMP already covered by gettempdir).
+    # Zone P DB lives under /tmp/srl-zone-p — never /tmp/srl-exec or /srl/state.
+    parent = path.expanduser().resolve().parent
+    if parent != ZONE_P_TMPDIR.resolve():
         env_tmp = os.environ.get("SRL_ZONE_P_ALLOW_NONTEMP_DB", "").strip()
         if env_tmp != "1":
             raise ZonePHarnessError(
-                "Zone P state DB must be under the process temp directory "
-                f"({temp_root}); durable ledger isolation requires throwaway routing"
+                "Zone P state DB must live under /tmp/srl-zone-p; "
+                "durable ledger isolation requires throwaway routing"
             )
     return path
 
 
 def allocate_zone_p_state_db(*, probe_id: str) -> Path:
-    """Return a throwaway path: %TEMP%/srl-zone-p-<probe_id>.sqlite"""
+    """Return a throwaway path: /tmp/srl-zone-p/srl-zone-p-<probe_id>.sqlite"""
     safe = re.sub(r"[^A-Za-z0-9_-]", "-", probe_id)[:64] or "probe"
-    path = Path(tempfile.gettempdir()) / f"{ZONE_P_DB_PREFIX}{safe}.sqlite"
+    ZONE_P_TMPDIR.mkdir(parents=True, exist_ok=True)
+    path = ZONE_P_TMPDIR / f"{ZONE_P_DB_PREFIX}{safe}.sqlite"
     assert_throwaway_zone_p_state_db(path)
     return path
 

@@ -5,14 +5,18 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 from typing import Any
 
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
+
+DEFAULT_EXEC_ROOT = Path("/tmp/srl-exec")
+EXECUTION_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+FORBIDDEN_CLONE_FLAGS = ("--shared", "--reference", "--reference-if-able")
 
 FORBIDDEN_GIT_OPS = frozenset({"push", "merge", "rebase", "config", "clean"})
 
@@ -41,6 +45,7 @@ def _sanitized_git_env() -> dict[str, str]:
             env[key] = val
     # Neutralize inherited credential / signing helpers.
     env["GIT_CONFIG_COUNT"] = "0"
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env
 
 
@@ -128,6 +133,25 @@ def assert_baseline(root: Path, baseline_sha: str) -> str:
     return head
 
 
+def default_exec_root() -> Path:
+    raw = str(os.environ.get("SRL_EXEC_ROOT") or "").strip()
+    return Path(raw) if raw else DEFAULT_EXEC_ROOT
+
+
+def new_execution_id() -> str:
+    return secrets.token_hex(16)
+
+
+def assert_execution_id(execution_id: str) -> str:
+    if not isinstance(execution_id, str) or EXECUTION_ID_RE.fullmatch(execution_id) is None:
+        raise WorkerError(
+            ERROR_CODES["POLICY_REJECTED"],
+            "execution_id must be 32 lowercase hex",
+            state="POLICY_REJECTED",
+        )
+    return execution_id
+
+
 def short_run_id() -> str:
     return secrets.token_hex(4)
 
@@ -138,27 +162,132 @@ def branch_name_for(candidate_id: str, execution_id: str) -> str:
     return f"self-improvement-v2/{safe_candidate}/{short}"
 
 
-class DetachedWorktree:
-    """Detached temporary worktree — no branch created until finalization."""
+def _git_dir(repo: Path) -> Path:
+    proc = run_git(["rev-parse", "--git-dir"], cwd=repo, check=True, env=_sanitized_git_env())
+    raw = proc.stdout.decode("utf-8").strip()
+    path = Path(raw)
+    return path if path.is_absolute() else (repo / path).resolve()
 
-    def __init__(self, source_root: Path, baseline_sha: str, execution_id: str) -> None:
+
+def assert_no_alternates(repo: Path) -> None:
+    git_dir = _git_dir(repo)
+    alternates = git_dir / "objects" / "info" / "alternates"
+    if alternates.is_file() and alternates.read_text(encoding="utf-8").strip():
+        raise WorkerError(
+            ERROR_CODES["POLICY_REJECTED"],
+            "clone must not share object alternates with the reviewed source",
+            state="FAILED_FROZEN",
+        )
+
+
+def _object_file_inodes(repo: Path) -> set[tuple[int, int]]:
+    git_dir = _git_dir(repo)
+    objects = git_dir / "objects"
+    found: set[tuple[int, int]] = set()
+    if not objects.is_dir():
+        return found
+    for path in objects.rglob("*"):
+        if path.is_file() and not path.is_symlink():
+            stat = path.stat()
+            found.add((stat.st_dev, stat.st_ino))
+    return found
+
+
+def _assert_clone_argv(args: list[str]) -> None:
+    if not args or args[0] != "clone":
+        raise WorkerError(ERROR_CODES["COMMAND_INJECTION"], "execution clone argv is not git clone")
+    joined = args
+    for flag in FORBIDDEN_CLONE_FLAGS:
+        if flag in joined:
+            raise WorkerError(
+                ERROR_CODES["POLICY_REJECTED"],
+                f"git clone must not use {flag}",
+                state="FAILED_FROZEN",
+            )
+    if "--no-local" not in joined or "--no-hardlinks" not in joined:
+        raise WorkerError(
+            ERROR_CODES["POLICY_REJECTED"],
+            "git clone must be --no-local --no-hardlinks",
+            state="FAILED_FROZEN",
+        )
+
+
+def _clone_env(*, git_tmp: Path) -> dict[str, str]:
+    env = _sanitized_git_env()
+    env.pop("GIT_ALTERNATE_OBJECT_DIRECTORIES", None)
+    env.pop("GIT_OBJECT_DIRECTORY", None)
+    env["TMPDIR"] = str(git_tmp)
+    env["TMP"] = str(git_tmp)
+    env["TEMP"] = str(git_tmp)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
+
+
+class DetachedWorktree:
+    """Independent disposable clone + detached worktree. Never writes the reviewed source."""
+
+    def __init__(
+        self,
+        source_root: Path,
+        baseline_sha: str,
+        execution_id: str,
+        *,
+        exec_root: Path | None = None,
+    ) -> None:
         self.source_root = source_root.resolve()
         self.baseline_sha = baseline_sha
-        self.execution_id = execution_id
+        self.execution_id = assert_execution_id(execution_id)
+        self.exec_root = Path(exec_root).resolve() if exec_root is not None else default_exec_root().resolve()
+        self.scratch = self.exec_root / self.execution_id
+        self.clone_path: Path | None = None
         self.path: Path | None = None
-        self._parent: Path | None = None
         self._kept = False
 
     def prepare(self) -> Path:
-        # mkdtemp (not TemporaryDirectory) so keep-for-finalize cannot auto-delete.
-        self._parent = Path(tempfile.mkdtemp(prefix="srl-si2-wt-"))
-        self.path = self._parent / "worktree"
+        if self.scratch.exists():
+            raise WorkerError(
+                ERROR_CODES["POLICY_REJECTED"],
+                "execution scratch already exists",
+                state="FAILED_FROZEN",
+            )
+        self.exec_root.mkdir(parents=True, exist_ok=True)
+        self.scratch.mkdir(parents=False, exist_ok=False)
+        worktrees = self.scratch / "worktrees"
+        git_tmp = worktrees / "git-tmp"
+        hooks = worktrees / "isolated-hooks"
+        export = self.scratch / "export"
+        git_tmp.mkdir(parents=True, exist_ok=True)
+        hooks.mkdir(parents=True, exist_ok=True)
+        export.mkdir(parents=True, exist_ok=True)
+        self.clone_path = self.scratch / "repo"
+        env = _clone_env(git_tmp=git_tmp)
+        clone_args = [
+            "clone",
+            "--no-local",
+            "--no-hardlinks",
+            "--",
+            str(self.source_root),
+            str(self.clone_path),
+        ]
+        _assert_clone_argv(clone_args)
+        run_git(clone_args, cwd=self.scratch, check=True, env=env)
+        assert_no_alternates(self.clone_path)
+        source_inodes = _object_file_inodes(self.source_root)
+        clone_inodes = _object_file_inodes(self.clone_path)
+        if source_inodes and clone_inodes and source_inodes.intersection(clone_inodes):
+            raise WorkerError(
+                ERROR_CODES["POLICY_REJECTED"],
+                "clone object store shares inodes with reviewed source",
+                state="FAILED_FROZEN",
+            )
+        self.path = worktrees / "main"
         run_git(
             ["worktree", "add", "--detach", str(self.path), self.baseline_sha],
-            cwd=self.source_root,
+            cwd=self.clone_path,
             check=True,
+            env=env,
         )
-        branch = run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=self.path, check=True)
+        branch = run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=self.path, check=True, env=env)
         name = branch.stdout.decode("utf-8").strip()
         if name != "HEAD":
             raise WorkerError(
@@ -170,16 +299,18 @@ class DetachedWorktree:
 
     def abandon_tmpdir_ownership(self) -> Path:
         """Return path and transfer ownership to the experience store / finalizer."""
-        assert self.path is not None and self._parent is not None
+        assert self.path is not None and self.clone_path is not None
         path = self.path
-        meta = self._parent / "si2_meta.json"
+        meta = self.scratch / "si2_meta.json"
         meta.write_text(
             json.dumps(
                 {
                     "worktree": str(path),
+                    "clone_path": str(self.clone_path),
                     "source_root": str(self.source_root),
                     "baseline_sha": self.baseline_sha,
                     "execution_id": self.execution_id,
+                    "scratch": str(self.scratch),
                 },
                 sort_keys=True,
             ),
@@ -190,40 +321,62 @@ class DetachedWorktree:
 
     def cleanup(self) -> None:
         if self._kept:
-            # Ownership transferred; do not delete here.
             self.path = None
-            self._parent = None
+            self.clone_path = None
             return
-        if self.path is not None:
-            remove_worktree(self.source_root, self.path)
+        if self.scratch.exists():
+            shutil.rmtree(self.scratch, ignore_errors=True)
         self.path = None
-        self._parent = None
+        self.clone_path = None
+
+
+def execution_scratch_from_worktree(worktree: Path) -> Path:
+    resolved = worktree.resolve()
+    # /tmp/srl-exec/<id>/worktrees/main → scratch is parent.parent
+    if resolved.parent.name != "worktrees":
+        raise WorkerError(
+            ERROR_CODES["POLICY_REJECTED"],
+            "worktree is not under /worktrees/main",
+            state="FAILED_FROZEN",
+        )
+    return resolved.parent.parent
 
 
 def remove_worktree(source_root: Path, worktree: Path) -> None:
-    run_git(["worktree", "remove", "--force", str(worktree)], cwd=source_root, check=False)
-    if worktree.exists():
-        shutil.rmtree(worktree, ignore_errors=True)
-    run_git(["worktree", "prune"], cwd=source_root, check=False)
-    parent = worktree.parent
-    meta = parent / "si2_meta.json"
-    if meta.exists():
-        meta.unlink(missing_ok=True)
-    if parent.exists() and parent.name.startswith("srl-si2-wt-"):
-        shutil.rmtree(parent, ignore_errors=True)
+    """Remove disposable execution scratch. Never runs git worktree on reviewed source."""
+    del source_root  # reviewed source is not a git write target
+    scratch = execution_scratch_from_worktree(worktree)
+    meta = scratch / "si2_meta.json"
+    clone: Path | None = None
+    if meta.is_file():
+        try:
+            payload = json.loads(meta.read_text(encoding="utf-8"))
+            raw = payload.get("clone_path")
+            if isinstance(raw, str) and raw:
+                clone = Path(raw)
+        except json.JSONDecodeError:
+            clone = None
+    if clone is None:
+        clone = scratch / "repo"
+    if clone.is_dir():
+        run_git(
+            ["worktree", "remove", "--force", str(worktree)],
+            cwd=clone,
+            check=False,
+            env=_sanitized_git_env(),
+        )
+        run_git(["worktree", "prune"], cwd=clone, check=False, env=_sanitized_git_env())
+    if scratch.exists():
+        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def _empty_hooks_dir(worktree: Path) -> Path:
-    """Create an empty hooks directory inside the isolated runtime area (worktree parent)."""
+    """Empty hooks directory sibling to the detached worktree (worktrees/isolated-hooks)."""
     parent = worktree.parent
-    if not parent.name.startswith("srl-si2-wt-"):
-        # Fallback: sibling under worktree when not using standard layout.
-        parent = worktree
     hooks = parent / "isolated-hooks"
     if hooks.exists():
         shutil.rmtree(hooks, ignore_errors=True)
     hooks.mkdir(parents=True, exist_ok=True)
-    # Ensure directory contains no executable files.
     for child in hooks.iterdir():
         child.unlink(missing_ok=True)
     return hooks
@@ -261,6 +414,12 @@ def create_local_commit(worktree: Path, objective: str) -> str:
         )
 
     env = _sanitized_git_env()
+    git_tmp = worktree.parent / "git-tmp"
+    git_tmp.mkdir(parents=True, exist_ok=True)
+    env["TMPDIR"] = str(git_tmp)
+    env["TMP"] = str(git_tmp)
+    env["TEMP"] = str(git_tmp)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     # Command-local identity + hooks isolation + signing disable.
     extra = [
         "-c",

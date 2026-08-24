@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
+from tools.self_improvement_v2.topology_identity import ATTESTOR_ORIGIN
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
@@ -18,6 +19,12 @@ REPOSITORY_ID = "sentinel-research-lab"
 
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost"})
 FORBIDDEN_BIND_HOSTS = frozenset({"0.0.0.0", "::", "[::]", "*"})
+RUNTIME_MODES = frozenset({"ZONE_P", "P3C1"})
+
+P3C1_STATE_DB = Path("/srl/state/self-improvement-v2.sqlite")
+P3C1_TMPDIR = Path("/tmp/srl-exec/runtime-tmp")
+P3C1_EXEC_ROOT = Path("/tmp/srl-exec")
+ZONE_P_TMPDIR = Path("/tmp/srl-zone-p")
 
 _ENV_TOKEN = "SRL_WORKER_TOKEN"
 _ENV_TOKEN_FILE = "SRL_WORKER_TOKEN_FILE"
@@ -31,7 +38,7 @@ _ENV_RUNTIME_MODE = "SRL_RUNTIME_MODE"
 
 DEFAULT_TOKEN_FILE = "/run/secrets/srl_worker_token"
 DEFAULT_CONSUME_TOKEN_FILE = "/run/secrets/srl_topology_consume_token"
-DEFAULT_ATTESTOR_ORIGIN = "http://host.docker.internal:8764"
+DEFAULT_ATTESTOR_ORIGIN = ATTESTOR_ORIGIN
 
 _FORBIDDEN_ROOT_NAMES = frozenset({"equitify-machine", "ai-development-os"})
 _ABS_PATH_RE = re.compile(r"(?i)[A-Za-z]:[\\/]|/(?:Users|home|var|tmp|private)/")
@@ -139,6 +146,43 @@ def _read_secret_file(path_raw: str, name: str) -> str:
     return token
 
 
+def _norm_path(value: str | Path) -> Path:
+    return Path(os.path.normpath(str(value)))
+
+
+def _assert_runtime_mode(mode: str, state_db: Path, environ: dict[str, str]) -> str:
+    if not mode:
+        return ""
+    if mode not in RUNTIME_MODES:
+        raise RuntimeConfigError("SRL_RUNTIME_MODE must be ZONE_P or P3C1")
+    if str(environ.get("PYTHONDONTWRITEBYTECODE") or "") != "1":
+        raise RuntimeConfigError("PYTHONDONTWRITEBYTECODE=1 is required")
+    tmpdir_raw = str(environ.get("TMPDIR") or "").strip()
+    if not tmpdir_raw:
+        raise RuntimeConfigError("TMPDIR is required when SRL_RUNTIME_MODE is set")
+    db = _norm_path(state_db)
+    tmpdir = _norm_path(tmpdir_raw)
+    db_text = str(db)
+    if mode == "P3C1":
+        if db != P3C1_STATE_DB:
+            raise RuntimeConfigError("P3C1 SRL_STATE_DB must be /srl/state/self-improvement-v2.sqlite")
+        if tmpdir != P3C1_TMPDIR:
+            raise RuntimeConfigError("P3C1 TMPDIR must be /tmp/srl-exec/runtime-tmp")
+        if "/tmp/srl-zone-p" in db_text:
+            raise RuntimeConfigError("P3C1 must not use the Zone P state directory")
+        return mode
+    if tmpdir != ZONE_P_TMPDIR:
+        raise RuntimeConfigError("Zone P TMPDIR must be /tmp/srl-zone-p")
+    if _norm_path(db.parent) != ZONE_P_TMPDIR:
+        raise RuntimeConfigError("Zone P state DB must live under /tmp/srl-zone-p")
+    name = db.name
+    if not name.startswith("srl-zone-p-") or not name.endswith(".sqlite"):
+        raise RuntimeConfigError("Zone P state DB basename must be srl-zone-p-<id>.sqlite")
+    if "/srl/state" in db_text or db_text.startswith("/tmp/srl-exec"):
+        raise RuntimeConfigError("Zone P must not use P3C1 writable surfaces")
+    return mode
+
+
 def load_runtime_config(
     *,
     repository_root: str | None = None,
@@ -194,7 +238,10 @@ def load_runtime_config(
             raise RuntimeConfigError(
                 "repository_root must equal SRL_REPOSITORY_ROOT (trusted install root)"
             )
-    db = _assert_state_db(Path(_require_non_empty(_ENV_DB, db_raw)), root)
+    mode = str(env.get(_ENV_RUNTIME_MODE) or "").strip()
+    db_input = Path(_require_non_empty(_ENV_DB, db_raw))
+    _assert_runtime_mode(mode, db_input, env)
+    db = _assert_state_db(db_input, root)
     host = _assert_loopback_host(_require_non_empty(_ENV_HOST, host_raw))
     port = _assert_port(str(port_raw))
 
@@ -206,7 +253,7 @@ def load_runtime_config(
         worker_port=port,
         topology_attestor_origin=attestor_origin,
         topology_consume_credential=consume_cred,
-        runtime_mode=str(env.get(_ENV_RUNTIME_MODE) or "").strip(),
+        runtime_mode=mode,
     )
 
 

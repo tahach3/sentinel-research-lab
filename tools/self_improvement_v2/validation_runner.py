@@ -22,6 +22,7 @@ ALLOWED_ENV_KEYS = frozenset(
         "WINDIR",
         "TEMP",
         "TMP",
+        "TMPDIR",
         "PYTHONUTF8",
         "PYTHONDONTWRITEBYTECODE",
         "PYTHONPATH",
@@ -120,9 +121,12 @@ def run_validation_profile(
                 f"executable not allowlisted: {cmd[0]}",
                 state="POLICY_REJECTED",
             )
+        argv = list(cmd)
+        if Path(argv[0]).name.lower() in ALLOWED_EXECUTABLES and "-B" not in argv:
+            argv.insert(1, "-B")
         try:
             proc = subprocess.run(
-                cmd,
+                argv,
                 cwd=str(cwd.resolve()),
                 capture_output=True,
                 timeout=timeout,
