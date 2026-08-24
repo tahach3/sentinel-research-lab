@@ -694,4 +694,5 @@ def test_happy_path_still_binds_risk(tmp_path: Path):
         state_db=db,
         repository_root=repo,
     )
-    assert result["final_state"] == "READY_FOR_HUMAN_PROMOTION"
+    assert result["final_state"] == "EXPORT_PENDING"
+    assert result["candidate_branch"] is None

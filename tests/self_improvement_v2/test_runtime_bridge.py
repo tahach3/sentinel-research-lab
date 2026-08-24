@@ -350,9 +350,9 @@ def test_16_successful_bound_finalization(bridge_env):
     assert status == 200
     assert body["status"] == "PASS"
     finalization = body["finalization"]
-    assert finalization["final_state"] == "READY_FOR_HUMAN_PROMOTION"
+    assert finalization["final_state"] == "EXPORT_PENDING"
     assert finalization["candidate_commit"]
-    assert finalization["candidate_branch"]
+    assert finalization["candidate_branch"] is None
     assert source_tree_fingerprint(bridge_env["repo"]) == before
 
 

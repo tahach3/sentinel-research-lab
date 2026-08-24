@@ -28,13 +28,16 @@ def test_offline_v2_pilot(tmp_path: Path):
         state_db=db,
         repository_root=repo,
     )
-    assert result["final_state"] == "READY_FOR_HUMAN_PROMOTION"
+    assert result["final_state"] == "EXPORT_PENDING"
     assert result["candidate_commit"]
-    assert result["candidate_branch"]
+    assert result["candidate_branch"] is None
+    assert run(["git", "branch", "--list", "self-improvement-v2/*"], repo).stdout.strip() == ""
+    assert Path(wt).is_dir()
+    clone = Path(wt).resolve().parent.parent / "repo"
+    export_ref = f"refs/srl/export/{bundle['execution_id']}"
+    tip = run(["git", "rev-parse", export_ref], clone).stdout.strip()
+    assert tip == result["candidate_commit"]
     assert store.count_learning_records() == 1
-    assert not Path(wt).exists()
     assert source_tree_fingerprint(repo) == before
     head = run(["git", "rev-parse", "HEAD"], repo).stdout.strip()
     assert head == baseline
-    tip = run(["git", "rev-parse", result["candidate_branch"]], repo).stdout.strip()
-    assert tip == result["candidate_commit"]

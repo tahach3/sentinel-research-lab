@@ -45,6 +45,11 @@ from tools.self_improvement_v2.launcher.paths import (
     assert_outside_repository,
     default_launcher_dir,
 )
+from tools.self_improvement_v2.candidate_export import (
+    acknowledge_and_cleanup,
+    copy_out_and_verify,
+    write_human_promotion_artifact,
+)
 from tools.self_improvement_v2.topology_attest import (
     env_boolean_is_not_authority,
     sanitized_docker_env,
@@ -57,11 +62,13 @@ LAUNCHER_PIN_REL = Path("specs/self_improvement/v2/launcher_pin.json")
 LAUNCHER_ENTRYPOINT = "tools.self_improvement_v2.launcher.install_launcher"
 LAUNCHER_TRUSTED_MODULE_NAMES = (
     "tools.self_improvement_v2",
+    "tools.self_improvement_v2.candidate_export",
     "tools.self_improvement_v2.canonical",
     "tools.self_improvement_v2.import_closure",
     "tools.self_improvement_v2.launcher",
     "tools.self_improvement_v2.launcher.install_launcher",
     "tools.self_improvement_v2.launcher.paths",
+    "tools.self_improvement_v2.models",
     "tools.self_improvement_v2.topology_attest",
     "tools.self_improvement_v2.topology_identity",
 )
@@ -443,6 +450,11 @@ def install_launcher(
         "launcher_pin_sha256": launcher_pin_digest,
         "docker_endpoint": endpoint,
     }
+
+
+def host_export_ops() -> tuple[object, object, object]:
+    """Launcher-owned export steps. ACK is never implicit in copy-out."""
+    return (copy_out_and_verify, acknowledge_and_cleanup, write_human_promotion_artifact)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -9,10 +10,9 @@ from tools.self_improvement_v2.canonical import content_sha256
 from tools.self_improvement_v2.experience_store import ExperienceStore
 from tools.self_improvement_v2.git_worker import (
     assert_source_unchanged,
-    branch_name_for,
-    create_branch_at_commit,
     create_local_commit,
-    remove_worktree,
+    execution_scratch_from_worktree,
+    package_candidate_export,
     resolve_repo_root,
     run_git,
     source_tree_fingerprint,
@@ -152,8 +152,35 @@ def finalize(
             state="CONTENT_BINDING_MISMATCH",
         )
 
-    branch = branch_name_for(proposal["candidate_id"], execution_id)
-    create_branch_at_commit(repo, branch, commit)
+    scratch = execution_scratch_from_worktree(worktree)
+    meta_path = scratch / "si2_meta.json"
+    if not meta_path.is_file():
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "execution scratch metadata missing",
+            state="FAILED_FROZEN",
+        )
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    clone_raw = meta.get("clone_path")
+    if not isinstance(clone_raw, str) or not clone_raw:
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "execution clone path missing",
+            state="FAILED_FROZEN",
+        )
+    export_state = package_candidate_export(
+        clone_root=Path(clone_raw),
+        worktree=worktree,
+        execution_id=execution_id,
+        baseline_sha=bundle["baseline_sha"],
+        commit=commit,
+    )
+    if export_state.get("state") != "NOT_EXPORTED":
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "export must remain NOT_EXPORTED until host copy-out",
+            state="FAILED_FROZEN",
+        )
     store.append_state_event("execution", execution_id, "FINALIZATION_REVALIDATED", "CANDIDATE_COMMITTED")
 
     learning = {
@@ -166,15 +193,15 @@ def finalize(
         "execution_result_sha256": bundle["execution_result_sha256"],
         "problem": proposal["objective"],
         "research_summary": "Offline V2 research validation completed",
-        "implementation_summary": f"Frozen execution {execution_id} committed",
+        "implementation_summary": f"Frozen execution {execution_id} committed in disposable clone",
         "validation_summary": f"Profile {bundle['validation_profile']} bound",
         "review_findings": [],
         "repair_attempts": int(proposal.get("repair_attempt") or 0),
-        "final_outcome": "READY_FOR_HUMAN_PROMOTION",
+        "final_outcome": "EXPORT_PENDING",
         "reusable_patterns": ["content-bound-finalize"],
         "failure_patterns": [],
         "confidence": 0.8,
-        "promotion_status": "READY_FOR_HUMAN_PROMOTION",
+        "promotion_status": "NOT_PROMOTED",
     }
     validate_instance("learning_record", learning, root=repository_root)
     store.insert_learning(learning)
@@ -186,10 +213,10 @@ def finalize(
         "review_id": review_id,
         "binding_verified": True,
         "candidate_commit": commit,
-        "candidate_branch": branch,
+        "candidate_branch": None,
         "committed_tree_sha": committed_tree,
         "committed_diff_sha256": bundle["actual_diff_sha256"],
-        "final_state": "READY_FOR_HUMAN_PROMOTION",
+        "final_state": "EXPORT_PENDING",
         "error_codes": [],
         "learning_record_id": learning["learning_id"],
     }
@@ -199,10 +226,9 @@ def finalize(
         "execution",
         execution_id,
         "LEARNING_RECORDED",
-        "READY_FOR_HUMAN_PROMOTION",
+        "EXPORT_PENDING",
     )
 
-    remove_worktree(repo, worktree)
     assert_source_unchanged(repo, before_fp)
     return result
 

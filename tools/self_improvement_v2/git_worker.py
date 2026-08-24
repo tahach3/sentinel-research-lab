@@ -478,16 +478,71 @@ def create_local_commit(worktree: Path, objective: str) -> str:
     return sha.stdout.decode("utf-8").strip()
 
 
-def create_branch_at_commit(source_root: Path, branch_name: str, commit: str) -> None:
-    # Create branch ref only after commit exists.
-    proc = run_git(["branch", branch_name, commit], cwd=source_root, check=False)
-    if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout).decode("utf-8", errors="replace")[:500]
-        # Idempotent: if branch already points to same commit, OK
-        show = run_git(["rev-parse", branch_name], cwd=source_root, check=False)
-        if show.returncode == 0 and show.stdout.decode().strip() == commit:
-            return
-        raise WorkerError(ERROR_CODES["FAILED_FROZEN"], detail or "branch create failed")
+EXPORT_REF_PREFIX = "refs/srl/export/"
+
+
+def export_ref_for(execution_id: str) -> str:
+    return f"{EXPORT_REF_PREFIX}{assert_execution_id(execution_id)}"
+
+
+def package_candidate_export(
+    *,
+    clone_root: Path,
+    worktree: Path,
+    execution_id: str,
+    baseline_sha: str,
+    commit: str,
+) -> dict[str, str]:
+    """Write refs/srl/export/<id>, candidate.bundle, and actual.diff in disposable scratch."""
+    execution_id = assert_execution_id(execution_id)
+    scratch = execution_scratch_from_worktree(worktree)
+    export_dir = scratch / "export"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    git_tmp = scratch / "worktrees" / "git-tmp"
+    git_tmp.mkdir(parents=True, exist_ok=True)
+    env = _clone_env(git_tmp=git_tmp)
+    ref = export_ref_for(execution_id)
+    run_git(["update-ref", ref, commit], cwd=clone_root, check=True, env=env)
+    stored = run_git(["rev-parse", ref], cwd=clone_root, check=True, env=env).stdout.decode().strip()
+    if stored != commit:
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "export ref does not point at the candidate commit",
+            state="FAILED_FROZEN",
+        )
+    bundle_path = export_dir / "candidate.bundle"
+    diff_path = export_dir / "actual.diff"
+    run_git(["bundle", "create", str(bundle_path), ref], cwd=clone_root, check=True, env=env)
+    verify = run_git(["bundle", "verify", str(bundle_path)], cwd=clone_root, check=False, env=env)
+    if verify.returncode != 0:
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "candidate.bundle failed git bundle verify",
+            state="FAILED_FROZEN",
+        )
+    diff_proc = run_git(
+        ["diff", "--binary", baseline_sha, commit],
+        cwd=clone_root,
+        check=True,
+        env=env,
+    )
+    diff_path.write_bytes(diff_proc.stdout or b"")
+    bundle_sha = hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+    diff_sha = hashlib.sha256(diff_path.read_bytes()).hexdigest()
+    state = {
+        "schema": "srl.candidate_export_state.v1",
+        "execution_id": execution_id,
+        "export_ref": ref,
+        "candidate_commit": commit,
+        "candidate_bundle_sha256": bundle_sha,
+        "actual_diff_sha256": diff_sha,
+        "state": "NOT_EXPORTED",
+    }
+    (export_dir / "export_state.json").write_text(
+        json.dumps(state, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return state
 
 
 def worktree_head(worktree: Path) -> str:
