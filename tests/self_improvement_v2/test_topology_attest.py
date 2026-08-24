@@ -490,7 +490,10 @@ def test_consume_skips_attest_rejected() -> None:
     wf["connections"]["Provider Call Consume (Implementer)"]["main"][0] = [
         {"node": "Provider Call Authorize (Implementer)", "type": "main", "index": 0}
     ]
-    with pytest.raises(AgentRuntimeContractError, match="skip Topology Attest|must follow Topology Attest"):
+    with pytest.raises(
+        AgentRuntimeContractError,
+        match=r"skip Topology Attest|must follow Topology Attest|must follow Provider Call Consume \(Implementer\)",
+    ):
         assert_workflow_agent_wiring(workflow=wf, root=REPO)
 
 
