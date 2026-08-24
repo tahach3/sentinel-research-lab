@@ -1570,8 +1570,7 @@
         }
       },
       "onError": "continueErrorOutput",
-      "retryOnFail": false,
-      "executeOnce": false
+      "retryOnFail": false
     },
     {
       "parameters": {
@@ -1599,8 +1598,7 @@
         }
       },
       "onError": "continueErrorOutput",
-      "retryOnFail": false,
-      "executeOnce": false
+      "retryOnFail": false
     },
     {
       "parameters": {
@@ -1628,8 +1626,7 @@
         }
       },
       "onError": "continueErrorOutput",
-      "retryOnFail": false,
-      "executeOnce": false
+      "retryOnFail": false
     },
     {
       "parameters": {
@@ -1657,8 +1654,7 @@
         }
       },
       "onError": "continueErrorOutput",
-      "retryOnFail": false,
-      "executeOnce": false
+      "retryOnFail": false
     }
   ]
 }
