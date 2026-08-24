@@ -126,22 +126,22 @@ CONTENT_BINDING_MISMATCH
 
 ### SI2-ND-005 — Detached worktree before approval
 
-Execution uses a detached temporary worktree at the exact approved baseline.
+Execution clones the reviewed source with `git clone --no-local --no-hardlinks` into `/tmp/srl-exec/<hex32>/repo` and uses a detached worktree under that scratch. The reviewed source, including `.git`, stays read-only.
 
-No candidate branch is created before independent review PASS.
-
-After review PASS:
+No candidate branch is created on the reviewed source. After review PASS:
 
 1. revalidate immutable bindings;
-2. create the local candidate commit in the detached worktree;
-3. create the candidate branch ref pointing to that exact commit;
-4. record the commit hash;
-5. remove the temporary worktree.
+2. create the local candidate commit in the disposable clone;
+3. publish `refs/srl/export/<execution_id>` plus `candidate.bundle` and canonical `actual.diff`;
+4. return `EXPORT_PENDING` with `candidate_branch=null`;
+5. host copy-out, SHA verify, ACK, then delete scratch.
 
-Candidate branch format:
+Human promotion is a separate artifact. Push and merge remain forbidden.
+
+Export ref format:
 
 ```text
-self-improvement-v2/<sanitized-candidate-id>/<execution-short-id>
+refs/srl/export/<32-lowercase-hex-execution-id>
 ```
 
 ### SI2-ND-006 — Segment-aware protected paths

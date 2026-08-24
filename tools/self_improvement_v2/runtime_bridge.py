@@ -75,7 +75,8 @@ HEALTH_BODY = {
     ],
 }
 
-_EXECUTION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+_HEX32_EXEC_RE = re.compile(r"^[0-9a-f]{32}$")
+_ZONE_P_EXEC_RE = re.compile(r"^exec-zone-p-[A-Za-z0-9._-]{1,96}$")
 _VALIDATE_FIELDS = frozenset({"proposal", "topology_binding_token"})
 _EXECUTE_FIELDS = frozenset({"proposal", "candidate"})
 _FINALIZE_FIELDS = frozenset({"execution_id", "review_id", "review"})
@@ -298,8 +299,12 @@ def finalize_operation(
     return {"status": "PASS", "finalization": result, "wall_reassert": "PASS"}
 
 
+def _valid_execution_id(execution_id: str) -> bool:
+    return bool(_HEX32_EXEC_RE.fullmatch(execution_id) or _ZONE_P_EXEC_RE.fullmatch(execution_id))
+
+
 def execution_status_operation(config: RuntimeConfig, execution_id: str) -> dict[str, Any]:
-    if not _EXECUTION_ID_RE.fullmatch(execution_id) or ".." in execution_id or "/" in execution_id or "\\" in execution_id:
+    if not _valid_execution_id(execution_id) or ".." in execution_id or "/" in execution_id or "\\" in execution_id:
         raise WorkerError(ERROR_CODES["POLICY_REJECTED"], "invalid execution_id", state="POLICY_REJECTED")
     store = ExperienceStore(config.state_db)
     bundle, _worktree = store.get_execution(execution_id)

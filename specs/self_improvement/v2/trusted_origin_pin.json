@@ -1,7 +1,7 @@
 {
   "schema_version": "2.1.0",
   "description": "Content digests for Self-Improvement V2 modules closed under static AST imports. Does not cover dynamic importlib/__import__/string-built loaders. Reviewed HEAD identity is supplied exclusively by SRL_REVIEWED_HEAD.",
-  "combined": "a8084f50ea2dca19f4e9ec0e89751ccd555a87429205f815cd8db45f31be01d1",
+  "combined": "7ef9f08247714dd07481aa449e9c352a01b07bc17b3c2af7f6f002c68cbb70f7",
   "modules": {
     "tools.self_improvement_v2": "af8381dad1d02cfac8c60e5803916dd568029ea1d12caecef0507502e6e43a39",
     "tools.self_improvement_v2.agent_runtime_contract": "1ee87f18523a4f2d3adb50c2ca59a4751aba391baa2300302f20cd5a6d640d1a",
@@ -19,7 +19,7 @@
     "tools.self_improvement_v2.repair_policy": "9cd7cb80ac7502b80f2771327d4a04802f35929cba36bd6efde8fe08fbc9a74e",
     "tools.self_improvement_v2.review_gate": "50518cc7988ef2dc8bcc117380a1722a30dff6fa287c31834cf8d432577fab42",
     "tools.self_improvement_v2.risk_authority": "e71030d3f1461d7b570f5cf24c0c6c1e7999655ff9f6958805d76f1024d93ae3",
-    "tools.self_improvement_v2.runtime_bridge": "fe43aa1e2fdeaf0aa44850fb7ab62f24adf13c2f65485551ac2b74d0bf1a3071",
+    "tools.self_improvement_v2.runtime_bridge": "958a3d855f30146ccfd330b3e889502d4def1a89eebc4d552a6f26c3adb44011",
     "tools.self_improvement_v2.runtime_config": "2cbd6639156d9259dfe3c065eddc5e784dd7c0c7b9df6ab502b1b14f05793210",
     "tools.self_improvement_v2.schema_loader": "864f4dcb4a2ae82d13fec941d5d368a9bf68b241afeee231d8e62108cf5bd78f",
     "tools.self_improvement_v2.topology_consume": "01f70860f8a837552b6f69191941be4f76a03aaa99bd5710c565d2d0ad15b642",

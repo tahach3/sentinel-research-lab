@@ -242,7 +242,21 @@
       "then": {
         "required": [
           "probe_id"
-        ]
+        ],
+        "properties": {
+          "execution_id": {
+            "type": "string",
+            "pattern": "^exec-zone-p-[A-Za-z0-9._-]{1,96}$"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "execution_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          }
+        }
       }
     }
   ]
