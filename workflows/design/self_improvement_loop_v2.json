@@ -1,0 +1,1660 @@
+{
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "name": "SRL Self-Improvement Loop V2",
+  "tags": [],
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "srlRound": "self_improvement_v2",
+    "srlInactiveByDesign": true,
+    "implementerAgentId": "srl-implementer-agent",
+    "reviewerAgentId": "srl-independent-reviewer-agent",
+    "localWorkerBaseUrl": "http://127.0.0.1:8765",
+    "workerHeaderAuthCredentialName": "srl-v2-worker-header-auth",
+    "implementerAgentCredentialReference": "SRL Implementer \u2014 Google Gemini",
+    "reviewerAgentCredentialReference": "SRL Independent Reviewer \u2014 Groq",
+    "implementerModel": "models/gemini-3.6-flash",
+    "reviewerModel": "llama3-8b-8192",
+    "implementerChatModelNodeType": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+    "reviewerChatModelNodeType": "@n8n/n8n-nodes-langchain.lmChatGroq",
+    "aiAgentNodeType": "@n8n/n8n-nodes-langchain.agent",
+    "agentRuntimePhase": "1B",
+    "agentRuntimeWiringStatus": "WORKFLOW_WIRED",
+    "schemas": [
+      "improvement_candidate.schema.json",
+      "implementation_proposal.schema.json",
+      "execution_bundle.schema.json",
+      "review_result.schema.json",
+      "finalization_result.schema.json",
+      "learning_record.schema.json",
+      "agent_runtime_contract.schema.json"
+    ],
+    "topologyAttestorBaseUrl": "http://host.docker.internal:8764",
+    "topologyAttestHeaderAuthCredentialName": "srl-v2-topology-attest-header-auth"
+  },
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Candidate Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate Intake": {
+      "main": [
+        [
+          {
+            "node": "Candidate Schema Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate Schema Validation": {
+      "main": [
+        [
+          {
+            "node": "Open Pilot Budget",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invalid Candidate": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Proposal Schema Validation": {
+      "main": [
+        [
+          {
+            "node": "Proposal Freeze",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invalid Proposal": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Proposal Freeze": {
+      "main": [
+        [
+          {
+            "node": "Topology Attest (Worker Authorize)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detached Worker Execute": {
+      "main": [
+        [
+          {
+            "node": "Execution Result Validation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Worker Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Worker Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execution Result Validation": {
+      "main": [
+        [
+          {
+            "node": "Provider Call Permit (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Validation Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Validation Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Independent Review Bind": {
+      "main": [
+        [
+          {
+            "node": "Review Result Validation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Review Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Review Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review Result Validation": {
+      "main": [
+        [
+          {
+            "node": "Finalization",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Repair Limit Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Repair Limit Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalization": {
+      "main": [
+        [
+          {
+            "node": "Learning Persistence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Finalization Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Finalization Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Learning Persistence": {
+      "main": [
+        [
+          {
+            "node": "Human Promotion Boundary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failure Router": {
+      "main": [
+        [
+          {
+            "node": "Terminal POLICY_REJECTED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal VALIDATION_FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal REVIEW_FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal CONTENT_BINDING_MISMATCH",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal REPAIR_LIMIT_REACHED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal FAILED_FROZEN",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal PATCH_REJECTED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal BASELINE_MISMATCH",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal IMMUTABILITY_VIOLATION",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal DECISION_REQUIRED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Terminal CONTENT_BINDING_MISMATCH": {
+      "main": [
+        [
+          {
+            "node": "Terminal FAILED_FROZEN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Worker Authorize": {
+      "main": [
+        [
+          {
+            "node": "Worker Decision Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Authorize Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Authorize Failure": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Worker Decision Router": {
+      "main": [
+        [
+          {
+            "node": "Worker AUTHORIZED Continue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal DECISION_REQUIRED",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Terminal POLICY_REJECTED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Worker AUTHORIZED Continue": {
+      "main": [
+        [
+          {
+            "node": "Topology Attest (Execute)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Implementer Agent": {
+      "main": [
+        [
+          {
+            "node": "Proposal Schema Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Implementer Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Implementer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Independent Reviewer Agent": {
+      "main": [
+        [
+          {
+            "node": "Independent Review Bind",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Independent Reviewer Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Independent Reviewer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Open Pilot Budget": {
+      "main": [
+        [
+          {
+            "node": "Provider Call Permit (Implementer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider Call Permit (Implementer)": {
+      "main": [
+        [
+          {
+            "node": "Provider Call Consume (Implementer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider Call Permit (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Provider Call Consume (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Annotate Budget Denied": {
+      "main": [
+        [
+          {
+            "node": "Failure Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider Call Consume (Implementer)": {
+      "main": [
+        [
+          {
+            "node": "Topology Attest (Implementer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider Call Consume (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Topology Attest (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider Call Authorize (Implementer)": {
+      "main": [
+        [
+          {
+            "node": "Implementer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider Call Authorize (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Independent Reviewer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Topology Attest (Implementer)": {
+      "main": [
+        [
+          {
+            "node": "Provider Call Authorize (Implementer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Topology Attest (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Provider Call Authorize (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Topology Attest (Worker Authorize)": {
+      "main": [
+        [
+          {
+            "node": "Worker Authorize",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Topology Attest (Execute)": {
+      "main": [
+        [
+          {
+            "node": "Detached Worker Execute",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annotate Budget Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'CANDIDATE_RECEIVED', repository_id:'sentinel-research-lab', candidate_schema_valid:true, proposal_schema_valid:true}}];"
+      },
+      "id": "candidate-intake",
+      "name": "Candidate Intake",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.candidate_schema_valid}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "candidate-schema-validation",
+      "name": "Candidate Schema Validation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'POLICY_REJECTED', route:'invalid_candidate'}}];"
+      },
+      "id": "invalid-candidate",
+      "name": "Invalid Candidate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        440,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.proposal_schema_valid}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "proposal-schema-validation",
+      "name": "Proposal Schema Validation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'POLICY_REJECTED', route:'invalid_proposal'}}];"
+      },
+      "id": "invalid-proposal",
+      "name": "Invalid Proposal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        660,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'PROPOSAL_FROZEN'}}];"
+      },
+      "id": "proposal-freeze",
+      "name": "Proposal Freeze",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'REVIEW_PENDING', worker:'tools.self_improvement_v2', validation_ok:true}}];"
+      },
+      "id": "detached-worker-execute",
+      "name": "Detached Worker Execute",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1580,
+        -240
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'FAILED_FROZEN', route:'worker_execution_failure'}}];"
+      },
+      "id": "annotate-worker-failure",
+      "name": "Annotate Worker Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1580,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.validation_ok}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "execution-result-validation",
+      "name": "Execution Result Validation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1820,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'VALIDATION_FAILED', route:'validation_failure'}}];"
+      },
+      "id": "annotate-validation-failure",
+      "name": "Annotate Validation Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1820,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/bind-review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ review: ($json.review || $json) })}}",
+        "options": {}
+      },
+      "id": "independent-review-bind",
+      "name": "Independent Review Bind",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2060,
+        -240
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'REVIEW_FAILED', route:'review_failure'}}];"
+      },
+      "id": "annotate-review-failure",
+      "name": "Annotate Review Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2060,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.status === 'PASS' && $json.review_ok === true && $json.repair_limit_ok === true}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "review-result-validation",
+      "name": "Review Result Validation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2300,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'REPAIR_LIMIT_REACHED', route:'repair_limit_failure'}}];"
+      },
+      "id": "annotate-repair-limit-failure",
+      "name": "Annotate Repair Limit Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2300,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'FINALIZATION_REVALIDATED'}}];"
+      },
+      "id": "finalization",
+      "name": "Finalization",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2540,
+        -240
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'CONTENT_BINDING_MISMATCH', route:'finalization_failure'}}];"
+      },
+      "id": "annotate-finalization-failure",
+      "name": "Annotate Finalization Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2540,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'LEARNING_RECORDED'}}];"
+      },
+      "id": "learning-persistence",
+      "name": "Learning Persistence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2780,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'READY_FOR_HUMAN_PROMOTION', push:false, merge:false}}];"
+      },
+      "id": "human-promotion-boundary",
+      "name": "Human Promotion Boundary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        3020,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{$json.failure_state}}",
+        "rules": {
+          "rules": [
+            {
+              "outputKey": "POLICY_REJECTED",
+              "value": "POLICY_REJECTED"
+            },
+            {
+              "outputKey": "VALIDATION_FAILED",
+              "value": "VALIDATION_FAILED"
+            },
+            {
+              "outputKey": "REVIEW_FAILED",
+              "value": "REVIEW_FAILED"
+            },
+            {
+              "outputKey": "CONTENT_BINDING_MISMATCH",
+              "value": "CONTENT_BINDING_MISMATCH"
+            },
+            {
+              "outputKey": "REPAIR_LIMIT_REACHED",
+              "value": "REPAIR_LIMIT_REACHED"
+            },
+            {
+              "outputKey": "FAILED_FROZEN",
+              "value": "FAILED_FROZEN"
+            },
+            {
+              "outputKey": "PATCH_REJECTED",
+              "value": "PATCH_REJECTED"
+            },
+            {
+              "outputKey": "BASELINE_MISMATCH",
+              "value": "BASELINE_MISMATCH"
+            },
+            {
+              "outputKey": "IMMUTABILITY_VIOLATION",
+              "value": "IMMUTABILITY_VIOLATION"
+            },
+            {
+              "outputKey": "DECISION_REQUIRED",
+              "value": "DECISION_REQUIRED"
+            }
+          ]
+        }
+      },
+      "id": "failure-router",
+      "name": "Failure Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        1820,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'DECISION_REQUIRED', terminal:true}}];"
+      },
+      "id": "terminal-decision-required",
+      "name": "Terminal DECISION_REQUIRED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1580,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'POLICY_REJECTED', terminal:true}}];"
+      },
+      "id": "terminal-policy-rejected",
+      "name": "Terminal POLICY_REJECTED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2060,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'VALIDATION_FAILED', terminal:true}}];"
+      },
+      "id": "terminal-validation-failed",
+      "name": "Terminal VALIDATION_FAILED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2060,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'REVIEW_FAILED', terminal:true}}];"
+      },
+      "id": "terminal-review-failed",
+      "name": "Terminal REVIEW_FAILED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2060,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'CONTENT_BINDING_MISMATCH', terminal:true}}];"
+      },
+      "id": "terminal-content-binding-mismatch",
+      "name": "Terminal CONTENT_BINDING_MISMATCH",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2060,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'REPAIR_LIMIT_REACHED', terminal:true}}];"
+      },
+      "id": "terminal-repair-limit-reached",
+      "name": "Terminal REPAIR_LIMIT_REACHED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'FAILED_FROZEN', terminal:true}}];"
+      },
+      "id": "terminal-failed-frozen",
+      "name": "Terminal FAILED_FROZEN",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2300,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'PATCH_REJECTED', terminal:true}}];"
+      },
+      "id": "terminal-patch-rejected",
+      "name": "Terminal PATCH_REJECTED",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2540,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'BASELINE_MISMATCH', terminal:true}}];"
+      },
+      "id": "terminal-baseline-mismatch",
+      "name": "Terminal BASELINE_MISMATCH",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2540,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{state:'IMMUTABILITY_VIOLATION', terminal:true}}];"
+      },
+      "id": "terminal-immutability-violation",
+      "name": "Terminal IMMUTABILITY_VIOLATION",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        2540,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/validate-proposal",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ proposal: ($('Proposal Freeze').item.json.proposal || $('Proposal Freeze').item.json), topology_binding_token: $('Topology Attest (Worker Authorize)').item.json.topology_binding_token })}}",
+        "options": {}
+      },
+      "id": "worker-authorize",
+      "name": "Worker Authorize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{$json.worker_decision}}",
+        "rules": {
+          "rules": [
+            {
+              "outputKey": "AUTHORIZED",
+              "value": "AUTHORIZED"
+            },
+            {
+              "outputKey": "DECISION_REQUIRED",
+              "value": "DECISION_REQUIRED"
+            },
+            {
+              "outputKey": "POLICY_REJECTED",
+              "value": "POLICY_REJECTED"
+            }
+          ]
+        }
+      },
+      "id": "worker-decision-router",
+      "name": "Worker Decision Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{...items[0].json, state:'AUTO_AUTHORIZED', route:'worker_AUTHORIZED'}}];"
+      },
+      "id": "worker-authorized-continue",
+      "name": "Worker AUTHORIZED Continue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1580,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'POLICY_REJECTED', route:'worker_authorize_failure'}}];"
+      },
+      "id": "annotate-authorize-failure",
+      "name": "Annotate Authorize Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## SRL Self-Improvement Loop V2 (Phase 1B)\nInactive design workflow (active:false). AI Agent + Chat Model nodes are wired but not activated.\nBudget gate: POST /v2/budget/open then /v2/provider-call-permit before each provider agent; deny routes terminal POLICY_REJECTED.\nImplementer: SRL Implementer \u2014 Google Gemini / models/gemini-3.6-flash\nReviewer: SRL Independent Reviewer \u2014 Groq / llama3-8b-8192\nWorker Authorize: POST loopback /v2/validate-proposal via Header Auth name only.\nRisk authority remains the local worker only. n8n never trusts proposal.risk_level.\nCredential values are never embedded. No push/merge. No pilot authorization.",
+        "height": 280,
+        "width": 420
+      },
+      "id": "sticky-v2",
+      "name": "V2 Design Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/budget/open",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ session_id: $json.budget_session_id || ('srl-v2-pilot-' + Date.now()), max_calls: 6 })}}",
+        "options": {}
+      },
+      "id": "open-pilot-budget",
+      "name": "Open Pilot Budget",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        -120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/provider-call-permit",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'implementer', max_output_tokens: 2000, call_params: { role: 'implementer' } })}}",
+        "options": {}
+      },
+      "id": "provider-call-permit-implementer",
+      "name": "Provider Call Permit (Implementer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        -120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/provider-call-consume",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'implementer', permit_nonce: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).permit_nonce, provider: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).provider, model: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).model, credential_reference: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).credential_reference })}}",
+        "options": {}
+      },
+      "id": "provider-call-consume-implementer",
+      "name": "Provider Call Consume (Implementer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        535,
+        -120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/provider-call-permit",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'reviewer', max_output_tokens: 2000, call_params: { role: 'reviewer' } })}}",
+        "options": {}
+      },
+      "id": "provider-call-permit-reviewer",
+      "name": "Provider Call Permit (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        -360
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/provider-call-consume",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'reviewer', permit_nonce: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).permit_nonce, provider: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).provider, model: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).model, credential_reference: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).credential_reference })}}",
+        "options": {}
+      },
+      "id": "provider-call-consume-reviewer",
+      "name": "Provider Call Consume (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1910,
+        -360
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{failure_state:'POLICY_REJECTED', route:'budget_permit_denied', terminal:true}}];"
+      },
+      "id": "annotate-budget-denied",
+      "name": "Annotate Budget Denied",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        520,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Phase 1B Implementer Agent (inactive-by-design). Produce improvement_candidate / implementation_proposal JSON only. Must not authorize risk, mutate git, finalize, or use the reviewer credential. Agent id: srl-implementer-agent. Model pin: models/gemini-3.6-flash.",
+        "options": {
+          "maxIterations": 1
+        }
+      },
+      "id": "implementer-agent",
+      "name": "Implementer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        550,
+        0
+      ],
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.6-flash",
+        "options": {
+          "maxOutputTokens": "={{Number(($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).provider_call_params.max_output_tokens)}}"
+        }
+      },
+      "id": "implementer-gemini-chat-model",
+      "name": "Implementer Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        550,
+        220
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "srl-implementer-google-gemini",
+          "name": "SRL Implementer \u2014 Google Gemini"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Phase 1B Independent Reviewer Agent (inactive-by-design). Produce review_result for review_gate binding only. Must not authorize risk, mutate git, finalize, share implementer credential, or self-review. Agent id: srl-independent-reviewer-agent. Model pin: llama3-8b-8192.",
+        "options": {
+          "maxIterations": 1
+        }
+      },
+      "id": "independent-reviewer-agent",
+      "name": "Independent Reviewer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1940,
+        -240
+      ],
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "model": "llama3-8b-8192",
+        "options": {
+          "maxTokens": "={{Number(($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).provider_call_params.max_output_tokens)}}"
+        }
+      },
+      "id": "independent-reviewer-groq-chat-model",
+      "name": "Independent Reviewer Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1940,
+        0
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "srl-independent-reviewer-groq",
+          "name": "SRL Independent Reviewer \u2014 Groq"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/provider-call-authorize",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'implementer', permit_nonce: ($('Provider Call Permit (Implementer)').item.json.permit || $('Provider Call Permit (Implementer)').item.json).permit_nonce, invocation_evidence: ($('Provider Call Consume (Implementer)').item.json.invocation_evidence || ($('Provider Call Consume (Implementer)').item.json.consume || {}).invocation_evidence || $('Provider Call Consume (Implementer)').item.json).invocation_evidence, topology_binding_token: $('Topology Attest (Implementer)').item.json.topology_binding_token })}}",
+        "options": {}
+      },
+      "id": "provider-call-authorize-implementer",
+      "name": "Provider Call Authorize (Implementer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        750,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8765/v2/provider-call-authorize",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ session_id: $('Open Pilot Budget').item.json.session_id, role: 'reviewer', permit_nonce: ($('Provider Call Permit (Reviewer)').item.json.permit || $('Provider Call Permit (Reviewer)').item.json).permit_nonce, invocation_evidence: ($('Provider Call Consume (Reviewer)').item.json.invocation_evidence || ($('Provider Call Consume (Reviewer)').item.json.consume || {}).invocation_evidence || $('Provider Call Consume (Reviewer)').item.json).invocation_evidence, topology_binding_token: $('Topology Attest (Reviewer)').item.json.topology_binding_token })}}",
+        "options": {}
+      },
+      "id": "provider-call-authorize-reviewer",
+      "name": "Provider Call Authorize (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2140,
+        -240
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-worker-header-auth",
+          "name": "srl-v2-worker-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8764/v2/topology-attest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ purpose: 'provider_implementer' })}}",
+        "options": {}
+      },
+      "id": "topology-attest-implementer",
+      "name": "Topology Attest (Implementer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        -120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-topology-attest-header-auth",
+          "name": "srl-v2-topology-attest-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8764/v2/topology-attest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ purpose: 'provider_reviewer' })}}",
+        "options": {}
+      },
+      "id": "topology-attest-reviewer",
+      "name": "Topology Attest (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1925,
+        -360
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-topology-attest-header-auth",
+          "name": "srl-v2-topology-attest-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8764/v2/topology-attest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ purpose: 'worker_authorize' })}}",
+        "options": {}
+      },
+      "id": "topology-attest-worker-authorize",
+      "name": "Topology Attest (Worker Authorize)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        990,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-topology-attest-header-auth",
+          "name": "srl-v2-topology-attest-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8764/v2/topology-attest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ purpose: 'execute_probe' })}}",
+        "options": {}
+      },
+      "id": "topology-attest-execute",
+      "name": "Topology Attest (Execute)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1580,
+        -120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "srl-v2-topology-attest-header-auth",
+          "name": "srl-v2-topology-attest-header-auth"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": false
+    }
+  ]
+}

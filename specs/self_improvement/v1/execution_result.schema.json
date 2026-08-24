@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentinel-research-lab.local/self_improvement/v1/execution_result.schema.json",
+  "title": "Self-Improvement Execution Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposal_id",
+    "baseline_verified",
+    "worktree_path_redacted",
+    "changed_paths",
+    "patch_results",
+    "validation_results",
+    "diff_summary",
+    "candidate_commit",
+    "final_state",
+    "error_codes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "proposal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "baseline_verified": {
+      "type": "boolean"
+    },
+    "worktree_path_redacted": {
+      "type": "string",
+      "enum": ["<redacted>", "none"]
+    },
+    "changed_paths": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 260
+      }
+    },
+    "patch_results": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "operation", "status", "error_code"],
+        "properties": {
+          "path": { "type": "string" },
+          "operation": {
+            "type": "string",
+            "enum": ["CREATE", "MODIFY", "DELETE"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["APPLIED", "REJECTED", "SKIPPED", "FAILED"]
+          },
+          "error_code": {
+            "type": ["string", "null"]
+          }
+        }
+      }
+    },
+    "validation_results": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["profile", "command_index", "status", "exit_code", "error_code"],
+        "properties": {
+          "profile": { "type": "string" },
+          "command_index": { "type": "integer", "minimum": 0 },
+          "status": {
+            "type": "string",
+            "enum": ["PASS", "FAIL", "TIMEOUT", "SKIPPED"]
+          },
+          "exit_code": { "type": ["integer", "null"] },
+          "error_code": { "type": ["string", "null"] },
+          "output_truncated": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      }
+    },
+    "diff_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files_changed", "lines_added", "lines_removed", "patch_bytes"],
+      "properties": {
+        "files_changed": { "type": "integer", "minimum": 0 },
+        "lines_added": { "type": "integer", "minimum": 0 },
+        "lines_removed": { "type": "integer", "minimum": 0 },
+        "patch_bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "candidate_commit": {
+      "type": ["string", "null"],
+      "pattern": "^([a-f0-9]{40})?$"
+    },
+    "final_state": {
+      "type": "string",
+      "enum": [
+        "CANDIDATE_RECEIVED",
+        "RESEARCH_VALIDATED",
+        "PROPOSAL_VALIDATED",
+        "RISK_CLASSIFIED",
+        "AUTO_AUTHORIZED",
+        "WORKTREE_PREPARED",
+        "PATCH_VALIDATED",
+        "PATCH_APPLIED",
+        "VALIDATING",
+        "INDEPENDENT_REVIEW",
+        "CANDIDATE_COMMITTED",
+        "LEARNING_RECORDED",
+        "READY_FOR_HUMAN_PROMOTION",
+        "DECISION_REQUIRED",
+        "BASELINE_MISMATCH",
+        "POLICY_REJECTED",
+        "PATCH_REJECTED",
+        "VALIDATION_FAILED",
+        "REVIEW_FAILED",
+        "REPAIR_LIMIT_REACHED",
+        "FAILED_FROZEN"
+      ]
+    },
+    "error_codes": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "branch_name": {
+      "type": ["string", "null"],
+      "maxLength": 200
+    },
+    "repair_attempt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

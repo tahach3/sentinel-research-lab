@@ -1,0 +1,318 @@
+{
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "name": "SRL Self-Improvement Loop V1",
+  "tags": [],
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "srlRound": "self_improvement_v1",
+    "srlInactiveByDesign": true,
+    "implementerAgentId": "srl-implementer-agent",
+    "reviewerAgentId": "srl-independent-reviewer-agent"
+  },
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Candidate Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate Intake": {
+      "main": [
+        [
+          {
+            "node": "Candidate Schema Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate Schema Validation": {
+      "main": [
+        [
+          {
+            "node": "Research-Agent Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research-Agent Dispatch": {
+      "main": [
+        [
+          {
+            "node": "Implementation-Proposal Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Implementation-Proposal Validation": {
+      "main": [
+        [
+          {
+            "node": "Risk Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Classification": {
+      "main": [
+        [
+          {
+            "node": "LOW-Risk Auto-Authorization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LOW-Risk Auto-Authorization": {
+      "main": [
+        [
+          {
+            "node": "Local-Worker Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Local-Worker Dispatch": {
+      "main": [
+        [
+          {
+            "node": "Execution-Result Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execution-Result Validation": {
+      "main": [
+        [
+          {
+            "node": "Independent-Review-Agent Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Independent-Review-Agent Dispatch": {
+      "main": [
+        [
+          {
+            "node": "Review-Result Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review-Result Validation": {
+      "main": [
+        [
+          {
+            "node": "Finalization Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalization Dispatch": {
+      "main": [
+        [
+          {
+            "node": "Learning-Record Persistence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Learning-Record Persistence": {
+      "main": [
+        [
+          {
+            "node": "Human Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "id": "si-v1-0001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [0, 0],
+      "parameters": {},
+      "typeVersion": 1
+    },
+    {
+      "id": "si-v1-0002",
+      "name": "Design Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [-420, -80],
+      "parameters": {
+        "content": "PLACEHOLDER / INACTIVE\nSelf-Improvement Loop V1 design only.\nStates: CANDIDATE_RECEIVED → PROPOSAL_VALIDATED → AUTO_AUTHORIZED → INDEPENDENT_REVIEW → READY_FOR_HUMAN_PROMOTION\nFailure routes: POLICY_REJECTED, PATCH_REJECTED, VALIDATION_FAILED, REVIEW_FAILED, REPAIR_LIMIT_REACHED → FAILED_FROZEN\nSchemas: improvement_candidate.schema.json, implementation_proposal.schema.json, execution_result.schema.json, review_result.schema.json, learning_record.schema.json\nImplementer: srl-implementer-agent\nReviewer: srl-independent-reviewer-agent (must differ)\nNo credentials. No HTTP. No AI nodes. No webhooks. No paid API execution.\nHuman promotion gate required before merge.",
+        "width": 460,
+        "height": 360
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "si-v1-0003",
+      "name": "Candidate Intake",
+      "type": "n8n-nodes-base.code",
+      "position": [220, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'candidate intake', state: 'CANDIDATE_RECEIVED', schema_ref: 'specs/self_improvement/v1/improvement_candidate.schema.json' } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0004",
+      "name": "Candidate Schema Validation",
+      "type": "n8n-nodes-base.code",
+      "position": [440, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'candidate schema validation', state: 'RESEARCH_VALIDATED', failure_route: 'POLICY_REJECTED' } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0005",
+      "name": "Research-Agent Dispatch",
+      "type": "n8n-nodes-base.code",
+      "position": [660, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'research-agent dispatch', agent: 'srl-research-agent', mode: 'offline_fixture_only' } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0006",
+      "name": "Implementation-Proposal Validation",
+      "type": "n8n-nodes-base.code",
+      "position": [880, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'implementation-proposal validation', schema_ref: 'specs/self_improvement/v1/implementation_proposal.schema.json', state: 'PROPOSAL_VALIDATED', failure_route: 'POLICY_REJECTED' } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0007",
+      "name": "Risk Classification",
+      "type": "n8n-nodes-base.code",
+      "position": [1100, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'risk classification', state: 'RISK_CLASSIFIED', levels: ['LOW','MEDIUM','HIGH','PROHIBITED'] } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0008",
+      "name": "LOW-Risk Auto-Authorization",
+      "type": "n8n-nodes-base.code",
+      "position": [1320, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'LOW-risk auto-authorization', state: 'AUTO_AUTHORIZED', auto_authorize: 'LOW', otherwise: 'DECISION_REQUIRED' } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0009",
+      "name": "Local-Worker Dispatch",
+      "type": "n8n-nodes-base.code",
+      "position": [1540, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'local-worker dispatch', interface_contract: { request: { proposal: 'implementation_proposal', operation: 'execute|validate-proposal|finalize', correlation_id: 'string' }, response: { status: 'PASS|FAIL', execution_result: 'object|null', error: 'string|null' } }, endpoint: 'INTERFACE_ONLY_NO_ACTIVE_ENDPOINT', credential_ref: 'PLACEHOLDER_LOCAL_WORKER_CREDENTIAL' } }];"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER_LOCAL_WORKER_CREDENTIAL",
+          "name": "PLACEHOLDER_LOCAL_WORKER_CREDENTIAL"
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0010",
+      "name": "Execution-Result Validation",
+      "type": "n8n-nodes-base.code",
+      "position": [1760, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'execution-result validation', schema_ref: 'specs/self_improvement/v1/execution_result.schema.json', failure_route: 'VALIDATION_FAILED' } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0011",
+      "name": "Independent-Review-Agent Dispatch",
+      "type": "n8n-nodes-base.code",
+      "position": [1980, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'independent-review-agent dispatch', reviewer: 'srl-independent-reviewer-agent', implementer: 'srl-implementer-agent', state: 'INDEPENDENT_REVIEW', independent_from_implementer: true } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0012",
+      "name": "Review-Result Validation",
+      "type": "n8n-nodes-base.code",
+      "position": [2200, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'review-result validation', schema_ref: 'specs/self_improvement/v1/review_result.schema.json', failure_route: 'REVIEW_FAILED', terminal_failure: 'FAILED_FROZEN' } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0013",
+      "name": "Finalization Dispatch",
+      "type": "n8n-nodes-base.code",
+      "position": [2420, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'finalization dispatch', operation: 'finalize', requires_review_pass: true } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0014",
+      "name": "Learning-Record Persistence",
+      "type": "n8n-nodes-base.code",
+      "position": [2640, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'learning-record persistence', schema_ref: 'specs/self_improvement/v1/learning_record.schema.json', store: 'sqlite_explicit_path' } }];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "si-v1-0015",
+      "name": "Human Notification",
+      "type": "n8n-nodes-base.code",
+      "position": [2860, 0],
+      "parameters": {
+        "jsCode": "return [{ json: { stage: 'human notification', human promotion: true, final_state: 'READY_FOR_HUMAN_PROMOTION', push: false, merge: false } }];"
+      },
+      "typeVersion": 2
+    }
+  ]
+}

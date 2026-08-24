@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Declared SI2 worker image pin. D is the runtime RepoDigest claim; L is the local image id cross-check at attest time. Replace D with docker image inspect RepoDigests after the first authorized build.",
+  "image_name": "srl-worker",
+  "image_tag": "si2-option-a",
+  "worker_image_digest_D": "sha256:46bcb0fcfb524746d95b97800c8b7a7ca9964a30bd039ac22697750b393e9936",
+  "dockerfile_relpath": "docker/srl-worker/Dockerfile",
+  "dockerfile_sha256": "46bcb0fcfb524746d95b97800c8b7a7ca9964a30bd039ac22697750b393e9936"
+}
