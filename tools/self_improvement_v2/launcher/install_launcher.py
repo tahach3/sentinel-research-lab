@@ -349,12 +349,6 @@ def _sh_script(
     git_exe = str(Path(git_executable).resolve()) if git_executable else git_executable
     python_exe = str(Path(sys.executable).resolve())
     _refuse_unsafe_interpolants(root, reviewed_head, expected_digest, git_exe, python_exe)
-    digest_helper = (
-        f"{_bash_single_quote(python_exe)} -P -c "
-        "'import hashlib,sys; from pathlib import Path; "
-        "data=Path(sys.argv[1]).read_bytes().replace(b\"\\\\r\\\\n\", b\"\\\\n\"); "
-        "print(hashlib.sha256(data).hexdigest())'"
-    )
     return f"""#!/usr/bin/env bash
 # Sentinel Research Lab — SI2 worker launcher (OUTSIDE repository; unversioned root)
 set -euo pipefail
@@ -368,7 +362,7 @@ VERIFIER_PATH="$REPOSITORY_ROOT/tools/self_improvement_v2/trusted_origin.py"
   echo "launcher refuse: verifier missing at $VERIFIER_PATH" >&2
   exit 2
 fi
-ACTUAL="$({digest_helper} "$VERIFIER_PATH")"
+ACTUAL="$({_bash_single_quote(python_exe)} -P -c 'import hashlib,sys; from pathlib import Path; data=Path(sys.argv[1]).read_bytes().replace(b\"\\r\\n\", b\"\\n\"); print(hashlib.sha256(data).hexdigest())' "$VERIFIER_PATH")"
 if [[ "$ACTUAL" != "$EXPECTED_VERIFIER_DIGEST" ]]; then
   echo "launcher refuse: trusted_origin digest mismatch expected=$EXPECTED_VERIFIER_DIGEST actual=$ACTUAL" >&2
   exit 3
