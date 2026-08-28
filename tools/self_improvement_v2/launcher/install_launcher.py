@@ -42,6 +42,7 @@ from tools.self_improvement_v2.launcher.paths import (
     LAUNCHER_PS1_NAME,
     LAUNCHER_SH_NAME,
     VERIFIER_REL,
+    assert_host_secret_path,
     assert_outside_repository,
     default_launcher_dir,
 )
@@ -105,6 +106,12 @@ def resolve_git_executable() -> str:
     return str(Path(found).resolve())
 
 
+def bash_runtime_bridge_exec_line(executable: str | None = None) -> str:
+    """Host launcher exec line — bind to this interpreter, never PATH ``python``."""
+    exe = executable or sys.executable
+    return f"exec {_bash_single_quote(exe)} -P -m tools.self_improvement_v2.runtime_bridge \"$@\""
+
+
 def _sanitized_git_env() -> dict[str, str]:
     out: dict[str, str] = {}
     for key, value in os.environ.items():
@@ -113,6 +120,7 @@ def _sanitized_git_env() -> dict[str, str]:
         if key.startswith("GIT_CONFIG"):
             continue
         out[key] = value
+    out["GIT_OPTIONAL_LOCKS"] = "0"
     return out
 
 
@@ -294,7 +302,8 @@ def _ps1_script(
 ) -> str:
     root = str(repository_root.resolve())
     git_exe = str(Path(git_executable).resolve()) if git_executable else git_executable
-    _refuse_unsafe_interpolants(root, reviewed_head, expected_digest, git_exe)
+    python_exe = str(Path(sys.executable).resolve())
+    _refuse_unsafe_interpolants(root, reviewed_head, expected_digest, git_exe, python_exe)
     return f"""# Sentinel Research Lab — SI2 worker launcher (OUTSIDE repository; unversioned root)
 # Update expected digest in the same operator action as the authorization line.
 $ErrorActionPreference = 'Stop'
@@ -302,6 +311,7 @@ $ReviewedHead = {_ps1_single_quote(reviewed_head)}
 $RepositoryRoot = {_ps1_single_quote(root)}
 $ExpectedVerifierDigest = {_ps1_single_quote(expected_digest)}
 $GitExecutable = {_ps1_single_quote(git_exe)}
+$PythonExecutable = {_ps1_single_quote(python_exe)}
 $VerifierRel = 'tools\\self_improvement_v2\\trusted_origin.py'
 $VerifierPath = Join-Path $RepositoryRoot $VerifierRel
 {_git_env_unset_ps1()}if (-not (Test-Path -LiteralPath $VerifierPath)) {{
@@ -320,9 +330,10 @@ if ($actual -ne $ExpectedVerifierDigest) {{
 }}
 $env:SRL_REPOSITORY_ROOT = $RepositoryRoot
 $env:SRL_REVIEWED_HEAD = $ReviewedHead
+$env:GIT_OPTIONAL_LOCKS = '0'
 Set-Location -LiteralPath $RepositoryRoot
 Write-Host "launcher ok: HEAD=$ReviewedHead verifier=$actual git=$GitExecutable"
-& python -m tools.self_improvement_v2.runtime_bridge @args
+& $PythonExecutable -P -m tools.self_improvement_v2.runtime_bridge @args
 exit $LASTEXITCODE
 """
 
@@ -336,7 +347,14 @@ def _sh_script(
 ) -> str:
     root = str(repository_root.resolve())
     git_exe = str(Path(git_executable).resolve()) if git_executable else git_executable
-    _refuse_unsafe_interpolants(root, reviewed_head, expected_digest, git_exe)
+    python_exe = str(Path(sys.executable).resolve())
+    _refuse_unsafe_interpolants(root, reviewed_head, expected_digest, git_exe, python_exe)
+    digest_helper = (
+        f"{_bash_single_quote(python_exe)} -P -c "
+        "'import hashlib,sys; from pathlib import Path; "
+        "data=Path(sys.argv[1]).read_bytes().replace(b\"\\\\r\\\\n\", b\"\\\\n\"); "
+        "print(hashlib.sha256(data).hexdigest())'"
+    )
     return f"""#!/usr/bin/env bash
 # Sentinel Research Lab — SI2 worker launcher (OUTSIDE repository; unversioned root)
 set -euo pipefail
@@ -344,21 +362,23 @@ REVIEWED_HEAD={_bash_single_quote(reviewed_head)}
 REPOSITORY_ROOT={_bash_single_quote(root)}
 EXPECTED_VERIFIER_DIGEST={_bash_single_quote(expected_digest)}
 GIT_EXECUTABLE={_bash_single_quote(git_exe)}
+PYTHON_EXECUTABLE={_bash_single_quote(python_exe)}
 VERIFIER_PATH="$REPOSITORY_ROOT/tools/self_improvement_v2/trusted_origin.py"
 {_git_env_unset_bash()}if [[ ! -f "$VERIFIER_PATH" ]]; then
   echo "launcher refuse: verifier missing at $VERIFIER_PATH" >&2
   exit 2
 fi
-ACTUAL="$(python3 -c 'import hashlib,sys; from pathlib import Path; data=Path(sys.argv[1]).read_bytes().replace(b"\\r\\n", b"\\n"); print(hashlib.sha256(data).hexdigest())' "$VERIFIER_PATH")"
+ACTUAL="$({digest_helper} "$VERIFIER_PATH")"
 if [[ "$ACTUAL" != "$EXPECTED_VERIFIER_DIGEST" ]]; then
   echo "launcher refuse: trusted_origin digest mismatch expected=$EXPECTED_VERIFIER_DIGEST actual=$ACTUAL" >&2
   exit 3
 fi
 export SRL_REPOSITORY_ROOT="$REPOSITORY_ROOT"
 export SRL_REVIEWED_HEAD="$REVIEWED_HEAD"
+export GIT_OPTIONAL_LOCKS=0
 cd "$REPOSITORY_ROOT"
 echo "launcher ok: HEAD=$REVIEWED_HEAD verifier=$ACTUAL git=$GIT_EXECUTABLE"
-exec python3 -m tools.self_improvement_v2.runtime_bridge "$@"
+{bash_runtime_bridge_exec_line(python_exe)}
 """
 
 
@@ -381,6 +401,10 @@ def install_launcher(
     except Exception as exc:
         raise ValueError(str(exc)) from exc
     env_boolean_is_not_authority()
+    for env_name in ("SRL_WORKER_TOKEN_FILE", "SRL_TOPOLOGY_CONSUME_TOKEN_FILE"):
+        raw = str(os.environ.get(env_name) or "").strip()
+        if raw:
+            assert_host_secret_path(raw)
     sanitized = sanitized_docker_env({"DOCKER_HOST": "tcp://127.0.0.1:1", "PATH": "/usr/bin"})
     if "DOCKER_HOST" in sanitized:
         raise ValueError("docker environment sanitizer failed closed")
@@ -399,6 +423,9 @@ def install_launcher(
     target = (install_dir or default_launcher_dir()).resolve()
     assert_outside_repository(target, root)
     target.mkdir(parents=True, exist_ok=True)
+    host_secrets = (target / "secrets").resolve()
+    host_secrets.mkdir(parents=True, exist_ok=True)
+    assert_host_secret_path(host_secrets / "srl_worker_token")
 
     ps1_path = target / LAUNCHER_PS1_NAME
     sh_path = target / LAUNCHER_SH_NAME

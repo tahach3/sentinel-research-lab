@@ -31,11 +31,14 @@ from tools.self_improvement_v2.topology_attest import (
     TopologyAttestationError,
     TopologyAttestorHandler,
     assert_worker_topology,
+    compose_worker_digest_d,
     docker_argv,
     env_boolean_is_not_authority,
     identity_sha256,
+    load_worker_image_pin,
     loopback_8765_inodes,
     mint_pass_envelope,
+    network_mode_shares_n8n,
     sanitized_docker_env,
     serve_attestor,
     validate_docker_endpoint,
@@ -155,7 +158,13 @@ class FakeDocker:
                     "Binds": [],
                 },
                 "Mounts": [],
-                "Config": {"Image": self.config_image},
+                "Config": {
+                    "Image": self.config_image,
+                    "Env": [
+                        "SRL_WORKER_TOKEN_FILE=/run/secrets/srl_worker_token",
+                        "SRL_TOPOLOGY_CONSUME_TOKEN_FILE=/run/secrets/srl_topology_consume_token",
+                    ],
+                },
                 "Image": self.image_id,
                 "NetworkSettings": {},
             }
@@ -193,9 +202,16 @@ class FakeDocker:
             rec = self._inspect(cid)
             return f"{rec['Id']} {rec['HostConfig']['NetworkMode']} {rec['State']['Status']}"
         if args[:2] == ["image", "inspect"]:
-            return f"{self.image_id} {json.dumps(self.repo_digests)}"
+            lid = getattr(self, "inspect_image_id", None) or self.image_id
+            return f"{lid} {json.dumps(self.repo_digests)}"
         if args[0] == "exec" and args[2] == "readlink":
-            return self.netns
+            cid = args[1]
+            info = self.containers.get(cid) or {}
+            if "netns" in info:
+                return str(info["netns"])
+            if cid in {self.n8n_id, self.worker_id, self.n8n_id[:12], self.worker_id[:12]}:
+                return self.netns
+            return "net:[1]"
         if args[0] == "exec" and args[-1] == "/proc/net/tcp":
             return self.tcp
         if args[0] == "exec" and args[-1] == "/proc/net/tcp6":
@@ -613,3 +629,82 @@ def test_timestamp_rewrite_refuses_on_reassert() -> None:
     fake.worker_started = "rewritten"
     with pytest.raises(TopologyAttestationError):
         assert_worker_topology(docker=docker, reviewed_head=HEAD, mint=mint)
+
+
+def test_sidecar_service_n8n_netns_refused() -> None:
+    fake = FakeDocker()
+    sidecar = "1" * 64
+    fake.containers[sidecar] = {"mode": "service:n8n", "status": "running"}
+    docker = DockerTransport(ENDPOINT, runner=fake.runner)
+    with pytest.raises(TopologyAttestationError, match="host-wide"):
+        assert_worker_topology(docker=docker, reviewed_head=HEAD)
+
+
+def test_sidecar_sharing_n8n_netns_inode_refused() -> None:
+    fake = FakeDocker()
+    sidecar = "2" * 64
+    fake.containers[sidecar] = {"mode": "bridge", "status": "running", "netns": "net:[99]"}
+    docker = DockerTransport(ENDPOINT, runner=fake.runner)
+    with pytest.raises(TopologyAttestationError, match="host-wide"):
+        assert_worker_topology(docker=docker, reviewed_head=HEAD)
+
+
+def test_wrong_image_pin_d_refused() -> None:
+    fake = FakeDocker()
+    fake.config_image = "srl-worker:si2-option-a@sha256:" + ("0" * 64)
+    fake.repo_digests = [fake.config_image]
+    docker = DockerTransport(ENDPOINT, runner=fake.runner)
+    with pytest.raises(TopologyAttestationError, match="worker_image_pin"):
+        assert_worker_topology(docker=docker, reviewed_head=HEAD)
+
+
+def test_wrong_image_pin_l_refused() -> None:
+    fake = FakeDocker()
+    fake.image_id = "sha256:" + ("d" * 64)
+    fake.inspect_image_id = fake.image_id
+    docker = DockerTransport(ENDPOINT, runner=fake.runner)
+    with pytest.raises(TopologyAttestationError, match="worker_image_pin"):
+        assert_worker_topology(docker=docker, reviewed_head=HEAD)
+
+
+def test_worker_config_env_token_refused() -> None:
+    fake = FakeDocker()
+    original = fake._inspect
+
+    def poisoned(cid: str) -> dict[str, Any]:
+        rec = original(cid)
+        if cid in {fake.worker_id, fake.worker_id[:12]}:
+            rec = dict(rec)
+            rec["Config"] = dict(rec.get("Config") or {})
+            rec["Config"]["Env"] = ["SRL_WORKER_TOKEN=leaked-secret"]
+        return rec
+
+    fake._inspect = poisoned  # type: ignore[method-assign]
+    docker = DockerTransport(ENDPOINT, runner=fake.runner)
+    with pytest.raises(TopologyAttestationError, match="Config.Env"):
+        assert_worker_topology(docker=docker, reviewed_head=HEAD)
+
+
+def test_sanitized_docker_env_drops_credentials() -> None:
+    env = sanitized_docker_env(
+        {key: "x" for key in DOCKER_ENV_BLOCKLIST}
+        | {"PATH": "/bin", "SRL_WORKER_TOKEN": "secret", "AWS_SECRET_ACCESS_KEY": "x"}
+    )
+    for key in DOCKER_ENV_BLOCKLIST:
+        assert key not in env
+    assert "SRL_WORKER_TOKEN" not in env
+    assert "AWS_SECRET_ACCESS_KEY" not in env
+    assert env["PATH"] == "/bin"
+
+
+def test_network_mode_shares_n8n_variants() -> None:
+    assert network_mode_shares_n8n("service:n8n", N8N_ID)
+    assert network_mode_shares_n8n(f"container:{N8N_ID}", N8N_ID)
+    assert network_mode_shares_n8n(f"container:{N8N_ID[:12]}", N8N_ID)
+    assert network_mode_shares_n8n("container:n8n", N8N_ID)
+    assert not network_mode_shares_n8n("bridge", N8N_ID)
+
+
+def test_compose_and_pin_d_agree() -> None:
+    pin = load_worker_image_pin()
+    assert compose_worker_digest_d() == pin["worker_image_digest_D"]

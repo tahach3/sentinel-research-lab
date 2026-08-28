@@ -23,6 +23,7 @@ from tools.self_improvement_v2.agent_runtime_contract import (
     load_design_workflow,
 )
 from tools.self_improvement_v2.launcher.install_launcher import (
+    bash_runtime_bridge_exec_line,
     compute_verifier_digest,
     install_launcher,
 )
@@ -163,7 +164,7 @@ def test_d2_launcher_matching_digest_sets_anchors(tmp_path: Path) -> None:
     sh = Path(result["launch_worker_sh"])
     text = sh.read_text(encoding="utf-8")
     text = text.replace(
-        'exec python3 -m tools.self_improvement_v2.runtime_bridge "$@"',
+        bash_runtime_bridge_exec_line(),
         'printf "ROOT=%s\\nHEAD=%s\\n" "$SRL_REPOSITORY_ROOT" "$SRL_REVIEWED_HEAD"; exit 0',
     )
     sh.write_text(text, encoding="utf-8")

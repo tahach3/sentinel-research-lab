@@ -4,6 +4,7 @@
   "image_name": "srl-worker",
   "image_tag": "si2-option-a",
   "worker_image_digest_D": "sha256:46bcb0fcfb524746d95b97800c8b7a7ca9964a30bd039ac22697750b393e9936",
+  "worker_image_id_L": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
   "dockerfile_relpath": "docker/srl-worker/Dockerfile",
   "dockerfile_sha256": "46bcb0fcfb524746d95b97800c8b7a7ca9964a30bd039ac22697750b393e9936"
 }

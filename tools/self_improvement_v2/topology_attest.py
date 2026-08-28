@@ -49,6 +49,47 @@ DOCKER_ENV_BLOCKLIST = (
     "DOCKER_API_VERSION",
 )
 
+DOCKER_ENV_ALLOWLIST = frozenset(
+    {
+        "PATH",
+        "SYSTEMROOT",
+        "SYSTEMDRIVE",
+        "WINDIR",
+        "COMSPEC",
+        "PATHEXT",
+        "TEMP",
+        "TMP",
+        "TMPDIR",
+        "HOME",
+        "USER",
+        "USERNAME",
+        "LANG",
+        "LC_ALL",
+        "PROGRAMDATA",
+        "PROGRAMFILES",
+        "USERPROFILE",
+    }
+)
+DOCKER_ENV_CREDENTIAL_FRAGMENTS = (
+    "TOKEN",
+    "SECRET",
+    "PASSWORD",
+    "API_KEY",
+    "CREDENTIAL",
+)
+WORKER_IMAGE_PIN_REL = Path("specs/self_improvement/v2/worker_image_pin.json")
+COMPOSE_REL = Path("docker-compose.yml")
+FORBIDDEN_CONTAINER_ENV = frozenset(
+    {
+        "SRL_WORKER_TOKEN",
+        "SRL_TOPOLOGY_CONSUME_TOKEN",
+        "SRL_TOPOLOGY_ATTEST_TOKEN",
+        *DOCKER_ENV_BLOCKLIST,
+    }
+)
+_COMPOSE_WORKER_IMAGE_RE = re.compile(
+    r"image:\s*srl-worker:si2-option-a@sha256:([0-9a-f]{64})"
+)
 LOOPBACK_8765_HEX = "0100007F:223D"
 LISTEN_STATE = "0A"
 _ID_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -126,9 +167,17 @@ def validate_docker_endpoint(endpoint: str | None) -> str:
 
 
 def sanitized_docker_env(base: dict[str, str] | None = None) -> dict[str, str]:
-    env = dict(os.environ if base is None else base)
-    for key in DOCKER_ENV_BLOCKLIST:
-        env.pop(key, None)
+    """Allowlist-only docker child env. Never inherit DOCKER_* or credential keys."""
+    source = os.environ if base is None else base
+    env: dict[str, str] = {}
+    for key in DOCKER_ENV_ALLOWLIST:
+        val = source.get(key)
+        if val:
+            env[key] = val
+    for key in list(env):
+        upper = key.upper()
+        if key in DOCKER_ENV_BLOCKLIST or any(frag in upper for frag in DOCKER_ENV_CREDENTIAL_FRAGMENTS):
+            del env[key]
     return env
 
 
@@ -137,6 +186,56 @@ def docker_argv(endpoint: str, args: list[str]) -> list[str]:
     if "--context" in args or "--config" in args:
         raise TopologyAttestationError("docker --context/--config is forbidden")
     return ["docker", "-H", ep, *args]
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def load_worker_image_pin(root: Path | None = None) -> dict[str, Any]:
+    pin_path = (root or _repo_root()) / WORKER_IMAGE_PIN_REL
+    try:
+        pin = json.loads(pin_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise TopologyAttestationError("worker image pin missing or invalid") from exc
+    if not isinstance(pin, dict):
+        raise TopologyAttestationError("worker image pin must be an object")
+    digest = pin.get("worker_image_digest_D")
+    if not isinstance(digest, str) or _SHA_RE.fullmatch(digest) is None:
+        raise TopologyAttestationError("worker image pin D malformed")
+    return pin
+
+
+def compose_worker_digest_d(root: Path | None = None) -> str:
+    text = ((root or _repo_root()) / COMPOSE_REL).read_text(encoding="utf-8")
+    match = _COMPOSE_WORKER_IMAGE_RE.search(text)
+    if match is None:
+        raise TopologyAttestationError("compose worker image pin missing")
+    return "sha256:" + match.group(1)
+
+
+def network_mode_shares_n8n(mode: str, n8n_id: str) -> bool:
+    if mode == "service:n8n":
+        return True
+    if not mode.startswith("container:"):
+        return False
+    target = mode.split(":", 1)[1].strip()
+    if target in {"n8n", n8n_id}:
+        return True
+    if 12 <= len(target) < 64 and n8n_id.startswith(target):
+        return True
+    return False
+
+
+def _assert_dockerfile_pin(pin: dict[str, Any], root: Path) -> None:
+    rel = pin.get("dockerfile_relpath")
+    expected = pin.get("dockerfile_sha256")
+    if not isinstance(rel, str) or not isinstance(expected, str) or len(expected) != 64:
+        raise TopologyAttestationError("worker image pin dockerfile fields missing")
+    path = root / rel
+    digest = hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+    if digest != expected:
+        raise TopologyAttestationError("Dockerfile bytes do not match worker image pin")
 
 
 def _fail(message: str) -> None:
@@ -227,6 +326,13 @@ class DockerInspect:
     @property
     def config_image(self) -> str:
         return str((self.raw.get("Config") or {}).get("Image") or "")
+
+    @property
+    def config_env(self) -> list[str]:
+        raw = (self.raw.get("Config") or {}).get("Env") or []
+        if not isinstance(raw, list):
+            return []
+        return [str(item) for item in raw]
 
     @property
     def port_bindings(self) -> dict[str, Any]:
@@ -377,6 +483,23 @@ def assert_worker_topology(
         _fail("empty RepoDigests refuses")
     if not any(str(item).endswith("@" + digest_d) or str(item) == digest_d for item in repo_digests):
         _fail("RepoDigests must contain digest D")
+    root = _repo_root()
+    pin = load_worker_image_pin(root)
+    pin_d = str(pin["worker_image_digest_D"])
+    if digest_d != pin_d:
+        _fail("worker image digest D does not match worker_image_pin.json")
+    compose_d = compose_worker_digest_d(root)
+    if compose_d != pin_d:
+        _fail("compose worker image pin does not match worker_image_pin.json")
+    pin_l = pin.get("worker_image_id_L")
+    if isinstance(pin_l, str) and pin_l:
+        if pin_l != worker.image_id:
+            _fail("worker image id L does not match worker_image_pin.json")
+    _assert_dockerfile_pin(pin, root)
+    for entry in worker.config_env:
+        name = entry.split("=", 1)[0]
+        if name in FORBIDDEN_CONTAINER_ENV:
+            _fail("worker Config.Env must not carry tokens or DOCKER_*")
 
     n8n_ns = docker.run(["exec", n8n_id, "readlink", "/proc/1/ns/net"]).strip()
     worker_ns = docker.run(["exec", worker_id, "readlink", "/proc/1/ns/net"]).strip()
@@ -432,7 +555,16 @@ def assert_worker_topology(
             _fail("host-wide inspect malformed")
         full_id, mode = bits[0], bits[1]
         _require_id(full_id, "inspected container id")
-        if full_id == n8n_id or mode == expected_mode:
+        status = bits[2] if len(bits) > 2 else ""
+        shares = full_id == n8n_id or network_mode_shares_n8n(mode, n8n_id)
+        if not shares and status == "running" and full_id != worker_id:
+            try:
+                ns = docker.run(["exec", full_id, "readlink", "/proc/1/ns/net"]).strip()
+            except TopologyAttestationError:
+                ns = ""
+            if ns and ns == n8n_ns:
+                shares = True
+        if shares:
             members.append(full_id)
     netset = sorted(set(members))
     if netset != sorted({n8n_id, worker_id}):

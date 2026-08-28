@@ -74,6 +74,15 @@ def test_validation_env_disables_bytecode() -> None:
     assert env["PYTHONDONTWRITEBYTECODE"] == "1"
 
 
+def test_host_refuses_container_secret_path_defaults() -> None:
+    from tools.self_improvement_v2.launcher.paths import assert_host_secret_path
+    from tools.self_improvement_v2.runtime_config import DEFAULT_TOKEN_FILE
+
+    assert DEFAULT_TOKEN_FILE.startswith("/run/secrets/")
+    with pytest.raises(ValueError):
+        assert_host_secret_path(DEFAULT_TOKEN_FILE)
+
+
 def test_p3c1_mode_refuses_wrong_surfaces(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = tmp_path / "sentinel-research-lab"
     init_temp_repo(repo)

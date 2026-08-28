@@ -46,6 +46,7 @@ def _sanitized_git_env() -> dict[str, str]:
     # Neutralize inherited credential / signing helpers.
     env["GIT_CONFIG_COUNT"] = "0"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["GIT_OPTIONAL_LOCKS"] = "0"
     return env
 
 
@@ -75,6 +76,8 @@ def run_git(
         prefix.extend(GIT_IDENTITY)
     if extra_config:
         prefix.extend(extra_config)
+    if env is None:
+        env = _sanitized_git_env()
     proc = subprocess.run(
         [*prefix, *args],
         cwd=str(cwd),
@@ -325,6 +328,13 @@ class DetachedWorktree:
             self.clone_path = None
             return
         if self.scratch.exists():
+            export_state = self.scratch / "export" / "export_state.json"
+            if export_state.is_file():
+                raise WorkerError(
+                    ERROR_CODES["FAILED_FROZEN"],
+                    "worker must not delete EXPORT_PENDING scratch before host ACK",
+                    state="FAILED_FROZEN",
+                )
             shutil.rmtree(self.scratch, ignore_errors=True)
         self.path = None
         self.clone_path = None
@@ -367,6 +377,13 @@ def remove_worktree(source_root: Path, worktree: Path) -> None:
         )
         run_git(["worktree", "prune"], cwd=clone, check=False, env=_sanitized_git_env())
     if scratch.exists():
+        export_state = scratch / "export" / "export_state.json"
+        if export_state.is_file():
+            raise WorkerError(
+                ERROR_CODES["FAILED_FROZEN"],
+                "worker must not delete EXPORT_PENDING scratch before host ACK",
+                state="FAILED_FROZEN",
+            )
         shutil.rmtree(scratch, ignore_errors=True)
 
 
@@ -534,6 +551,7 @@ def package_candidate_export(
         "execution_id": execution_id,
         "export_ref": ref,
         "candidate_commit": commit,
+        "baseline_sha": baseline_sha,
         "candidate_bundle_sha256": bundle_sha,
         "actual_diff_sha256": diff_sha,
         "state": "NOT_EXPORTED",

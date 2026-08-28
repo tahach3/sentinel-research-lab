@@ -15,6 +15,7 @@ from tools.self_improvement_v2.import_closure import (
     compute_static_import_closure,
 )
 from tools.self_improvement_v2.launcher.install_launcher import (
+    bash_runtime_bridge_exec_line,
     compute_verifier_digest,
     install_launcher,
 )
@@ -153,7 +154,7 @@ def test_launcher_path_starts_worker_health(tmp_path: Path, monkeypatch: pytest.
         """
     )
     text = text.replace(
-        'exec python3 -m tools.self_improvement_v2.runtime_bridge "$@"',
+        bash_runtime_bridge_exec_line(),
         replacement,
     )
     sh.write_text(text, encoding="utf-8")
@@ -201,7 +202,7 @@ def test_launcher_wrong_head_refuses_after_digest_ok(tmp_path: Path) -> None:
     text = sh.read_text(encoding="utf-8")
     text = text.replace(f"REVIEWED_HEAD='{head}'", "REVIEWED_HEAD='" + ("b" * 40) + "'")
     text = text.replace(
-        'exec python3 -m tools.self_improvement_v2.runtime_bridge "$@"',
+        bash_runtime_bridge_exec_line(),
         "python3 -c 'from tools.self_improvement_v2.trusted_origin import assert_trusted_code_origin; assert_trusted_code_origin()'",
     )
     sh.write_text(text, encoding="utf-8")
@@ -209,3 +210,50 @@ def test_launcher_wrong_head_refuses_after_digest_ok(tmp_path: Path) -> None:
     proc = subprocess.run(["bash", str(sh)], capture_output=True, text=True, env=env, cwd=str(REPO))
     assert proc.returncode != 0
     assert "reviewed HEAD identity mismatch" in (proc.stderr + proc.stdout)
+
+
+def test_host_secret_path_refuses_container_run_secrets() -> None:
+    from tools.self_improvement_v2.launcher.paths import (
+        assert_host_secret_path,
+        default_host_secret_dir,
+        is_container_secret_path,
+    )
+    from tools.self_improvement_v2.runtime_config import (
+        DEFAULT_CONSUME_TOKEN_FILE,
+        DEFAULT_TOKEN_FILE,
+    )
+
+    assert DEFAULT_TOKEN_FILE == "/run/secrets/srl_worker_token"
+    assert DEFAULT_CONSUME_TOKEN_FILE == "/run/secrets/srl_topology_consume_token"
+    assert is_container_secret_path(DEFAULT_TOKEN_FILE)
+    assert is_container_secret_path(DEFAULT_CONSUME_TOKEN_FILE)
+    with pytest.raises(ValueError, match="container"):
+        assert_host_secret_path(DEFAULT_TOKEN_FILE)
+    with pytest.raises(ValueError, match="container"):
+        assert_host_secret_path("/run/secrets/srl_topology_consume_token")
+    host_dir = default_host_secret_dir()
+    assert host_dir.name == "secrets"
+    assert "SentinelResearchLab" in str(host_dir)
+    assert not is_container_secret_path(host_dir / "srl_worker_token")
+    assert_host_secret_path(host_dir / "srl_worker_token")
+
+
+def test_launcher_scripts_bind_sys_executable_and_dash_p(tmp_path: Path) -> None:
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip()
+    digest = compute_verifier_digest(REPO)
+    installed = install_launcher(
+        repository_root=REPO,
+        docker_endpoint="unix:///var/run/docker.sock",
+        reviewed_head=head,
+        install_dir=tmp_path / "SentinelResearchLab",
+        expected_digest=digest,
+    )
+    sh = Path(installed["launch_worker_sh"]).read_text(encoding="utf-8")
+    ps1 = Path(installed["launch_worker_ps1"]).read_text(encoding="utf-8")
+    exe = str(Path(__import__("sys").executable).resolve())
+    assert exe in sh
+    assert "-P -m tools.self_improvement_v2.runtime_bridge" in sh
+    assert "exec python3 -m" not in sh
+    assert exe in ps1 or exe.replace("\\", "/") in ps1.replace("\\", "/")
+    assert "-P -m tools.self_improvement_v2.runtime_bridge" in ps1
+    assert (tmp_path / "SentinelResearchLab" / "secrets").is_dir()

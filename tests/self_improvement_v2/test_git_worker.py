@@ -120,6 +120,17 @@ def test_create_local_commit_neutralizes_hooks_and_signing(tmp_path: Path):
     wt.cleanup()
 
 
+def test_sanitized_git_env_sets_optional_locks_and_git_ops_work(tmp_path: Path):
+    from tools.self_improvement_v2.git_worker import _sanitized_git_env, run_git
+
+    env = _sanitized_git_env()
+    assert env["GIT_OPTIONAL_LOCKS"] == "0"
+    repo = tmp_path / "r"
+    baseline = init_temp_repo(repo)
+    proc = run_git(["rev-parse", "HEAD"], cwd=repo, env=env)
+    assert proc.stdout.decode().strip() == baseline
+
+
 def test_create_local_commit_does_not_use_environ_copy():
     import ast
     from tools.self_improvement_v2 import git_worker

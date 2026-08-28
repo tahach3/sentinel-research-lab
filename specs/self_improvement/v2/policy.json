@@ -85,6 +85,7 @@
       "commands": [
         [
           "python",
+          "-P",
           "-m",
           "tools.self_improvement_v2.profile_checks",
           "self_improvement_tests"
@@ -98,6 +99,7 @@
       "commands": [
         [
           "python",
+          "-P",
           "-m",
           "tools.self_improvement_v2.profile_checks",
           "documentation_only"
@@ -111,6 +113,7 @@
       "commands": [
         [
           "python",
+          "-P",
           "-m",
           "tools.self_improvement_v2.profile_checks",
           "python_tooling"
@@ -124,6 +127,7 @@
       "commands": [
         [
           "python",
+          "-P",
           "-m",
           "tools.self_improvement_v2.profile_checks",
           "workflow_design_static"

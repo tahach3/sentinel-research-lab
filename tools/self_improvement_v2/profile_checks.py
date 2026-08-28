@@ -60,4 +60,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    if not getattr(sys.flags, "safe_path", False):
+        print("profile_checks requires python -P", file=sys.stderr)
+        raise SystemExit(2)
     raise SystemExit(main())

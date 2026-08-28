@@ -77,6 +77,21 @@ class TestN8nNetworkTopology(unittest.TestCase):
         self.assertNotIn("/var/run/docker.sock", self.text)
         self.assertNotIn("docker.sock", self.text)
 
+    def test_compose_secret_file_is_host_interpolation_not_run_secrets(self) -> None:
+        self.assertIn("file: ${SRL_WORKER_TOKEN_FILE}", self.text)
+        self.assertIn("file: ${SRL_TOPOLOGY_CONSUME_TOKEN_FILE}", self.text)
+        self.assertNotIn("file: /run/secrets", self.text)
+        self.assertIn("SRL_WORKER_TOKEN_FILE: /run/secrets/srl_worker_token", self.worker)
+        self.assertIn(
+            "SRL_TOPOLOGY_CONSUME_TOKEN_FILE: /run/secrets/srl_topology_consume_token",
+            self.worker,
+        )
+        self.assertNotIn("SRL_WORKER_TOKEN:", self.worker)
+        self.assertIn(
+            "srl-worker:si2-option-a@sha256:46bcb0fcfb524746d95b97800c8b7a7ca9964a30bd039ac22697750b393e9936",
+            self.worker,
+        )
+
     def test_n8n_volumes_and_dependencies_preserved(self) -> None:
         self.assertIn("depends_on:", self.n8n)
         self.assertIn("postgres:", self.n8n)

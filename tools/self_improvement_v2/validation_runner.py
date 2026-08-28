@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -64,12 +65,38 @@ def sanitized_environ(*, pythonpath: str) -> dict[str, str]:
     env["PYTHONNOUSERSITE"] = "1"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONUTF8"] = "1"
+    env["PYTHONSAFEPATH"] = "1"
     # Defense: drop anything that looks like credentials if somehow added.
     for key in list(env):
         upper = key.upper()
         if any(frag in upper for frag in BLOCKED_ENV_FRAGMENTS):
             del env[key]
     return env
+
+
+def bind_python_argv(cmd: list[str]) -> list[str]:
+    """Bind policy argv to sys.executable and keep -P in the launched argv.
+
+    Policy JSON may name a PATH-resolved ``python`` placeholder. The process
+    that actually runs profile_checks must be this interpreter with ``-P``
+    (PEP 668 / 3.11+ safe path). ``-s`` keeps user-site out of sys.path even
+    if PYTHONNOUSERSITE is stripped from the child environment.
+    """
+    if not isinstance(cmd, list) or not cmd or not all(isinstance(x, str) for x in cmd):
+        raise WorkerError(
+            ERROR_CODES["COMMAND_INJECTION"],
+            "command is not a fixed argv array",
+            state="POLICY_REJECTED",
+        )
+    name = Path(cmd[0]).name.lower()
+    if name not in ALLOWED_EXECUTABLES and cmd[0] != sys.executable:
+        raise WorkerError(
+            ERROR_CODES["COMMAND_INJECTION"],
+            f"executable not allowlisted: {cmd[0]}",
+            state="POLICY_REJECTED",
+        )
+    rest = [a for a in cmd[1:] if a not in {"-P", "-s", "-B"}]
+    return [sys.executable, "-P", "-s", "-B", *rest]
 
 
 def _bounded_text(data: bytes, limit: int) -> str:
@@ -108,22 +135,7 @@ def run_validation_profile(
 
     results: list[dict[str, Any]] = []
     for index, cmd in enumerate(commands):
-        if not isinstance(cmd, list) or not cmd or not all(isinstance(x, str) for x in cmd):
-            raise WorkerError(
-                ERROR_CODES["COMMAND_INJECTION"],
-                "command is not a fixed argv array",
-                state="POLICY_REJECTED",
-            )
-        exe = Path(cmd[0]).name.lower()
-        if exe not in ALLOWED_EXECUTABLES and cmd[0] not in ALLOWED_EXECUTABLES:
-            raise WorkerError(
-                ERROR_CODES["COMMAND_INJECTION"],
-                f"executable not allowlisted: {cmd[0]}",
-                state="POLICY_REJECTED",
-            )
-        argv = list(cmd)
-        if Path(argv[0]).name.lower() in ALLOWED_EXECUTABLES and "-B" not in argv:
-            argv.insert(1, "-B")
+        argv = bind_python_argv(cmd)
         try:
             proc = subprocess.run(
                 argv,
