@@ -108,7 +108,7 @@ def resolve_git_executable() -> str:
 
 def bash_runtime_bridge_exec_line(executable: str | None = None) -> str:
     """Host launcher exec line — bind to this interpreter, never PATH ``python``."""
-    exe = executable or sys.executable
+    exe = str(Path(executable or sys.executable).resolve())
     return f"exec {_bash_single_quote(exe)} -P -m tools.self_improvement_v2.runtime_bridge \"$@\""
 
 
@@ -331,6 +331,9 @@ if ($actual -ne $ExpectedVerifierDigest) {{
 $env:SRL_REPOSITORY_ROOT = $RepositoryRoot
 $env:SRL_REVIEWED_HEAD = $ReviewedHead
 $env:GIT_OPTIONAL_LOCKS = '0'
+$env:PYTHONPATH = $RepositoryRoot
+$env:PYTHONNOUSERSITE = '1'
+$env:PYTHONSAFEPATH = '1'
 Set-Location -LiteralPath $RepositoryRoot
 Write-Host "launcher ok: HEAD=$ReviewedHead verifier=$actual git=$GitExecutable"
 & $PythonExecutable -P -m tools.self_improvement_v2.runtime_bridge @args
@@ -370,6 +373,9 @@ fi
 export SRL_REPOSITORY_ROOT="$REPOSITORY_ROOT"
 export SRL_REVIEWED_HEAD="$REVIEWED_HEAD"
 export GIT_OPTIONAL_LOCKS=0
+export PYTHONPATH="$REPOSITORY_ROOT"
+export PYTHONNOUSERSITE=1
+export PYTHONSAFEPATH=1
 cd "$REPOSITORY_ROOT"
 echo "launcher ok: HEAD=$REVIEWED_HEAD verifier=$ACTUAL git=$GIT_EXECUTABLE"
 {bash_runtime_bridge_exec_line(python_exe)}
