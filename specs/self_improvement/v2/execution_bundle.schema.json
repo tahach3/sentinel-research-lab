@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentinel-research-lab.local/self_improvement/v2/execution_bundle.schema.json",
+  "title": "Self-Improvement V2 Execution Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "execution_id",
+    "proposal_id",
+    "proposal_sha256",
+    "policy_sha256",
+    "baseline_sha",
+    "worktree_tree_sha",
+    "actual_diff_sha256",
+    "changed_paths",
+    "changed_paths_sha256",
+    "validation_profile",
+    "validation_results",
+    "validation_results_sha256",
+    "execution_result_sha256",
+    "final_state",
+    "error_codes",
+    "declared_risk",
+    "computed_risk_pre",
+    "effective_risk_pre",
+    "computed_risk_post",
+    "effective_risk_post",
+    "risk_reason_codes_pre",
+    "risk_reason_codes_post",
+    "risk_classifier_version"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0.0"
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "proposal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "proposal_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "baseline_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "worktree_tree_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "actual_diff_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "changed_paths": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 260
+      }
+    },
+    "changed_paths_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "validation_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "validation_profile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "validation_results": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile",
+          "command_index",
+          "status",
+          "exit_code",
+          "error_code",
+          "output_truncated"
+        ],
+        "properties": {
+          "profile": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "command_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "TIMEOUT"
+            ]
+          },
+          "exit_code": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "output_truncated": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        }
+      }
+    },
+    "validation_results_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "execution_result_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "worktree_path_redacted": {
+      "type": "string"
+    },
+    "candidate_id": {
+      "type": "string"
+    },
+    "repair_attempt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "final_state": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "error_codes": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "declared_risk": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "PROHIBITED"]
+    },
+    "computed_risk_pre": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "PROHIBITED"]
+    },
+    "effective_risk_pre": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "PROHIBITED"]
+    },
+    "computed_risk_post": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "PROHIBITED"]
+    },
+    "effective_risk_post": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "PROHIBITED"]
+    },
+    "risk_reason_codes_pre": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "risk_reason_codes_post": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "risk_classifier_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "synthetic_control": {
+      "type": "boolean",
+      "description": "Zone P synthetic probe marker."
+    },
+    "probe_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "Zone P probe identifier when synthetic_control is true."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "synthetic_control": {
+            "const": true
+          }
+        },
+        "required": [
+          "synthetic_control"
+        ]
+      },
+      "then": {
+        "required": [
+          "probe_id"
+        ]
+      }
+    }
+  ]
+}

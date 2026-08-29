@@ -1,0 +1,1308 @@
+{
+  "artifact_type": "null_semantics_oracle",
+  "schema_version": "1.1.0",
+  "authority_namespace": "round5a_kernel",
+  "prohibited": {
+    "arbitrary_sql": true,
+    "arbitrary_python": true,
+    "executable_strings": true,
+    "shell_commands": true,
+    "templates": true,
+    "eval_content": true,
+    "oid_identities": true
+  },
+  "cases": [
+    {
+      "case_id": "missing_left_eq",
+      "contexts": {
+        "source_record": {
+          "b": "x"
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "eq",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "INVALID"
+    },
+    {
+      "case_id": "missing_right_eq",
+      "contexts": {
+        "source_record": {
+          "a": "x"
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "eq",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "INVALID"
+    },
+    {
+      "case_id": "null_null_eq_NULL_IS_VALUE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": null
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "eq",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "TRUE"
+    },
+    {
+      "case_id": "null_nonnull_eq_NULL_IS_VALUE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": "x"
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "eq",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "FALSE"
+    },
+    {
+      "case_id": "null_null_eq_NULL_IS_UNKNOWN",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": null
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "eq",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_IS_UNKNOWN"
+      },
+      "expected": "UNKNOWN"
+    },
+    {
+      "case_id": "null_nonnull_eq_NULL_IS_UNKNOWN",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": "x"
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "eq",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_IS_UNKNOWN"
+      },
+      "expected": "UNKNOWN"
+    },
+    {
+      "case_id": "null_null_eq_NULL_FAILS_PREDICATE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": null
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "eq",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_FAILS_PREDICATE"
+      },
+      "expected": "FALSE"
+    },
+    {
+      "case_id": "null_nonnull_eq_NULL_FAILS_PREDICATE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": "x"
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "eq",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_FAILS_PREDICATE"
+      },
+      "expected": "FALSE"
+    },
+    {
+      "case_id": "null_null_ne_NULL_IS_VALUE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": null
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "ne",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "FALSE"
+    },
+    {
+      "case_id": "null_nonnull_ne_NULL_IS_VALUE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": "x"
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "ne",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "TRUE"
+    },
+    {
+      "case_id": "null_null_ne_NULL_IS_UNKNOWN",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": null
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "ne",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_IS_UNKNOWN"
+      },
+      "expected": "UNKNOWN"
+    },
+    {
+      "case_id": "null_nonnull_ne_NULL_IS_UNKNOWN",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": "x"
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "ne",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_IS_UNKNOWN"
+      },
+      "expected": "UNKNOWN"
+    },
+    {
+      "case_id": "null_null_ne_NULL_FAILS_PREDICATE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": null
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "ne",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_FAILS_PREDICATE"
+      },
+      "expected": "FALSE"
+    },
+    {
+      "case_id": "null_nonnull_ne_NULL_FAILS_PREDICATE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": "x"
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "ne",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "null_semantics": "NULL_FAILS_PREDICATE"
+      },
+      "expected": "FALSE"
+    },
+    {
+      "case_id": "null_ordered_lt_NULL_IS_VALUE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": 1
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "lt",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "typed_literal",
+          "typed_literal": {
+            "data_type": "integer",
+            "value": 1
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "INVALID"
+    },
+    {
+      "case_id": "null_ordered_lte_NULL_IS_VALUE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": 1
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "lte",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "typed_literal",
+          "typed_literal": {
+            "data_type": "integer",
+            "value": 1
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "INVALID"
+    },
+    {
+      "case_id": "null_ordered_gt_NULL_IS_VALUE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": 1
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "gt",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "typed_literal",
+          "typed_literal": {
+            "data_type": "integer",
+            "value": 1
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "INVALID"
+    },
+    {
+      "case_id": "null_ordered_gte_NULL_IS_VALUE",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": 1
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "gte",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "typed_literal",
+          "typed_literal": {
+            "data_type": "integer",
+            "value": 1
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "INVALID"
+    },
+    {
+      "case_id": "incompatible_types_eq",
+      "contexts": {
+        "source_record": {
+          "a": "1",
+          "b": 1
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "eq",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "right": {
+          "operand_kind": "typed_literal",
+          "typed_literal": {
+            "data_type": "integer",
+            "value": 1
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "INVALID"
+    },
+    {
+      "case_id": "valid_typed_equality",
+      "contexts": {
+        "source_record": {
+          "a": "reserved"
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "eq",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": false
+          }
+        },
+        "right": {
+          "operand_kind": "typed_literal",
+          "typed_literal": {
+            "data_type": "string",
+            "value": "reserved"
+          }
+        },
+        "null_semantics": "NULL_FAILS_PREDICATE"
+      },
+      "expected": "TRUE"
+    },
+    {
+      "case_id": "valid_typed_ordering",
+      "contexts": {
+        "source_record": {
+          "a": 2
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "lt",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "integer",
+            "nullable": false
+          }
+        },
+        "right": {
+          "operand_kind": "typed_literal",
+          "typed_literal": {
+            "data_type": "integer",
+            "value": 5
+          }
+        },
+        "null_semantics": "NULL_FAILS_PREDICATE"
+      },
+      "expected": "TRUE"
+    },
+    {
+      "case_id": "unknown_under_not",
+      "contexts": {
+        "source_record": {
+          "a": null
+        }
+      },
+      "node": {
+        "node": "not",
+        "predicate": {
+          "node": "compare",
+          "op": "eq",
+          "left": {
+            "operand_kind": "field_ref",
+            "field_ref": {
+              "scope": "source_record",
+              "path": [
+                "a"
+              ],
+              "data_type": "string",
+              "nullable": true
+            }
+          },
+          "right": {
+            "operand_kind": "typed_literal",
+            "typed_literal": {
+              "data_type": "string",
+              "value": "x"
+            }
+          },
+          "null_semantics": "NULL_IS_UNKNOWN"
+        }
+      },
+      "expected": "UNKNOWN"
+    },
+    {
+      "case_id": "invalid_under_not",
+      "contexts": {
+        "source_record": {}
+      },
+      "node": {
+        "node": "not",
+        "predicate": {
+          "node": "compare",
+          "op": "eq",
+          "left": {
+            "operand_kind": "field_ref",
+            "field_ref": {
+              "scope": "source_record",
+              "path": [
+                "a"
+              ],
+              "data_type": "string",
+              "nullable": true
+            }
+          },
+          "right": {
+            "operand_kind": "typed_literal",
+            "typed_literal": {
+              "data_type": "string",
+              "value": "x"
+            }
+          },
+          "null_semantics": "NULL_IS_VALUE"
+        }
+      },
+      "expected": "INVALID"
+    },
+    {
+      "case_id": "unknown_inside_all",
+      "contexts": {
+        "source_record": {
+          "a": null,
+          "b": "ok"
+        }
+      },
+      "node": {
+        "node": "all",
+        "predicates": [
+          {
+            "node": "compare",
+            "op": "eq",
+            "left": {
+              "operand_kind": "field_ref",
+              "field_ref": {
+                "scope": "source_record",
+                "path": [
+                  "b"
+                ],
+                "data_type": "string",
+                "nullable": false
+              }
+            },
+            "right": {
+              "operand_kind": "typed_literal",
+              "typed_literal": {
+                "data_type": "string",
+                "value": "ok"
+              }
+            },
+            "null_semantics": "NULL_FAILS_PREDICATE"
+          },
+          {
+            "node": "compare",
+            "op": "eq",
+            "left": {
+              "operand_kind": "field_ref",
+              "field_ref": {
+                "scope": "source_record",
+                "path": [
+                  "a"
+                ],
+                "data_type": "string",
+                "nullable": true
+              }
+            },
+            "right": {
+              "operand_kind": "typed_literal",
+              "typed_literal": {
+                "data_type": "string",
+                "value": "x"
+              }
+            },
+            "null_semantics": "NULL_IS_UNKNOWN"
+          }
+        ]
+      },
+      "expected": "UNKNOWN"
+    },
+    {
+      "case_id": "invalid_inside_all",
+      "contexts": {
+        "source_record": {
+          "b": "ok"
+        }
+      },
+      "node": {
+        "node": "all",
+        "predicates": [
+          {
+            "node": "compare",
+            "op": "eq",
+            "left": {
+              "operand_kind": "field_ref",
+              "field_ref": {
+                "scope": "source_record",
+                "path": [
+                  "b"
+                ],
+                "data_type": "string",
+                "nullable": false
+              }
+            },
+            "right": {
+              "operand_kind": "typed_literal",
+              "typed_literal": {
+                "data_type": "string",
+                "value": "ok"
+              }
+            },
+            "null_semantics": "NULL_FAILS_PREDICATE"
+          },
+          {
+            "node": "compare",
+            "op": "eq",
+            "left": {
+              "operand_kind": "field_ref",
+              "field_ref": {
+                "scope": "source_record",
+                "path": [
+                  "a"
+                ],
+                "data_type": "string",
+                "nullable": true
+              }
+            },
+            "right": {
+              "operand_kind": "typed_literal",
+              "typed_literal": {
+                "data_type": "string",
+                "value": "x"
+              }
+            },
+            "null_semantics": "NULL_IS_VALUE"
+          }
+        ]
+      },
+      "expected": "INVALID"
+    },
+    {
+      "case_id": "unknown_inside_any",
+      "contexts": {
+        "source_record": {
+          "a": null
+        }
+      },
+      "node": {
+        "node": "any",
+        "predicates": [
+          {
+            "node": "compare",
+            "op": "eq",
+            "left": {
+              "operand_kind": "field_ref",
+              "field_ref": {
+                "scope": "source_record",
+                "path": [
+                  "a"
+                ],
+                "data_type": "string",
+                "nullable": true
+              }
+            },
+            "right": {
+              "operand_kind": "typed_literal",
+              "typed_literal": {
+                "data_type": "string",
+                "value": "x"
+              }
+            },
+            "null_semantics": "NULL_IS_UNKNOWN"
+          },
+          {
+            "node": "compare",
+            "op": "eq",
+            "left": {
+              "operand_kind": "field_ref",
+              "field_ref": {
+                "scope": "source_record",
+                "path": [
+                  "a"
+                ],
+                "data_type": "string",
+                "nullable": true
+              }
+            },
+            "right": {
+              "operand_kind": "typed_literal",
+              "typed_literal": {
+                "data_type": "string",
+                "value": "y"
+              }
+            },
+            "null_semantics": "NULL_FAILS_PREDICATE"
+          }
+        ]
+      },
+      "expected": "UNKNOWN"
+    },
+    {
+      "case_id": "invalid_inside_any",
+      "contexts": {
+        "source_record": {
+          "a": null
+        }
+      },
+      "node": {
+        "node": "any",
+        "predicates": [
+          {
+            "node": "compare",
+            "op": "eq",
+            "left": {
+              "operand_kind": "field_ref",
+              "field_ref": {
+                "scope": "source_record",
+                "path": [
+                  "missing"
+                ],
+                "data_type": "string",
+                "nullable": true
+              }
+            },
+            "right": {
+              "operand_kind": "typed_literal",
+              "typed_literal": {
+                "data_type": "string",
+                "value": "x"
+              }
+            },
+            "null_semantics": "NULL_IS_VALUE"
+          },
+          {
+            "node": "compare",
+            "op": "eq",
+            "left": {
+              "operand_kind": "field_ref",
+              "field_ref": {
+                "scope": "source_record",
+                "path": [
+                  "a"
+                ],
+                "data_type": "string",
+                "nullable": true
+              }
+            },
+            "right": {
+              "operand_kind": "typed_literal",
+              "typed_literal": {
+                "data_type": "string",
+                "value": "y"
+              }
+            },
+            "null_semantics": "NULL_IS_UNKNOWN"
+          }
+        ]
+      },
+      "expected": "INVALID"
+    },
+    {
+      "case_id": "empty_all",
+      "contexts": {
+        "source_record": {}
+      },
+      "node": {
+        "node": "all",
+        "predicates": []
+      },
+      "expected": "TRUE"
+    },
+    {
+      "case_id": "empty_any",
+      "contexts": {
+        "source_record": {}
+      },
+      "node": {
+        "node": "any",
+        "predicates": []
+      },
+      "expected": "FALSE"
+    },
+    {
+      "case_id": "null_membership_NULL_IS_VALUE",
+      "contexts": {
+        "source_record": {
+          "a": null
+        }
+      },
+      "node": {
+        "node": "in",
+        "operand": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "values": [
+          {
+            "operand_kind": "typed_literal",
+            "typed_literal": {
+              "data_type": "string",
+              "value": "x"
+            }
+          },
+          {
+            "operand_kind": "typed_literal",
+            "typed_literal": {
+              "data_type": "string",
+              "value": null
+            }
+          }
+        ],
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "TRUE"
+    },
+    {
+      "case_id": "null_membership_NULL_IS_UNKNOWN",
+      "contexts": {
+        "source_record": {
+          "a": null
+        }
+      },
+      "node": {
+        "node": "in",
+        "operand": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "values": [
+          {
+            "operand_kind": "typed_literal",
+            "typed_literal": {
+              "data_type": "string",
+              "value": "x"
+            }
+          },
+          {
+            "operand_kind": "typed_literal",
+            "typed_literal": {
+              "data_type": "string",
+              "value": null
+            }
+          }
+        ],
+        "null_semantics": "NULL_IS_UNKNOWN"
+      },
+      "expected": "UNKNOWN"
+    },
+    {
+      "case_id": "null_membership_NULL_FAILS_PREDICATE",
+      "contexts": {
+        "source_record": {
+          "a": null
+        }
+      },
+      "node": {
+        "node": "in",
+        "operand": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": true
+          }
+        },
+        "values": [
+          {
+            "operand_kind": "typed_literal",
+            "typed_literal": {
+              "data_type": "string",
+              "value": "x"
+            }
+          },
+          {
+            "operand_kind": "typed_literal",
+            "typed_literal": {
+              "data_type": "string",
+              "value": null
+            }
+          }
+        ],
+        "null_semantics": "NULL_FAILS_PREDICATE"
+      },
+      "expected": "FALSE"
+    },
+    {
+      "case_id": "duplicate_set_normalization",
+      "contexts": {
+        "source_record": {
+          "a": [
+            "x",
+            "x",
+            "y"
+          ],
+          "b": [
+            "y",
+            "x"
+          ]
+        }
+      },
+      "node": {
+        "node": "set_equals",
+        "left": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "a"
+            ],
+            "data_type": "string",
+            "nullable": false
+          }
+        },
+        "right": {
+          "operand_kind": "field_ref",
+          "field_ref": {
+            "scope": "source_record",
+            "path": [
+              "b"
+            ],
+            "data_type": "string",
+            "nullable": false
+          }
+        },
+        "null_semantics": "NULL_FAILS_PREDICATE"
+      },
+      "expected": "TRUE"
+    },
+    {
+      "case_id": "unknown_operator",
+      "contexts": {
+        "source_record": {
+          "a": 1
+        }
+      },
+      "node": {
+        "node": "compare",
+        "op": "bogus",
+        "left": {
+          "operand_kind": "typed_literal",
+          "typed_literal": {
+            "data_type": "integer",
+            "value": 1
+          }
+        },
+        "right": {
+          "operand_kind": "typed_literal",
+          "typed_literal": {
+            "data_type": "integer",
+            "value": 1
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "ERROR",
+      "error_code": "KR-PRED-OP"
+    },
+    {
+      "case_id": "unknown_operand_type",
+      "contexts": {
+        "source_record": {}
+      },
+      "node": {
+        "node": "compare",
+        "op": "eq",
+        "left": {
+          "operand_kind": "evil",
+          "evil": {}
+        },
+        "right": {
+          "operand_kind": "typed_literal",
+          "typed_literal": {
+            "data_type": "string",
+            "value": "x"
+          }
+        },
+        "null_semantics": "NULL_IS_VALUE"
+      },
+      "expected": "ERROR",
+      "error_code": "KR-PRED-OPERAND"
+    }
+  ]
+}

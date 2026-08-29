@@ -1,0 +1,158 @@
+{
+  "schema_version": "2.0.0",
+  "authority_namespace": "self_improvement_v2",
+  "autonomous_lane": {
+    "allowed_paths": [
+      "docs/**",
+      "tests/**",
+      "tools/self_improvement_v2/**",
+      "specs/self_improvement/v2/**",
+      "workflows/design/**"
+    ],
+    "forbidden_paths": [
+      "database/migrations/**",
+      "database/init/**",
+      "credentials/**",
+      "secrets/**",
+      ".env",
+      ".env.*",
+      ".git/**",
+      ".github/workflows/**",
+      "workflows/active/**",
+      "specs/round5a/**",
+      "specs/round5a_kernel/**",
+      "tools/round5a_kernel/**",
+      "docs/ROUND_5A_REVISION_8_*",
+      "docs/ROUND_5A_EXECUTABLE_KERNEL_RESET.md"
+    ],
+    "protected_segments": [
+      ".git",
+      "credentials",
+      "credential",
+      "secrets",
+      "secret",
+      "private_keys"
+    ],
+    "protected_basenames": [
+      ".env",
+      ".env.*",
+      "id_rsa",
+      "id_ed25519",
+      "*.pem",
+      "*.key",
+      "*.p12",
+      "*.pfx"
+    ],
+    "limits": {
+      "maximum_changed_files": 8,
+      "maximum_total_added_and_removed_lines": 500,
+      "maximum_patch_size_bytes": 204800,
+      "maximum_autonomous_repair_attempts": 1,
+      "maximum_validation_commands": "predefined_profile_only",
+      "deletion_allowed": false,
+      "rename_allowed": false,
+      "copy_allowed": false,
+      "binary_files_allowed": false,
+      "symbolic_links_allowed": false,
+      "push_allowed": false,
+      "merge_allowed": false,
+      "database_execution_allowed": false,
+      "network_allowed": false,
+      "credential_access_allowed": false
+    },
+    "auto_authorize_risk_levels": [
+      "LOW"
+    ],
+    "risk_levels": [
+      "LOW",
+      "MEDIUM",
+      "HIGH",
+      "PROHIBITED"
+    ],
+    "risk_rules": {
+      "migrations": "PROHIBITED",
+      "security_boundaries": "HIGH",
+      "credentials": "PROHIBITED",
+      "active_workflows": "PROHIBITED",
+      "dependencies": "HIGH",
+      "deployment": "PROHIBITED",
+      "protected_configuration": "HIGH"
+    }
+  },
+  "validation_profiles": {
+    "SELF_IMPROVEMENT_TESTS": {
+      "description": "Run focused self-improvement v2 pytest suite",
+      "commands": [
+        [
+          "python",
+          "-m",
+          "tools.self_improvement_v2.profile_checks",
+          "self_improvement_tests"
+        ]
+      ],
+      "timeout_seconds": 180,
+      "max_output_bytes": 65536
+    },
+    "DOCUMENTATION_ONLY": {
+      "description": "Verify documentation files are UTF-8 text",
+      "commands": [
+        [
+          "python",
+          "-m",
+          "tools.self_improvement_v2.profile_checks",
+          "documentation_only"
+        ]
+      ],
+      "timeout_seconds": 30,
+      "max_output_bytes": 16384
+    },
+    "PYTHON_TOOLING": {
+      "description": "Compile self-improvement v2 package",
+      "commands": [
+        [
+          "python",
+          "-m",
+          "tools.self_improvement_v2.profile_checks",
+          "python_tooling"
+        ]
+      ],
+      "timeout_seconds": 60,
+      "max_output_bytes": 16384
+    },
+    "WORKFLOW_DESIGN_STATIC": {
+      "description": "Validate inactive V2 design workflow JSON",
+      "commands": [
+        [
+          "python",
+          "-m",
+          "tools.self_improvement_v2.profile_checks",
+          "workflow_design_static"
+        ]
+      ],
+      "timeout_seconds": 60,
+      "max_output_bytes": 32768
+    }
+  },
+  "allowed_repositories": [
+    "sentinel-research-lab"
+  ],
+  "forbidden_git_operations": [
+    "push",
+    "merge",
+    "rebase",
+    "config",
+    "clean"
+  ],
+  "review": {
+    "require_independent_from_implementer": true,
+    "pass_requires": {
+      "verdict": "PASS",
+      "contract_alignment": "PASS",
+      "allowed_path_compliance": "PASS",
+      "acceptance_results": "PASS",
+      "security_findings_empty": true,
+      "architecture_findings_empty": true
+    },
+    "maximum_autonomous_repair_attempts": 1
+  }
+}

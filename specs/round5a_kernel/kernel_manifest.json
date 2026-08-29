@@ -1,0 +1,106 @@
+{
+  "artifact_type": "kernel_manifest",
+  "schema_version": "1.1.0",
+  "authority_namespace": "round5a_kernel",
+  "artifacts": [
+    {
+      "path": "docs/ROUND_5A_EXECUTABLE_KERNEL_RESET.md",
+      "sha256": "360bf6da87ffbc93129299a97369206104ed8dd8344da6fca3e069d5b461c81e",
+      "role": "decision_document"
+    },
+    {
+      "path": "specs/round5a_kernel/schema/kernel_contract.schema.json",
+      "sha256": "0322f8b31c96bb39f42ca5931b3e3569b7d5f3e93501f29b478decf2f504df44",
+      "role": "kernel_schema"
+    },
+    {
+      "path": "specs/round5a_kernel/privilege_contract.json",
+      "sha256": "7aa13d1f34a2ebfd5adc3300d38953ccfe783930b3ac2999fa9afe58fadfe2f4",
+      "role": "privilege_contract"
+    },
+    {
+      "path": "specs/round5a_kernel/reconciliation_contract.json",
+      "sha256": "9d3e82da2fa45ad9f44528dfe460c11f1c0cbc3fcd615ff2626f1f46f45ab3b9",
+      "role": "reconciliation_contract"
+    },
+    {
+      "path": "specs/round5a_kernel/oracles/privilege_composition_cases.json",
+      "sha256": "f381dfa6a03325161f3b70b35d8c9656ffed58f535b9adf8b00986805a709c74",
+      "role": "privilege_composition_oracle"
+    },
+    {
+      "path": "specs/round5a_kernel/oracles/null_semantics_cases.json",
+      "sha256": "153ce09b647dee43fc5c65bc63250e98f47b5467fd11120edd88461de8513d07",
+      "role": "null_semantics_oracle"
+    },
+    {
+      "path": "specs/round5a_kernel/oracles/reconciliation_cases.json",
+      "sha256": "2352ad3426011218fbf1b8b7a7d0099431de8d26cea0248b0239627207e31dec",
+      "role": "reconciliation_oracle"
+    },
+    {
+      "path": "specs/round5a_kernel/oracles/state_b_cases.json",
+      "sha256": "f1ad84dc58111a85f6237814d2ac07e86b14af921c8d16f64ca58a9ecbe629de",
+      "role": "state_b_oracle"
+    },
+    {
+      "path": "specs/round5a_kernel/oracles/bounded_domain.json",
+      "sha256": "075d3389620717e32be54b28c3dcb60a90acacdf8a01aeb44d676b0249133c32",
+      "role": "bounded_domain"
+    },
+    {
+      "path": "tools/round5a_kernel/models.py",
+      "sha256": "09f251eb8a3f7e9c44e21959fefef1022299d84bf7b23c17ccfa03089ed6eb02",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/privilege_reference.py",
+      "sha256": "9b07a0df1e9efdf639472616c92e952eff5727891ab38a4a4c1726d7004c24db",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/predicate_engine.py",
+      "sha256": "4b9c56bbf34b2099ebeb5b16f705d925572c7d6e2c6220c31ca75dc7e99c598a",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/classification_reference.py",
+      "sha256": "93aa39e7620321504a8dec6222be900727ef10c230720ee9c4829b2209cfafc5",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/oracle_reference.py",
+      "sha256": "f1383c1e273d02542a809c814091c1a1c972b2901c8ea9472f9d201d07ea430c",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/bounded_domain.py",
+      "sha256": "0e952b4ee06bb1c1335cf6f1065c9510e15bbf0758412246a94838d4b9223786",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/state_a_reference.py",
+      "sha256": "c6ded83e888dbbdb3aa972702e41cb234aea75a975e57156af11ac584339312a",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/state_b_reference.py",
+      "sha256": "e64f57c93d031f269582fa925da4e64549aeb8f3fc8bc36c51613b4eff34ae61",
+      "role": "executable_reference_module"
+    },
+    {
+      "path": "tools/round5a_kernel/validate_kernel.py",
+      "sha256": "4fe88e57a2b750267e79c3a92f9c37065b6eb6673b12503721ffd8460ad03ee3",
+      "role": "executable_reference_module"
+    }
+  ],
+  "prohibited": {
+    "arbitrary_sql": true,
+    "arbitrary_python": true,
+    "executable_strings": true,
+    "shell_commands": true,
+    "templates": true,
+    "eval_content": true,
+    "oid_identities": true
+  }
+}
