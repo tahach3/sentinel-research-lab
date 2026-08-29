@@ -71,3 +71,36 @@ def test_ack_refused_before_verify(tmp_path: Path) -> None:
     (dest / "manifest.json").write_text('{"state":"COPIED_UNVERIFIED"}\n', encoding="utf-8")
     with pytest.raises(CandidateExportError):
         acknowledge_and_cleanup(dest=dest)
+
+
+def test_ack_cleanup_ids_must_match_verified_manifest(tmp_path: Path) -> None:
+    """ACK cleanup identity is manifest-bound; mismatched caller ids fail closed."""
+    _repo, _before, worktree, _result = _finalize(tmp_path)
+    dest = tmp_path / "host-export-ack-bind"
+    manifest = copy_out_and_verify(worktree=worktree, dest=dest)
+    assert manifest["state"] == "VERIFIED"
+    exec_id = str(manifest["execution_id"])
+    with pytest.raises(CandidateExportError, match="execution_id must match"):
+        acknowledge_and_cleanup(dest=dest, execution_id="0" * 32)
+    assert _load_manifest_state(dest) == "VERIFIED"
+    with pytest.raises(CandidateExportError, match="worker_container_id must match"):
+        acknowledge_and_cleanup(
+            dest=dest,
+            execution_id=exec_id,
+            worker_container_id="a" * 64,
+        )
+    assert _load_manifest_state(dest) == "VERIFIED"
+    wrong_scratch = tmp_path / "wrong-scratch"
+    wrong_scratch.mkdir()
+    with pytest.raises(CandidateExportError, match="local_scratch must match"):
+        acknowledge_and_cleanup(dest=dest, local_scratch=wrong_scratch)
+    assert _load_manifest_state(dest) == "VERIFIED"
+    # Matching caller ids (or omitting them) still ACK from verified manifest.
+    acked = acknowledge_and_cleanup(dest=dest, execution_id=exec_id)
+    assert acked["state"] == "ACKNOWLEDGED"
+
+
+def _load_manifest_state(dest: Path) -> str:
+    import json
+
+    return str(json.loads((dest / "manifest.json").read_text(encoding="utf-8"))["state"])

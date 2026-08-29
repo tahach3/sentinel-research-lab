@@ -150,6 +150,8 @@ def _verify_copied_export(*, dest: Path, state: dict[str, Any]) -> dict[str, Any
     ref = str(state.get("export_ref") or "")
     commit = str(state.get("candidate_commit") or "")
     baseline = str(state.get("baseline_sha") or "")
+    if not baseline or len(baseline) != 40:
+        raise CandidateExportError("export_state missing baseline_sha")
     _run_git(
         ["fetch", "--no-tags", str(bundle_dst), f"{ref}:{ref}"],
         cwd=verifier,
@@ -158,31 +160,30 @@ def _verify_copied_export(*, dest: Path, state: dict[str, Any]) -> dict[str, Any
     fetched = _run_git(["rev-parse", ref], cwd=verifier, env=env).stdout.decode().strip()
     if fetched != commit:
         raise CandidateExportError("fresh verifier repo commit mismatch")
-    if baseline:
-        ancestry = subprocess.run(
-            ["git", "merge-base", "--is-ancestor", baseline, commit],
-            cwd=str(verifier),
-            capture_output=True,
-            check=False,
-            env=env,
-            timeout=30,
-        )
-        if ancestry.returncode != 0:
-            raise CandidateExportError("candidate commit is not a descendant of baseline")
-        work = dest / "verifier-work"
-        if work.exists():
-            shutil.rmtree(work)
-        _run_git(["clone", str(verifier), str(work)], cwd=dest, env=env)
-        _run_git(["checkout", "--force", commit], cwd=work, env=env)
-        derived = _run_git(
-            ["diff", "--binary", baseline, commit],
-            cwd=work,
-            env=env,
-        ).stdout
-        if hashlib.sha256(derived).hexdigest() != expected_diff:
-            raise CandidateExportError("re-derived actual.diff SHA-256 mismatch")
-        if derived != diff_dst.read_bytes():
-            raise CandidateExportError("actual.diff bytes do not match re-derived diff")
+    ancestry = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", baseline, commit],
+        cwd=str(verifier),
+        capture_output=True,
+        check=False,
+        env=env,
+        timeout=30,
+    )
+    if ancestry.returncode != 0:
+        raise CandidateExportError("candidate commit is not a descendant of baseline")
+    work = dest / "verifier-work"
+    if work.exists():
+        shutil.rmtree(work)
+    _run_git(["clone", str(verifier), str(work)], cwd=dest, env=env)
+    _run_git(["checkout", "--force", commit], cwd=work, env=env)
+    derived = _run_git(
+        ["diff", "--binary", baseline, commit],
+        cwd=work,
+        env=env,
+    ).stdout
+    if hashlib.sha256(derived).hexdigest() != expected_diff:
+        raise CandidateExportError("re-derived actual.diff SHA-256 mismatch")
+    if derived != diff_dst.read_bytes():
+        raise CandidateExportError("actual.diff bytes do not match re-derived diff")
     alternates = verifier / "objects" / "info" / "alternates"
     if alternates.is_file() and alternates.read_text(encoding="utf-8").strip():
         raise CandidateExportError("verifier repo must not use object alternates")
@@ -190,6 +191,7 @@ def _verify_copied_export(*, dest: Path, state: dict[str, Any]) -> dict[str, Any
         "schema": MANIFEST_SCHEMA,
         "execution_id": state["execution_id"],
         "candidate_commit": commit,
+        "baseline_sha": baseline,
         "export_ref": ref,
         "candidate_bundle_sha256": expected_bundle,
         "actual_diff_sha256": expected_diff,
@@ -290,14 +292,48 @@ def acknowledge_and_cleanup(
     manifest = _load_json(manifest_path)
     if manifest.get("state") != STATE_VERIFIED:
         raise CandidateExportError("ACK requires VERIFIED export")
+    # Cleanup identity is taken from the verified manifest only. Callers may
+    # supply matching ids for defense-in-depth; mismatched ids are refused.
+    manifest_exec = str(manifest.get("execution_id") or "")
+    manifest_worker = manifest.get("worker_container_id")
+    if execution_id is not None and execution_id != manifest_exec:
+        raise CandidateExportError("ACK execution_id must match verified manifest")
+    if worker_container_id is not None and worker_container_id != manifest_worker:
+        raise CandidateExportError("ACK worker_container_id must match verified manifest")
+    execution_id = manifest_exec
+    if docker_endpoint:
+        if not isinstance(manifest_worker, str) or not manifest_worker:
+            raise CandidateExportError("ACK docker cleanup requires manifest worker_container_id")
+        worker_container_id = manifest_worker
+
+    # Resolve and bind cleanup target before durable ACK. Mismatched caller
+    # scratch must fail closed without flipping VERIFIED → ACKNOWLEDGED.
+    scratch: Path | None = None
+    if docker_endpoint:
+        scratch = None
+    elif local_scratch is not None:
+        expected = Path(str(manifest.get("scratch") or "")).resolve()
+        if expected != local_scratch.resolve():
+            raise CandidateExportError("ACK local_scratch must match verified manifest scratch")
+        scratch = local_scratch
+    else:
+        scratch_raw = manifest.get("scratch")
+        if isinstance(scratch_raw, str) and scratch_raw:
+            scratch = Path(scratch_raw)
+
     manifest["state"] = STATE_ACKNOWLEDGED
-    # Durable ACK first (temp → replace), then scratch delete.
+    # Durable ACK first (temp → fsync → replace → dir fsync), then scratch delete.
     tmp = dest / "manifest.json.tmp"
     tmp.write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    with tmp.open("rb") as handle:
+    with tmp.open("r+b") as handle:
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(tmp, manifest_path)
+    dir_fd = os.open(str(dest), os.O_RDONLY)
+    try:
+        os.fsync(dir_fd)
+    finally:
+        os.close(dir_fd)
 
     if docker_endpoint and worker_container_id and execution_id:
         if _EXEC_ID_RE.fullmatch(execution_id) is None:
@@ -327,11 +363,6 @@ def acknowledge_and_cleanup(
                 raise CandidateExportError("docker exec scratch cleanup failed")
         return manifest
 
-    scratch = local_scratch
-    if scratch is None:
-        scratch_raw = manifest.get("scratch")
-        if isinstance(scratch_raw, str) and scratch_raw:
-            scratch = Path(scratch_raw)
     if scratch is not None and scratch.exists():
         shutil.rmtree(scratch, ignore_errors=False)
     return manifest
