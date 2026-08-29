@@ -15,6 +15,11 @@ ROLE_READ_ONLY = "READ_ONLY"
 ROLE_CONTROLLED = "CONTROLLED_LOCAL_MUTATION"
 ROLE_FORBIDDEN = "FORBIDDEN"
 
+REPO_ROLE_DISPOSABLE = "DISPOSABLE_EXECUTION_REPO"
+REPO_ROLE_RO_REVIEWED = "RO_REVIEWED_ROOT"
+REPO_ROLE_DURABLE = "DURABLE_EVIDENCE_REPO"
+REPO_ROLE_UNKNOWN = "UNKNOWN"
+
 READ_ONLY_OPS = frozenset(
     {
         "rev-parse",
@@ -255,6 +260,7 @@ def srl_git_exec(
     isolation: GitIsolation | None = None,
     env: dict[str, str] | None = None,
     allow_reset_hard: bool = False,
+    repository_role: str = REPO_ROLE_UNKNOWN,
 ) -> subprocess.CompletedProcess[bytes]:
     role = classify_git_args(args)
     op = args[0]
@@ -264,12 +270,19 @@ def srl_git_exec(
             f"forbidden git operation: {op}",
             state="POLICY_REJECTED",
         )
-    if op == "reset" and "--hard" in args and not allow_reset_hard:
-        raise WorkerError(
-            ERROR_CODES["FORBIDDEN_GIT_OP"],
-            "reset --hard requires an authorized execution/worktree root",
-            state="POLICY_REJECTED",
-        )
+    if op == "reset" and "--hard" in args:
+        # Permission is never derived from argv. All three must hold.
+        if (
+            role != ROLE_CONTROLLED
+            or repository_role != REPO_ROLE_DISPOSABLE
+            or not allow_reset_hard
+        ):
+            raise WorkerError(
+                ERROR_CODES["FORBIDDEN_GIT_OP"],
+                "reset --hard requires CONTROLLED_LOCAL_MUTATION + "
+                "DISPOSABLE_EXECUTION_REPO + explicit policy",
+                state="POLICY_REJECTED",
+            )
     if op == "clone":
         joined = " ".join(args)
         if "--shared" in args or "--reference" in args or "--reference-if-able" in args:

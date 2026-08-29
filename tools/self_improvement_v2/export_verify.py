@@ -9,11 +9,32 @@ from typing import Callable
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 from tools.self_improvement_v2.option_a_constants import (
     EXECUTION_ID_RE,
+    HEX64_RE,
     WORKER_EXPORT_ALLOWLIST,
 )
 from tools.self_improvement_v2.srl_git_exec import GitIsolation, srl_git_exec
 
 DiffRecompute = Callable[[str, str], bytes]
+
+
+def reconstruct_authority_c(
+    bundle: Path,
+    dest: Path,
+    *,
+    isolation: GitIsolation | None = None,
+) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists() and any(dest.iterdir()):
+        raise WorkerError(
+            ERROR_CODES["AUTHORITY_C_FAILED"],
+            "Authority C destination must be empty",
+            state="FAILED_FROZEN",
+        )
+    srl_git_exec(
+        ["clone", "--branch", "srl-candidate", str(bundle.resolve()), str(dest.resolve())],
+        cwd=dest.parent,
+        isolation=isolation,
+    )
 
 
 def _sha256(path: Path) -> str:
@@ -30,6 +51,12 @@ def verify_three_authority(
     clone_bundle: Callable[[Path, Path], None] | None = None,
     verify_scratch: Path | None = None,
 ) -> None:
+    if clone_bundle is None or verify_scratch is None:
+        raise WorkerError(
+            ERROR_CODES["AUTHORITY_C_OMITTED"],
+            "Authority C cannot be skipped; EXPORT_VERIFICATION=FAILED_FROZEN",
+            state="FAILED_FROZEN",
+        )
     names = {p.name for p in attempt_dir.iterdir() if p.name != ".UNUSABLE"}
     extra = names - WORKER_EXPORT_ALLOWLIST
     if extra:
@@ -85,6 +112,28 @@ def verify_three_authority(
             "reviewed_head disagreement",
             state="FAILED_FROZEN",
         )
+    attested_baseline = str(attestation.get("authorized_baseline") or "")
+    if attested_baseline and attested_baseline != reviewed_head:
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "authorized_baseline must equal reviewed_head",
+            state="FAILED_FROZEN",
+        )
+    copied_bundle = _sha256(attempt_dir / "candidate.bundle")
+    sealed_bundle = str(sealed["candidate.bundle"])
+    attested_bundle = str(attestation.get("candidate_bundle_sha256") or sealed_bundle)
+    sidecar = (attempt_dir / "candidate.bundle.sha256").read_text(encoding="utf-8").strip()
+    if (
+        not HEX64_RE.fullmatch(copied_bundle)
+        or copied_bundle != sealed_bundle
+        or copied_bundle != attested_bundle
+        or sidecar != copied_bundle
+    ):
+        raise WorkerError(
+            ERROR_CODES["FORGED_EXPORT"],
+            "host-copied candidate.bundle SHA256 != sealed/attested bundle hash",
+            state="FAILED_FROZEN",
+        )
     actual = (attempt_dir / "actual.diff").read_bytes()
     recomputed = recompute_diff(reviewed_head, str(attestation["candidate_commit"]))
     if recomputed != actual:
@@ -108,16 +157,19 @@ def verify_three_authority(
             "finalization_result.json != attestation hash",
             state="FAILED_FROZEN",
         )
-    if clone_bundle is not None:
-        if verify_scratch is None:
-            raise WorkerError(
-                ERROR_CODES["POLICY_REJECTED"],
-                "verify-scratch required for bundle clone",
-                state="FAILED_FROZEN",
-            )
-        dest = verify_scratch / ledger_eid
-        dest.mkdir(parents=True, exist_ok=True)
+    dest = verify_scratch / ledger_eid
+    dest.mkdir(parents=True, exist_ok=True)
+    try:
         clone_bundle(attempt_dir / "candidate.bundle", dest)
+    except WorkerError:
+        raise
+    except Exception as exc:
+        raise WorkerError(
+            ERROR_CODES["AUTHORITY_C_FAILED"],
+            f"Authority C failed: {exc}",
+            state="FAILED_FROZEN",
+        ) from exc
+    try:
         head = srl_git_exec(
             ["rev-parse", "refs/heads/srl-candidate"],
             cwd=dest,
@@ -128,12 +180,18 @@ def verify_three_authority(
             cwd=dest,
             isolation=isolation,
         ).stdout.decode().strip()
-        if head != attestation["candidate_commit"] or tree != attestation["candidate_tree"]:
-            raise WorkerError(
-                ERROR_CODES["FORGED_EXPORT"],
-                "bundle srl-candidate != attestation",
-                state="FAILED_FROZEN",
-            )
+    except WorkerError as exc:
+        raise WorkerError(
+            ERROR_CODES["AUTHORITY_C_FAILED"],
+            f"Authority C reconstruction unreadable: {exc.message}",
+            state="FAILED_FROZEN",
+        ) from exc
+    if head != attestation["candidate_commit"] or tree != attestation["candidate_tree"]:
+        raise WorkerError(
+            ERROR_CODES["AUTHORITY_C_FAILED"],
+            "bundle srl-candidate != attestation",
+            state="FAILED_FROZEN",
+        )
 
 
 def atomic_publish(attempt_dir: Path, verified_root: Path) -> Path:

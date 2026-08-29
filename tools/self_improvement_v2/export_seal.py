@@ -11,7 +11,10 @@ from typing import Callable, Iterable
 from tools.self_improvement_v2.canonical import canonical_bytes, sha256_hex
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 from tools.self_improvement_v2.option_a_constants import (
+    COMMIT_SHA_RE,
     HOST_LAUNCHER_ONLY_NAMES,
+    HEX64_RE,
+    SRL_CANDIDATE_REF,
     WORKER_EXPORT_ALLOWLIST,
 )
 
@@ -26,8 +29,8 @@ def default_open_nofollow(path: Path) -> bytes:
     flags = os.O_RDONLY
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
-    elif hasattr(os, "O_NOFOLLOW"):  # pragma: no cover
-        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
     fd = os.open(str(path), flags)
     try:
         st = os.fstat(fd)
@@ -43,7 +46,15 @@ def default_open_nofollow(path: Path) -> bytes:
                 f"nlink!=1: {path.name}",
                 state="FAILED_FROZEN",
             )
-        return os.read(fd, st.st_size)
+        chunks: list[bytes] = []
+        remaining = st.st_size
+        while remaining > 0:
+            chunk = os.read(fd, remaining)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        return b"".join(chunks)
     finally:
         os.close(fd)
 
@@ -102,6 +113,27 @@ def sealed_inventory_sha256(hashes: dict[str, str]) -> str:
     return sha256_hex(canonical_bytes(hashes))
 
 
+def _parse_bundle_head(item: object) -> tuple[str, str]:
+    if isinstance(item, (tuple, list)) and len(item) == 2:
+        sha, ref = str(item[0]).strip().lower(), str(item[1]).strip()
+    elif isinstance(item, str) and ("\t" in item or " " in item):
+        sha, ref = item.split(None, 1)
+        sha, ref = sha.strip().lower(), ref.strip()
+    else:
+        raise WorkerError(
+            ERROR_CODES["SEAL_BIND_MISMATCH"],
+            "bundle head must be (sha, ref), not a ref name alone",
+            state="FAILED_FROZEN",
+        )
+    if not COMMIT_SHA_RE.fullmatch(sha):
+        raise WorkerError(
+            ERROR_CODES["SEAL_BIND_MISMATCH"],
+            "bundle head sha must be 40 hex",
+            state="FAILED_FROZEN",
+        )
+    return sha, ref
+
+
 def bind_observed_identity(
     *,
     observed_commit: str,
@@ -110,7 +142,8 @@ def bind_observed_identity(
     sealed_tree_bytes: str,
     finalization_commit: str,
     finalization_tree: str,
-    bundle_heads: Iterable[str],
+    bundle_heads: Iterable[object],
+    sealed_bundle_sha256: str,
 ) -> None:
     if sealed_commit_bytes.strip() != observed_commit:
         raise WorkerError(
@@ -130,12 +163,26 @@ def bind_observed_identity(
             "finalization_result identity != observed",
             state="FAILED_FROZEN",
         )
-    heads = list(bundle_heads)
-    if "refs/heads/srl-candidate" not in heads and not any(
-        h.startswith("refs/heads/srl-candidate") for h in heads
-    ):
+    if not HEX64_RE.fullmatch((sealed_bundle_sha256 or "").strip().lower()):
         raise WorkerError(
             ERROR_CODES["SEAL_BIND_MISMATCH"],
-            "bundle missing refs/heads/srl-candidate",
+            "candidate.bundle SHA256 missing from sealed inventory",
+            state="FAILED_FROZEN",
+        )
+    matched = False
+    for raw in bundle_heads:
+        sha, ref = _parse_bundle_head(raw)
+        if ref == SRL_CANDIDATE_REF:
+            if sha != observed_commit.lower():
+                raise WorkerError(
+                    ERROR_CODES["SEAL_BIND_MISMATCH"],
+                    "bundle srl-candidate sha != observed commit",
+                    state="FAILED_FROZEN",
+                )
+            matched = True
+    if not matched:
+        raise WorkerError(
+            ERROR_CODES["SEAL_BIND_MISMATCH"],
+            "bundle missing refs/heads/srl-candidate with commit sha",
             state="FAILED_FROZEN",
         )

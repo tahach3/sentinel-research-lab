@@ -93,6 +93,9 @@ def _write_allowlist(directory: Path, commit: str = CAND, tree: str = CTREE, eid
     payloads["actual.diff"] = b"diff --git a/x b/x\n"
     payloads["actual.diff.sha256"] = f"{hashlib.sha256(payloads['actual.diff']).hexdigest()}\n".encode()
     payloads["finalization_result.sha256"] = f"{hashlib.sha256(fin).hexdigest()}\n".encode()
+    payloads["candidate.bundle.sha256"] = (
+        f"{hashlib.sha256(payloads['candidate.bundle']).hexdigest()}\n".encode()
+    )
     for name, data in payloads.items():
         (directory / name).write_bytes(data)
     return payloads
@@ -250,6 +253,7 @@ def test_partial_attestation_and_overwrite(tmp_path: Path) -> None:
         "finalization_result_sha256": "4" * 64,
         "sealed_inventory_sha256": "5" * 64,
         "sealed_artifact_hashes": hashes,
+        "candidate_bundle_sha256": hashes["candidate.bundle"],
         "staging_generation": GEN,
         "worker_container_id": WID,
         "worker_started_at": "t0",
@@ -283,6 +287,7 @@ def test_observe_t_seal_tprime_refuses_before_write() -> None:
             finalization_commit=CAND,
             finalization_tree=CTREE,
             bundle_heads=["refs/heads/srl-candidate"],
+            sealed_bundle_sha256="a" * 64,
         )
     assert ei.value.code == "SEAL_BIND_MISMATCH"
 
@@ -397,6 +402,8 @@ def test_execution_id_grammar_disagreement(tmp_path: Path) -> None:
             attempt_dir=attempt,
             reviewed_head=HEAD,
             recompute_diff=lambda *_: payloads["actual.diff"],
+            clone_bundle=lambda *_: None,
+            verify_scratch=tmp_path / "scratch",
         )
     assert ei.value.code == "EXECUTION_ID_GRAMMAR"
 
@@ -420,6 +427,8 @@ def test_forged_export_t_vs_tprime(tmp_path: Path) -> None:
             attempt_dir=attempt,
             reviewed_head=HEAD,
             recompute_diff=lambda *_: payloads["actual.diff"],
+            clone_bundle=lambda *_: None,
+            verify_scratch=tmp_path / "scratch",
         )
     assert ei.value.code == "FORGED_EXPORT"
 
@@ -443,6 +452,8 @@ def test_self_consistent_forged_diff_still_fails(tmp_path: Path) -> None:
             attempt_dir=attempt,
             reviewed_head=HEAD,
             recompute_diff=lambda *_: b"forged-but-self-hashed",
+            clone_bundle=lambda *_: None,
+            verify_scratch=tmp_path / "scratch",
         )
     assert ei.value.code == "FORGED_EXPORT"
 
@@ -500,14 +511,24 @@ def test_bundle_clone_after_scratch_destroyed(tmp_path: Path) -> None:
 
 
 def test_controller_happy_path(tmp_path: Path) -> None:
+    from tests.self_improvement_v2.test_option_a_rev25_repair1 import (
+        _real_srl_candidate_bundle,
+        _write_allowlist_with_bundle,
+    )
+
+    bundle, commit, tree = _real_srl_candidate_bundle(tmp_path)
     gen = tmp_path / "gen"
     gen.mkdir()
-    payloads = _write_allowlist(gen)
+    payloads = _write_allowlist_with_bundle(gen, bundle, commit, tree)
     box = LiveBox()
 
     def copy_fn(argv: list[str]) -> None:
         name = Path(argv[-1]).name
         Path(argv[-1]).write_bytes(payloads[name])
+
+    def clone(src: Path, dest: Path) -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        run(["git", "clone", "--branch", "srl-candidate", str(src), str(dest)], tmp_path)
 
     result = run_rev25_export(
         execution_id=EID,
@@ -520,13 +541,15 @@ def test_controller_happy_path(tmp_path: Path) -> None:
         inspect_worker=box.worker,
         inspect_n8n=box.n8n,
         list_all_ids=box.listing,
-        observe_git=lambda: (CAND, CTREE, CAND),
-        bundle_heads=lambda: ["refs/heads/srl-candidate"],
+        observe_git=lambda: (commit, tree, commit),
+        bundle_heads=lambda: [(commit, "refs/heads/srl-candidate")],
         worker_generation_dir=gen,
         ledger_root=tmp_path / "ledger",
         durable_root=tmp_path / "durable",
         copy_fn=copy_fn,
         recompute_diff=lambda *_: payloads["actual.diff"],
+        clone_bundle=clone,
+        verify_scratch=tmp_path / "scratch",
         now_ts=1,
     )
     assert result["state"] == "FINALIZED"
@@ -536,34 +559,8 @@ def test_controller_happy_path(tmp_path: Path) -> None:
 
 
 def test_no_unguarded_git_in_rev25_modules() -> None:
-    root = Path(__file__).resolve().parents[2] / "tools" / "self_improvement_v2"
-    scanned = {
-        "srl_git_exec.py",
-        "git_worker.py",
-        "patch_validator.py",
-        "trusted_origin.py",
-        "install_launcher.py",
-        "option_a_controller.py",
-        "export_verify.py",
-        "export_transport.py",
-        "finalized_attestation.py",
-    }
-    allowed = {"srl_git_exec.py"}
-    for path in root.rglob("*.py"):
-        if path.name not in scanned or path.name in allowed:
-            continue
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            func = node.func
-            if isinstance(func, ast.Attribute) and func.attr == "run":
-                if node.args:
-                    arg0 = node.args[0]
-                    if (
-                        isinstance(arg0, ast.List)
-                        and arg0.elts
-                        and isinstance(arg0.elts[0], ast.Constant)
-                        and arg0.elts[0].value == "git"
-                    ):
-                        raise AssertionError(f"unguarded git in {path}")
+    from tests.self_improvement_v2.test_option_a_rev25_repair1 import (
+        test_unguarded_git_detection_is_closed_world,
+    )
+
+    test_unguarded_git_detection_is_closed_world()

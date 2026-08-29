@@ -30,6 +30,7 @@ REQUIRED_FIELDS = (
     "finalization_result_sha256",
     "sealed_inventory_sha256",
     "sealed_artifact_hashes",
+    "candidate_bundle_sha256",
     "staging_generation",
     "worker_container_id",
     "worker_started_at",
@@ -97,6 +98,12 @@ def build_attestation_body(fields: dict[str, Any]) -> dict[str, Any]:
         )
     _require_hex40("reviewed_head", str(fields["reviewed_head"]))
     _require_hex40("authorized_baseline", str(fields["authorized_baseline"]))
+    if str(fields["authorized_baseline"]) != str(fields["reviewed_head"]):
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "authorized_baseline must equal reviewed_head",
+            state="FAILED_FROZEN",
+        )
     _require_hex40("candidate_commit", str(fields["candidate_commit"]))
     _require_hex40("candidate_tree", str(fields["candidate_tree"]))
     if fields["srl_candidate_ref"] != SRL_CANDIDATE_REF:
@@ -112,6 +119,14 @@ def build_attestation_body(fields: dict[str, Any]) -> dict[str, Any]:
         raise WorkerError(
             ERROR_CODES["ATTESTATION_INCOMPLETE"],
             "sealed_artifact_hashes missing",
+            state="FAILED_FROZEN",
+        )
+    bundle_sha = _require_hex64("candidate_bundle_sha256", str(fields["candidate_bundle_sha256"]))
+    sealed_bundle = hashes.get("candidate.bundle")
+    if not isinstance(sealed_bundle, str) or sealed_bundle.lower() != bundle_sha:
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "candidate_bundle_sha256 must equal sealed inventory candidate.bundle",
             state="FAILED_FROZEN",
         )
     if not STAGING_GENERATION_RE.fullmatch(str(fields["staging_generation"])):

@@ -59,6 +59,8 @@ def run_git(
     with_identity: bool = False,
     extra_config: list[str] | None = None,
     env: dict[str, str] | None = None,
+    allow_reset_hard: bool = False,
+    repository_role: str = "UNKNOWN",
 ) -> subprocess.CompletedProcess[bytes]:
     if not args:
         raise WorkerError(ERROR_CODES["COMMAND_INJECTION"], "empty git argv", state="FAILED_FROZEN")
@@ -71,7 +73,8 @@ def run_git(
         extra_config=extra_config,
         with_identity=with_identity,
         env=env,
-        allow_reset_hard=args[:1] == ["reset"] and "--hard" in args,
+        allow_reset_hard=allow_reset_hard,
+        repository_role=repository_role,
     )
 
 
