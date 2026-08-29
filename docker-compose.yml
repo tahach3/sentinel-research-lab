@@ -103,6 +103,9 @@ services:
     command: ["python", "-B", "-m", "tools.self_improvement_v2.runtime_bridge"]
     environment:
       SRL_REPOSITORY_ROOT: /srl/sentinel-research-lab
+      # PYTHONSAFEPATH=1 (image) omits cwd from sys.path for -m; bind-mounted
+      # reviewed tree must be on PYTHONPATH or the bridge never imports.
+      PYTHONPATH: /srl/sentinel-research-lab
       SRL_REVIEWED_HEAD: ${SRL_REVIEWED_HEAD}
       SRL_WORKER_HOST: 127.0.0.1
       SRL_WORKER_PORT: "8765"

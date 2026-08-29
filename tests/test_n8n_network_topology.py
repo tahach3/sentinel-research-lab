@@ -64,6 +64,10 @@ class TestN8nNetworkTopology(unittest.TestCase):
         self.assertIn("SRL_WORKER_TOKEN_HOST_FILE", self.text)
         self.assertIn("dockerfile: docker/srl-worker/Dockerfile", self.worker)
         self.assertNotRegex(self.worker, r"image:\s*srl-worker:si2-option-a@sha256:")
+        # Image sets PYTHONSAFEPATH=1; without PYTHONPATH, `python -m tools...` fails.
+        self.assertIn("PYTHONPATH: /srl/sentinel-research-lab", self.worker)
+        dockerfile = (ROOT / "docker/srl-worker/Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("PYTHONSAFEPATH=1", dockerfile)
 
     def test_no_public_worker_exposure(self) -> None:
         self.assertNotRegex(self.text, r"0\.0\.0\.0:8765")
