@@ -385,6 +385,10 @@ CLOSED_WORLD_UNGUARDED_GIT = {
     ),
 }
 
+_SAFE_GIT_RUNNER = "srl_git_exec.py"
+_SAFE_PYTHON_RUNNER = "validation_runner.py"
+_ALLOWED_PYTHON = frozenset({"python", "python.exe"})
+
 _SUBPROCESS_FUNCS = frozenset({"run", "Popen", "call", "check_call", "check_output"})
 _SOLE_RUNNER = "srl_git_exec.py"
 
@@ -447,6 +451,84 @@ def _shell_true(call: ast.Call) -> bool:
     return False
 
 
+def _literal_exe(node: ast.AST) -> str | None:
+    if isinstance(node, ast.List) and node.elts:
+        return _const_str(node.elts[0])
+    return _const_str(node)
+
+
+def _assigns_prefix_git(tree: ast.AST) -> bool:
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(isinstance(t, ast.Name) and t.id == "prefix" for t in node.targets):
+            continue
+        if isinstance(node.value, ast.List) and node.value.elts:
+            first = _const_str(node.value.elts[0])
+            if first is not None and Path(first).name.lower() in {"git", "git.exe"}:
+                return True
+    return False
+
+
+def _validation_runner_allowlist_verified(tree: ast.AST) -> bool:
+    allowed: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(isinstance(t, ast.Name) and t.id == "ALLOWED_EXECUTABLES" for t in node.targets):
+            continue
+        value = node.value
+        if isinstance(value, ast.Call) and value.args:
+            value = value.args[0]
+        if isinstance(value, (ast.Set, ast.List, ast.Tuple)):
+            for elt in value.elts:
+                text = _const_str(elt)
+                if text:
+                    allowed.add(text.lower())
+    if allowed != _ALLOWED_PYTHON:
+        return False
+    has_guard = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Compare):
+            hay = ast.dump(node)
+            if "ALLOWED_EXECUTABLES" in hay:
+                has_guard = True
+    return has_guard
+
+
+def classify_process_launch_sites(tree: ast.AST, *, filename: str) -> list[tuple[int, str]]:
+    """Fail closed: every process launch is safe, classified, or reported."""
+    aliases = _import_aliases(tree)
+    unresolved: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        is_os = _call_is_os_system(node.func, aliases)
+        is_sub = _call_is_subprocess(node.func, aliases)
+        if not is_os and not is_sub:
+            continue
+        if not node.args:
+            unresolved.append((getattr(node, "lineno", 0), "empty argv"))
+            continue
+        exe = _literal_exe(node.args[0])
+        if filename == _SAFE_GIT_RUNNER and _assigns_prefix_git(tree):
+            continue
+        if filename == _SAFE_PYTHON_RUNNER and _validation_runner_allowlist_verified(tree):
+            continue
+        if filename in CLOSED_WORLD_UNGUARDED_GIT:
+            continue
+        if exe is None:
+            unresolved.append((getattr(node, "lineno", 0), "unresolved argv"))
+            continue
+        lowered = Path(exe).name.lower()
+        if lowered in {"git", "git.exe"} and filename != _SAFE_GIT_RUNNER:
+            unresolved.append((getattr(node, "lineno", 0), "git outside sole runner"))
+            continue
+        if lowered not in _ALLOWED_PYTHON and lowered not in {"git", "git.exe"}:
+            unresolved.append((getattr(node, "lineno", 0), f"unknown executable {exe}"))
+    return unresolved
+
+
 def detect_unguarded_git(root: Path) -> dict[str, list[int]]:
     found: dict[str, list[int]] = {}
     for path in sorted(root.rglob("*.py")):
@@ -465,6 +547,9 @@ def detect_unguarded_git(root: Path) -> dict[str, list[int]]:
                 _shell_true(node) and _first_argv_looks_like_git(node.args[0])
             ):
                 hits.append(getattr(node, "lineno", 0))
+        sites = classify_process_launch_sites(tree, filename=path.name)
+        if sites:
+            hits.extend(line for line, _reason in sites if line not in hits)
         if hits:
             found[path.name] = hits
     return found

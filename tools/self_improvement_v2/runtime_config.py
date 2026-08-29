@@ -7,6 +7,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 
@@ -48,6 +49,7 @@ class RuntimeConfig:
     worker_port: int
     max_request_bytes: int = MAX_REQUEST_BYTES
     request_timeout_seconds: int = REQUEST_TIMEOUT_SECONDS
+    rev25_deps: Any = None
 
     @property
     def repository_id(self) -> str:

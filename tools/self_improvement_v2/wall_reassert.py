@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from tools.self_improvement_v2.git_worker import (
+    git_authority_surface_fingerprint,
     index_fingerprint,
     source_tree_fingerprint,
     working_tree_content_fingerprint,
@@ -26,6 +27,7 @@ REQUIRED_WALL_KEYS = frozenset(
         "index_fingerprint",
         "worktree_list_fingerprint",
         "working_tree_content_fingerprint",
+        "git_authority_surface_fingerprint",
     }
 )
 
@@ -47,6 +49,7 @@ def capture_wall_artifact_snapshot(
         "index_fingerprint": index_fingerprint(root),
         "worktree_list_fingerprint": worktree_list_fingerprint(root),
         "working_tree_content_fingerprint": working_tree_content_fingerprint(root),
+        "git_authority_surface_fingerprint": git_authority_surface_fingerprint(root),
     }
     if workflow is not None:
         snap["workflow_normalized_fingerprint"] = material_fingerprint(workflow)

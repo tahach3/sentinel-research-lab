@@ -16,7 +16,7 @@ from urllib.parse import unquote
 from tools.self_improvement_v2.canonical import content_sha256
 from tools.self_improvement_v2.executor import execute_proposal
 from tools.self_improvement_v2.experience_store import ExperienceStore
-from tools.self_improvement_v2.finalizer import finalize_or_freeze
+from tools.self_improvement_v2.option_a_controller import run_rev25_production_finalize
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 from tools.self_improvement_v2.path_policy import load_policy, policy_sha256
 from tools.self_improvement_v2.pilot_budget import (
@@ -199,6 +199,7 @@ def _assert_wall_source_repo_unchanged(root: Any, before: dict[str, str]) -> Non
         "source_tree_fingerprint",
         "index_fingerprint",
         "working_tree_content_fingerprint",
+        "git_authority_surface_fingerprint",
     )
     mismatches = [k for k in source_keys if before.get(k) != after.get(k)]
     if mismatches:
@@ -270,11 +271,12 @@ def finalize_operation(
         # Requires a previously bound review in the immutable store.
         store.get_review(review_id)
 
-    result = finalize_or_freeze(
+    result = run_rev25_production_finalize(
         execution_id=execution_id,
         review_id=review_id,
         state_db=config.state_db,
         repository_root=config.repository_root,
+        deps=config.rev25_deps,
     )
     _assert_wall_source_repo_unchanged(config.repository_root, wall_before)
     return {"status": "PASS", "finalization": result, "wall_reassert": "PASS"}

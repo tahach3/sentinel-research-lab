@@ -93,6 +93,20 @@ ALLOWED_MINUS_C = frozenset(
 )
 
 _PRESERVE_ENV = ("PATH", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC")
+_REVIEWED_SOURCE_WRITE_OPS = frozenset(
+    {
+        "branch",
+        "update-ref",
+        "checkout",
+        "reset",
+        "add",
+        "update-index",
+        "apply",
+        "commit",
+        "config",
+    }
+)
+_ENV_REVIEWED_ROOT = "SRL_REPOSITORY_ROOT"
 
 
 @dataclass(frozen=True)
@@ -248,6 +262,16 @@ def _validate_minus_c(extra_config: list[str] | None) -> None:
         i += 2
 
 
+def cwd_is_reviewed_source(cwd: Path) -> bool:
+    reviewed = os.environ.get(_ENV_REVIEWED_ROOT, "").strip()
+    if not reviewed:
+        return False
+    try:
+        return Path(cwd).resolve() == Path(reviewed).expanduser().resolve()
+    except OSError:
+        return False
+
+
 def srl_git_exec(
     args: list[str],
     *,
@@ -264,6 +288,13 @@ def srl_git_exec(
 ) -> subprocess.CompletedProcess[bytes]:
     role = classify_git_args(args)
     op = args[0]
+    effective_role = REPO_ROLE_RO_REVIEWED if cwd_is_reviewed_source(cwd) else repository_role
+    if effective_role == REPO_ROLE_RO_REVIEWED and op in _REVIEWED_SOURCE_WRITE_OPS:
+        raise WorkerError(
+            ERROR_CODES["REVIEWED_SOURCE_WRITE"],
+            f"reviewed-source write is not authorized: git {op}",
+            state="POLICY_REJECTED",
+        )
     if role == ROLE_FORBIDDEN:
         raise WorkerError(
             _forbidden_code(op),

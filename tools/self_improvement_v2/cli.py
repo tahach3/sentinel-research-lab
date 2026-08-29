@@ -11,7 +11,7 @@ from typing import Any
 from tools.self_improvement_v2.canonical import content_sha256
 from tools.self_improvement_v2.experience_store import ExperienceStore
 from tools.self_improvement_v2.executor import execute_proposal
-from tools.self_improvement_v2.finalizer import finalize_or_freeze
+from tools.self_improvement_v2.option_a_controller import run_rev25_production_finalize
 from tools.self_improvement_v2.models import ERROR_CODES, SCHEMA_VERSION, WorkerError
 from tools.self_improvement_v2.path_policy import load_policy, policy_sha256
 from tools.self_improvement_v2.repair_policy import assert_repair_attempt_allowed, assert_repair_not_broadening
@@ -120,7 +120,7 @@ def bind_review_cmd(root: Path, review_path: Path, state_db: Path) -> int:
 
 def finalize_cmd(root: Path, execution_id: str, review_id: str, state_db: Path) -> int:
     try:
-        result = finalize_or_freeze(
+        result = run_rev25_production_finalize(
             execution_id=execution_id,
             review_id=review_id,
             state_db=state_db,

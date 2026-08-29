@@ -35,6 +35,7 @@ from pathlib import Path
 
 from tools.self_improvement_v2.import_closure import (
     assert_pin_covers_static_closure,
+    compute_static_import_closure,
     module_file_relpath,
 )
 from tools.self_improvement_v2.launcher.paths import (
@@ -49,14 +50,13 @@ from tools.self_improvement_v2.launcher.paths import (
 WORKER_PIN_REL = Path("specs/self_improvement/v2/trusted_origin_pin.json")
 LAUNCHER_PIN_REL = Path("specs/self_improvement/v2/launcher_pin.json")
 LAUNCHER_ENTRYPOINT = "tools.self_improvement_v2.launcher.install_launcher"
-LAUNCHER_TRUSTED_MODULE_NAMES = (
-    "tools.self_improvement_v2",
-    "tools.self_improvement_v2.import_closure",
-    "tools.self_improvement_v2.launcher",
-    "tools.self_improvement_v2.launcher.install_launcher",
-    "tools.self_improvement_v2.launcher.paths",
-    "tools.self_improvement_v2.models",
-    "tools.self_improvement_v2.srl_git_exec",
+LAUNCHER_TRUSTED_MODULE_NAMES = tuple(
+    sorted(
+        compute_static_import_closure(
+            Path(__file__).resolve().parents[3],
+            entrypoint=LAUNCHER_ENTRYPOINT,
+        )
+    )
 )
 WORKER_PIN_ALLOWED_KEYS = frozenset({"schema_version", "description", "combined", "modules"})
 LAUNCHER_PIN_ALLOWED_KEYS = frozenset({"schema_version", "description", "combined", "modules", "entrypoint"})

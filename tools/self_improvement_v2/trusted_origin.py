@@ -22,37 +22,14 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Iterable
 
+from tools.self_improvement_v2.import_closure import compute_static_import_closure
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 
-# Closed under static AST imports (Option A+ execution pin).
-# Must equal the static AST import closure of runtime_bridge (+ import_closure itself).
+# Closed under static AST imports of the production entrypoint (runtime_bridge).
+# Computed structurally — do not hand-maintain a module list that can drift.
 # Does NOT cover dynamic importlib/__import__/string-built loaders — see import_closure.
-TRUSTED_MODULE_NAMES = (
-    "tools.self_improvement_v2",
-    "tools.self_improvement_v2.agent_runtime_contract",
-    "tools.self_improvement_v2.canonical",
-    "tools.self_improvement_v2.executor",
-    "tools.self_improvement_v2.experience_store",
-    "tools.self_improvement_v2.finalizer",
-    "tools.self_improvement_v2.git_worker",
-    "tools.self_improvement_v2.import_closure",
-    "tools.self_improvement_v2.models",
-    "tools.self_improvement_v2.patch_parser",
-    "tools.self_improvement_v2.patch_validator",
-    "tools.self_improvement_v2.path_policy",
-    "tools.self_improvement_v2.pilot_budget",
-    "tools.self_improvement_v2.repair_policy",
-    "tools.self_improvement_v2.review_gate",
-    "tools.self_improvement_v2.risk_authority",
-    "tools.self_improvement_v2.runtime_bridge",
-    "tools.self_improvement_v2.runtime_config",
-    "tools.self_improvement_v2.schema_loader",
-    "tools.self_improvement_v2.srl_git_exec",
-    "tools.self_improvement_v2.trusted_origin",
-    "tools.self_improvement_v2.validation_runner",
-    "tools.self_improvement_v2.wall_reassert",
-    "tools.self_improvement_v2.workflow_normalizer",
-    "tools.self_improvement_v2.workflow_validator",
+TRUSTED_MODULE_NAMES = tuple(
+    sorted(compute_static_import_closure(Path(__file__).resolve().parents[2]))
 )
 
 PIN_REL = Path("specs/self_improvement/v2/trusted_origin_pin.json")
@@ -327,7 +304,8 @@ def assert_trusted_code_origin(
     reviewed_head = env_head
 
     live_head = _git_head(root)
-    names = tuple(dict.fromkeys((*module_names, *TRUSTED_MODULE_NAMES)))
+    root_names = tuple(sorted(compute_static_import_closure(root)))
+    names = tuple(dict.fromkeys((*module_names, *root_names)))
 
     # N11: authorization line binds the live checkout HEAD — no drift tolerance.
     if env_head != live_head:
@@ -339,11 +317,11 @@ def assert_trusted_code_origin(
     from tools.self_improvement_v2.import_closure import assert_pin_covers_static_closure
 
     try:
-        assert_pin_covers_static_closure(root, TRUSTED_MODULE_NAMES)
+        assert_pin_covers_static_closure(root, root_names)
     except AssertionError as exc:
         raise TrustedOriginError(str(exc)) from exc
 
-    combined, per = module_tree_digest_at(root, TRUSTED_MODULE_NAMES)
+    combined, per = module_tree_digest_at(root, root_names)
     expected_combined = pin.get("combined")
     if not isinstance(expected_combined, str) or expected_combined != combined:
         raise TrustedOriginError(
@@ -371,7 +349,7 @@ def assert_trusted_code_origin(
 
     origins: dict[str, str] = {}
     for name in names:
-        if name not in TRUSTED_MODULE_NAMES:
+        if name not in root_names:
             continue
         module = sys.modules.get(name)
         if module is None:
@@ -410,7 +388,8 @@ def assert_trusted_code_origin(
 
 
 def build_content_only_pin(root: Path) -> dict[str, Any]:
-    combined, per = module_tree_digest_at(root, TRUSTED_MODULE_NAMES)
+    names = tuple(sorted(compute_static_import_closure(root)))
+    combined, per = module_tree_digest_at(root, names)
     return {
         "schema_version": "2.1.0",
         "description": (

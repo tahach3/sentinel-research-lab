@@ -308,7 +308,15 @@ def create_local_commit(worktree: Path, objective: str) -> str:
 
 
 def create_branch_at_commit(source_root: Path, branch_name: str, commit: str) -> None:
-    # Create branch ref only after commit exists.
+    from tools.self_improvement_v2.srl_git_exec import cwd_is_reviewed_source
+
+    if cwd_is_reviewed_source(source_root):
+        raise WorkerError(
+            ERROR_CODES["REVIEWED_SOURCE_WRITE"],
+            "candidate branch creation is forbidden on the reviewed source",
+            state="POLICY_REJECTED",
+        )
+    # Create branch ref only after commit exists. Disposable/export repos only.
     proc = run_git(["branch", branch_name, commit], cwd=source_root, check=False)
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout).decode("utf-8", errors="replace")[:500]
@@ -390,6 +398,51 @@ def worktree_list_fingerprint(root: Path) -> str:
     """Fingerprint `git worktree list --porcelain` for Wall reassertion."""
     proc = run_git(["worktree", "list", "--porcelain"], cwd=root, check=True)
     return hashlib.sha256(proc.stdout).hexdigest()
+
+
+def _git_dir(root: Path) -> Path:
+    git = (root / ".git").resolve()
+    if git.is_file():
+        text = git.read_text(encoding="utf-8", errors="replace").strip()
+        if text.lower().startswith("gitdir:"):
+            raw = text.split(":", 1)[1].strip()
+            pointed = Path(raw)
+            return pointed.resolve() if pointed.is_absolute() else (root / pointed).resolve()
+    return git
+
+
+def git_authority_surface_fingerprint(root: Path) -> str:
+    """Fingerprint reviewed `.git` authority: HEAD, refs/heads/**, packed-refs.
+
+    Defense-in-depth for ref writes (`git branch`, packed-refs edits) that do
+    not change the tracked source-tree fingerprint.
+    """
+    git_dir = _git_dir(root)
+    h = hashlib.sha256()
+    head = git_dir / "HEAD"
+    h.update(b"HEAD\0")
+    h.update(head.read_bytes() if head.is_file() else b"<missing>")
+    h.update(b"\0")
+    packed = git_dir / "packed-refs"
+    h.update(b"packed-refs\0")
+    h.update(packed.read_bytes() if packed.is_file() else b"<missing>")
+    h.update(b"\0")
+    heads = git_dir / "refs" / "heads"
+    if heads.is_dir():
+        for path in sorted(p for p in heads.rglob("*") if p.is_file()):
+            rel = path.relative_to(git_dir).as_posix()
+            h.update(rel.encode("utf-8", errors="surrogateescape"))
+            h.update(b"\0")
+            h.update(path.read_bytes())
+            h.update(b"\0")
+    listing = run_git(
+        ["for-each-ref", "--format=%(refname) %(objectname)", "refs/heads"],
+        cwd=root,
+        check=True,
+    )
+    h.update(b"for-each-ref\0")
+    h.update(listing.stdout)
+    return h.hexdigest()
 
 
 def assert_source_unchanged(root: Path, before: str) -> None:
