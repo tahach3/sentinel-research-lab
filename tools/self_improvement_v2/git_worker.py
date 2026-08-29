@@ -13,8 +13,13 @@ from pathlib import Path
 from typing import Any
 
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
+from tools.self_improvement_v2.srl_git_exec import (
+    constructed_git_env,
+    srl_git_exec,
+    tree_is_dirty,
+)
 
-FORBIDDEN_GIT_OPS = frozenset({"push", "merge", "rebase", "config", "clean"})
+FORBIDDEN_GIT_OPS = frozenset({"push", "merge", "rebase", "config", "clean", "status"})
 
 GIT_IDENTITY = [
     "-c",
@@ -57,33 +62,17 @@ def run_git(
 ) -> subprocess.CompletedProcess[bytes]:
     if not args:
         raise WorkerError(ERROR_CODES["COMMAND_INJECTION"], "empty git argv", state="FAILED_FROZEN")
-    op = args[0]
-    if op in FORBIDDEN_GIT_OPS:
-        code = (
-            ERROR_CODES["PUSH_ATTEMPT"]
-            if op == "push"
-            else (ERROR_CODES["MERGE_ATTEMPT"] if op == "merge" else ERROR_CODES["POLICY_REJECTED"])
-        )
-        raise WorkerError(code, f"forbidden git operation: {op}", state="POLICY_REJECTED")
-    prefix = ["git"]
-    if with_identity:
-        prefix.extend(GIT_IDENTITY)
-    if extra_config:
-        prefix.extend(extra_config)
-    proc = subprocess.run(
-        [*prefix, *args],
-        cwd=str(cwd),
-        input=input_bytes,
-        capture_output=True,
+    return srl_git_exec(
+        args,
+        cwd=cwd,
+        check=check,
         timeout=timeout,
-        check=False,
-        shell=False,
+        input_bytes=input_bytes,
+        extra_config=extra_config,
+        with_identity=with_identity,
         env=env,
+        allow_reset_hard=args[:1] == ["reset"] and "--hard" in args,
     )
-    if check and proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout).decode("utf-8", errors="replace")[:500]
-        raise WorkerError(ERROR_CODES["POLICY_REJECTED"], detail or f"git {' '.join(args)} failed")
-    return proc
 
 
 def resolve_repo_root(root: Path) -> Path:
@@ -100,8 +89,7 @@ def resolve_repo_root(root: Path) -> Path:
 
 
 def assert_clean_tree(root: Path) -> None:
-    proc = run_git(["status", "--porcelain=v1"], cwd=root, check=True)
-    if proc.stdout.strip():
+    if tree_is_dirty(root):
         raise WorkerError(
             ERROR_CODES["DIRTY_SOURCE_TREE"],
             "source worktree is dirty",
@@ -230,16 +218,13 @@ def _empty_hooks_dir(worktree: Path) -> Path:
 
 
 def _git_config_snapshot(cwd: Path, *, scope: str) -> str:
-    proc = subprocess.run(
-        ["git", "config", f"--{scope}", "--list"],
-        cwd=str(cwd),
-        capture_output=True,
-        text=True,
+    proc = srl_git_exec(
+        ["config", f"--{scope}", "--list"],
+        cwd=cwd,
         check=False,
-        shell=False,
-        env=_sanitized_git_env(),
+        env=constructed_git_env(),
     )
-    return proc.stdout or ""
+    return (proc.stdout or b"").decode("utf-8", errors="replace")
 
 
 def create_local_commit(worktree: Path, objective: str) -> str:
@@ -260,7 +245,7 @@ def create_local_commit(worktree: Path, objective: str) -> str:
             state="FAILED_FROZEN",
         )
 
-    env = _sanitized_git_env()
+    env = constructed_git_env()
     # Command-local identity + hooks isolation + signing disable.
     extra = [
         "-c",

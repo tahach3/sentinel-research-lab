@@ -86,6 +86,38 @@ services:
     mem_limit: 1610612736
     cpus: 1.5
 
+  srl-worker:
+    image: python:3.12-slim-bookworm@sha256:a116514e19457bcb7af7efe9c3dd0b9b71e85b317694e7882a1c52aa15a78134
+    build:
+      context: .
+      dockerfile: docker/srl-worker/Dockerfile
+    read_only: true
+    network_mode: service:n8n
+    depends_on:
+      n8n:
+        condition: service_healthy
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      TMPDIR: /tmp/srl-zone-p
+      SRL_RUNTIME_MODE: P3C1
+    volumes:
+      - ./:/srl/sentinel-research-lab:ro
+    tmpfs:
+      - /tmp/srl-zone-p
+      - /tmp/srl-exec
+    command:
+      [
+        "python",
+        "-m",
+        "tools.self_improvement_v2.runtime_bridge",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8765",
+      ]
+    mem_limit: 1073741824
+    cpus: 1.0
+
 networks:
   srl_net:
     driver: bridge

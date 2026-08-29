@@ -55,6 +55,8 @@ LAUNCHER_TRUSTED_MODULE_NAMES = (
     "tools.self_improvement_v2.launcher",
     "tools.self_improvement_v2.launcher.install_launcher",
     "tools.self_improvement_v2.launcher.paths",
+    "tools.self_improvement_v2.models",
+    "tools.self_improvement_v2.srl_git_exec",
 )
 WORKER_PIN_ALLOWED_KEYS = frozenset({"schema_version", "description", "combined", "modules"})
 LAUNCHER_PIN_ALLOWED_KEYS = frozenset({"schema_version", "description", "combined", "modules", "entrypoint"})
@@ -101,15 +103,15 @@ def _sanitized_git_env() -> dict[str, str]:
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    from tools.self_improvement_v2.srl_git_exec import srl_git_exec
+
     root = root.resolve()
-    git_dir = root / ".git"
-    return subprocess.run(
-        ["git", f"--git-dir={git_dir}", f"--work-tree={root}", *args],
-        cwd=str(root),
-        capture_output=True,
-        text=True,
-        check=False,
-        env=_sanitized_git_env(),
+    proc = srl_git_exec(list(args), cwd=root, check=False)
+    return subprocess.CompletedProcess(
+        args=list(args),
+        returncode=proc.returncode,
+        stdout=(proc.stdout or b"").decode("utf-8", errors="replace"),
+        stderr=(proc.stderr or b"").decode("utf-8", errors="replace"),
     )
 
 
@@ -215,10 +217,9 @@ def assert_install_preconditions(repository_root: Path, reviewed_head: str) -> s
             "reviewed_head must equal live HEAD at install time "
             f"(reviewed={reviewed_head.strip().lower()} live={live_head})"
         )
-    dirty = _git(root, "status", "--porcelain")
-    if dirty.returncode != 0:
-        raise ValueError(f"git status failed: {dirty.stderr.strip()}")
-    if dirty.stdout.strip():
+    from tools.self_improvement_v2.srl_git_exec import tree_is_dirty
+
+    if tree_is_dirty(root):
         raise ValueError(
             "refuse launcher install from a dirty worktree "
             "(commit or stash before refreshing the trust root)"

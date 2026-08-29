@@ -47,6 +47,7 @@ TRUSTED_MODULE_NAMES = (
     "tools.self_improvement_v2.runtime_bridge",
     "tools.self_improvement_v2.runtime_config",
     "tools.self_improvement_v2.schema_loader",
+    "tools.self_improvement_v2.srl_git_exec",
     "tools.self_improvement_v2.trusted_origin",
     "tools.self_improvement_v2.validation_runner",
     "tools.self_improvement_v2.wall_reassert",
@@ -123,15 +124,10 @@ def _sanitized_git_env() -> dict[str, str]:
 
 
 def _raw_git(args: list[str], *, cwd: Path, check: bool = True) -> subprocess.CompletedProcess[bytes]:
+    from tools.self_improvement_v2.srl_git_exec import srl_git_exec
+
     root = Path(cwd).resolve()
-    git_dir = root / ".git"
-    proc = subprocess.run(
-        ["git", f"--git-dir={git_dir}", f"--work-tree={root}", *args],
-        cwd=str(root),
-        capture_output=True,
-        check=False,
-        env=_sanitized_git_env(),
-    )
+    proc = srl_git_exec(args, cwd=root, check=False)
     if check and proc.returncode != 0:
         raise TrustedOriginError(f"git {' '.join(args)} failed in reviewed install")
     return proc

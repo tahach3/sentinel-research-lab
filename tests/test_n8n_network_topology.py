@@ -39,7 +39,27 @@ class TestN8nNetworkTopology(unittest.TestCase):
         self.assertNotRegex(self.text, r"0\.0\.0\.0:8765")
         self.assertNotRegex(self.text, r'"8765:8765"')
         self.assertNotRegex(self.text, r"127\.0\.0\.1:8765:8765")
-        self.assertNotIn("8765", self.text)
+        self.assertIn("srl-worker:", self.text)
+        self.assertIn('network_mode: service:n8n', self.text)
+        self.assertNotIn("ports:", self._worker_block())
+
+    def _worker_block(self) -> str:
+        match = re.search(
+            r"(?ms)^  srl-worker:\n(.*?)(?=^  [a-zA-Z0-9_-]+:\n|^networks:|^volumes:|\Z)",
+            self.text,
+        )
+        if not match:
+            raise AssertionError("srl-worker service block not found")
+        return match.group(0)
+
+    def test_worker_shares_n8n_namespace(self) -> None:
+        worker = self._worker_block()
+        self.assertIn("network_mode: service:n8n", worker)
+        self.assertIn("read_only: true", worker)
+        self.assertIn("/srl/sentinel-research-lab:ro", worker)
+        self.assertIn("/tmp/srl-zone-p", worker)
+        self.assertIn("/tmp/srl-exec", worker)
+        self.assertNotIn("docker.sock", worker)
 
     def test_no_privileged_mode(self) -> None:
         self.assertNotRegex(self.text, r"(?m)^\s*privileged:\s*true\s*$")

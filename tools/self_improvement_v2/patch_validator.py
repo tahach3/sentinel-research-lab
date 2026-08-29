@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
-import subprocess
 from pathlib import Path
 from typing import Any
 
 from tools.self_improvement_v2.canonical import content_sha256, sha256_hex
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
+from tools.self_improvement_v2.srl_git_exec import srl_git_exec
 from tools.self_improvement_v2.patch_parser import (
     parse_unified_diff,
     paths_from_parsed,
@@ -122,14 +121,12 @@ def validate_patch_object(
 
 
 def git_apply_check(repo_root: Path, unified_diff: str) -> None:
-    proc = subprocess.run(
-        ["git", "apply", "--check", "--whitespace=nowarn", "-"],
-        cwd=str(repo_root),
-        input=unified_diff.encode("utf-8"),
-        capture_output=True,
+    proc = srl_git_exec(
+        ["apply", "--check", "--whitespace=nowarn", "-"],
+        cwd=repo_root,
+        input_bytes=unified_diff.encode("utf-8"),
         timeout=30,
         check=False,
-        shell=False,
     )
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout).decode("utf-8", errors="replace")[:500]
@@ -141,14 +138,12 @@ def git_apply_check(repo_root: Path, unified_diff: str) -> None:
 
 
 def git_apply(repo_root: Path, unified_diff: str) -> None:
-    proc = subprocess.run(
-        ["git", "apply", "--whitespace=nowarn", "-"],
-        cwd=str(repo_root),
-        input=unified_diff.encode("utf-8"),
-        capture_output=True,
+    proc = srl_git_exec(
+        ["apply", "--whitespace=nowarn", "-"],
+        cwd=repo_root,
+        input_bytes=unified_diff.encode("utf-8"),
         timeout=30,
         check=False,
-        shell=False,
     )
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout).decode("utf-8", errors="replace")[:500]
@@ -185,13 +180,11 @@ def verify_postimage(repo_root: Path, patch: dict[str, Any]) -> None:
 
 
 def _stage_all(repo_root: Path) -> None:
-    proc = subprocess.run(
-        ["git", "add", "-A"],
-        cwd=str(repo_root),
-        capture_output=True,
+    proc = srl_git_exec(
+        ["add", "-A"],
+        cwd=repo_root,
         timeout=30,
         check=False,
-        shell=False,
     )
     if proc.returncode != 0:
         raise WorkerError(ERROR_CODES["PATCH_REJECTED"], "unable to stage changes", state="PATCH_REJECTED")
@@ -199,29 +192,24 @@ def _stage_all(repo_root: Path) -> None:
 
 def staged_tree_sha(repo_root: Path) -> str:
     _stage_all(repo_root)
-    proc = subprocess.run(
-        ["git", "write-tree"],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
+    proc = srl_git_exec(
+        ["write-tree"],
+        cwd=repo_root,
         timeout=30,
         check=False,
-        shell=False,
     )
     if proc.returncode != 0:
         raise WorkerError(ERROR_CODES["PATCH_REJECTED"], "write-tree failed", state="PATCH_REJECTED")
-    return proc.stdout.strip()
+    return proc.stdout.decode("utf-8").strip()
 
 
 def actual_diff_bytes(repo_root: Path, baseline_sha: str) -> bytes:
     _stage_all(repo_root)
-    proc = subprocess.run(
-        ["git", "diff", "--cached", baseline_sha],
-        cwd=str(repo_root),
-        capture_output=True,
+    proc = srl_git_exec(
+        ["diff", "--cached", "--no-ext-diff", "--no-color", "--no-textconv", baseline_sha],
+        cwd=repo_root,
         timeout=30,
         check=False,
-        shell=False,
     )
     if proc.returncode != 0:
         raise WorkerError(ERROR_CODES["PATCH_REJECTED"], "unable to compute diff", state="PATCH_REJECTED")
@@ -234,28 +222,23 @@ def actual_diff_sha256(repo_root: Path, baseline_sha: str) -> str:
 
 def changed_paths_since(repo_root: Path, baseline_sha: str) -> list[str]:
     _stage_all(repo_root)
-    proc = subprocess.run(
-        ["git", "diff", "--cached", "--name-only", "-z", baseline_sha],
-        cwd=str(repo_root),
-        capture_output=True,
+    proc = srl_git_exec(
+        ["diff", "--cached", "--name-only", "-z", "--no-ext-diff", baseline_sha],
+        cwd=repo_root,
         timeout=30,
         check=False,
-        shell=False,
     )
     if proc.returncode != 0:
-        # fallback without -z
-        proc = subprocess.run(
-            ["git", "diff", "--cached", "--name-only", baseline_sha],
-            cwd=str(repo_root),
-            capture_output=True,
-            text=True,
+        proc = srl_git_exec(
+            ["diff", "--cached", "--name-only", "--no-ext-diff", baseline_sha],
+            cwd=repo_root,
             timeout=30,
             check=False,
-            shell=False,
         )
         if proc.returncode != 0:
             raise WorkerError(ERROR_CODES["PATCH_REJECTED"], "unable to list changed paths", state="PATCH_REJECTED")
-        return [normalize_rel_path(line) for line in proc.stdout.splitlines() if line.strip()]
+        text = proc.stdout.decode("utf-8", errors="replace")
+        return [normalize_rel_path(line) for line in text.splitlines() if line.strip()]
     raw = proc.stdout or b""
     parts = [p.decode("utf-8", errors="replace") for p in raw.split(b"\0") if p]
     return [normalize_rel_path(p) for p in parts]
@@ -267,21 +250,19 @@ def changed_paths_sha256(paths: list[str]) -> str:
 
 def summarize_diff(repo_root: Path, baseline_sha: str) -> dict[str, int]:
     _stage_all(repo_root)
-    proc = subprocess.run(
-        ["git", "diff", "--cached", "--numstat", baseline_sha],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
+    proc = srl_git_exec(
+        ["diff", "--cached", "--numstat", "--no-ext-diff", baseline_sha],
+        cwd=repo_root,
         timeout=30,
         check=False,
-        shell=False,
     )
     if proc.returncode != 0:
         raise WorkerError(ERROR_CODES["PATCH_REJECTED"], "unable to summarize diff", state="PATCH_REJECTED")
     files = 0
     added = 0
     removed = 0
-    for line in proc.stdout.splitlines():
+    text = proc.stdout.decode("utf-8", errors="replace")
+    for line in text.splitlines():
         parts = line.split("\t")
         if len(parts) < 3:
             continue
