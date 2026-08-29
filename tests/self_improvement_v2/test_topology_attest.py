@@ -325,6 +325,33 @@ def test_image_L_without_digest_D_refuses() -> None:
         assert_worker_topology(docker=docker, reviewed_head=HEAD)
 
 
+def test_worker_image_pin_mismatch_refuses() -> None:
+    fake = FakeDocker()
+    fake.config_image = f"srl-worker:si2-option-a@sha256:{'a' * 64}"
+    fake.repo_digests = [fake.config_image]
+    docker = DockerTransport(ENDPOINT, runner=fake.runner)
+    with pytest.raises(TopologyAttestationError, match="worker_image_pin"):
+        assert_worker_topology(docker=docker, reviewed_head=HEAD)
+
+
+def test_ambient_compose_env_is_not_used() -> None:
+    fake = FakeDocker()
+    os.environ["COMPOSE_FILE"] = "/evil/compose.yml"
+    os.environ["COMPOSE_PROJECT_NAME"] = "evil"
+    os.environ["DOCKER_CLI_PLUGIN_EXTRA_DIRS"] = "/evil/plugins"
+    try:
+        docker = DockerTransport(ENDPOINT, runner=fake.runner)
+        assert_worker_topology(docker=docker, reviewed_head=HEAD)
+        for env in fake.seen_env:
+            assert "COMPOSE_FILE" not in env
+            assert "COMPOSE_PROJECT_NAME" not in env
+            assert "DOCKER_CLI_PLUGIN_EXTRA_DIRS" not in env
+    finally:
+        os.environ.pop("COMPOSE_FILE", None)
+        os.environ.pop("COMPOSE_PROJECT_NAME", None)
+        os.environ.pop("DOCKER_CLI_PLUGIN_EXTRA_DIRS", None)
+
+
 def test_n8n_recreate_fail_closed_provider_calls_unchanged() -> None:
     fake = FakeDocker()
     docker = DockerTransport(ENDPOINT, runner=fake.runner)

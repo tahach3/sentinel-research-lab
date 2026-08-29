@@ -47,7 +47,16 @@ DOCKER_ENV_BLOCKLIST = (
     "DOCKER_TLS_VERIFY",
     "DOCKER_TLS",
     "DOCKER_API_VERSION",
+    "DOCKER_CLI_PLUGIN_EXTRA_DIRS",
+    "DOCKER_CUSTOM_HEADERS",
+    "COMPOSE_FILE",
+    "COMPOSE_PROJECT_NAME",
+    "COMPOSE_PROFILES",
+    "COMPOSE_PATH_SEPARATOR",
+    "COMPOSE_ENV_FILES",
 )
+
+WORKER_IMAGE_PIN_REL = Path("specs/self_improvement/v2/worker_image_pin.json")
 
 LOOPBACK_8765_HEX = "0100007F:223D"
 LISTEN_STATE = "0A"
@@ -312,16 +321,45 @@ def _published_n8n_ok(inspect: DockerInspect) -> bool:
     return str(row.get("HostIp") or "") == "127.0.0.1" and str(row.get("HostPort") or "") == "5678"
 
 
+def _load_worker_image_pin(repository_root: Path) -> dict[str, Any]:
+    path = (repository_root / WORKER_IMAGE_PIN_REL).resolve()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise TopologyAttestationError("worker_image_pin.json unreadable") from exc
+    if not isinstance(payload, dict):
+        raise TopologyAttestationError("worker_image_pin.json must be an object")
+    digest = payload.get("worker_image_digest_D")
+    if not isinstance(digest, str) or _SHA_RE.fullmatch(digest) is None:
+        raise TopologyAttestationError("worker_image_pin.json missing worker_image_digest_D")
+    name = payload.get("image_name")
+    tag = payload.get("image_tag")
+    if not isinstance(name, str) or not name or not isinstance(tag, str) or not tag:
+        raise TopologyAttestationError("worker_image_pin.json missing image_name/image_tag")
+    return payload
+
+
 def assert_worker_topology(
     *,
     docker: DockerTransport,
     reviewed_head: str,
     mint: dict[str, Any] | None = None,
     health_get: Callable[[], dict[str, Any]] | None = None,
+    repository_root: Path | None = None,
 ) -> dict[str, Any]:
     """Run the closed proof. Compare to mint when provided (live reassert)."""
     if not isinstance(reviewed_head, str) or _HEAD_RE.fullmatch(reviewed_head) is None:
         _fail("reviewed_head must be 40-lowercase-hex")
+
+    root = repository_root
+    if root is None:
+        env_root = os.environ.get("SRL_REPOSITORY_ROOT", "").strip()
+        if not env_root:
+            _fail("repository_root or SRL_REPOSITORY_ROOT required for image pin")
+        root = Path(env_root)
+    root = root.resolve()
+    image_pin = _load_worker_image_pin(root)
+    pinned_digest = str(image_pin["worker_image_digest_D"])
 
     daemon_id_raw = docker.run(["info", "--format", "{{json .ID}}"]).strip()
     os_type_raw = docker.run(["info", "--format", "{{json .OSType}}"]).strip()
@@ -368,6 +406,8 @@ def assert_worker_topology(
     digest_d = "sha256:" + worker.config_image.rsplit("@sha256:", 1)[1].split()[0]
     if _SHA_RE.fullmatch(digest_d) is None:
         _fail("worker image digest D malformed")
+    if digest_d != pinned_digest:
+        _fail("worker image digest D does not match worker_image_pin.json")
     image_text = docker.run(["image", "inspect", worker.image_id, "--format", "{{.Id}} {{json .RepoDigests}}"])
     parts = image_text.strip().split(" ", 1)
     if len(parts) != 2 or parts[0] != worker.image_id:
@@ -375,8 +415,8 @@ def assert_worker_topology(
     repo_digests = _json_load(parts[1], "RepoDigests")
     if not isinstance(repo_digests, list) or not repo_digests:
         _fail("empty RepoDigests refuses")
-    if not any(str(item).endswith("@" + digest_d) or str(item) == digest_d for item in repo_digests):
-        _fail("RepoDigests must contain digest D")
+    if not any(str(item).endswith("@" + pinned_digest) or str(item) == pinned_digest for item in repo_digests):
+        _fail("RepoDigests must contain pinned worker_image_digest_D")
 
     n8n_ns = docker.run(["exec", n8n_id, "readlink", "/proc/1/ns/net"]).strip()
     worker_ns = docker.run(["exec", worker_id, "readlink", "/proc/1/ns/net"]).strip()
@@ -421,6 +461,7 @@ def assert_worker_topology(
 
     listed = docker.run(["container", "ls", "-a", "--no-trunc", "--format", "{{.ID}}"])
     members: list[str] = []
+    worker_join_mode = f"container:{worker_id}"
     for raw_id in listed.splitlines():
         cid = raw_id.strip()
         if not cid:
@@ -432,7 +473,9 @@ def assert_worker_topology(
             _fail("host-wide inspect malformed")
         full_id, mode = bits[0], bits[1]
         _require_id(full_id, "inspected container id")
-        if full_id == n8n_id or mode == expected_mode:
+        # Include n8n, direct joiners (container:<n8n>), and transitive joiners
+        # (container:<worker>) so an impostor sharing the netns cannot hide.
+        if full_id == n8n_id or mode == expected_mode or mode == worker_join_mode:
             members.append(full_id)
     netset = sorted(set(members))
     if netset != sorted({n8n_id, worker_id}):
@@ -601,6 +644,7 @@ class AttestorState:
     attest_credential: str
     consume_credential: str
     reviewed_head: str
+    repository_root: Path | None = None
     tokens: TokenStore = field(default_factory=TokenStore)
     health_get: Callable[[], dict[str, Any]] | None = None
     reassert_timeout_seconds: float = 8.0
@@ -614,6 +658,7 @@ class AttestorState:
             reviewed_head=self.reviewed_head,
             mint=self.mint,
             health_get=self.health_get,
+            repository_root=self.repository_root,
         )
 
 

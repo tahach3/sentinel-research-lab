@@ -37,6 +37,8 @@ def _sanitized_git_env() -> dict[str, str]:
         "GIT_ASKPASS": "",
         "GCM_INTERACTIVE": "never",
         "GC_IDENTIFICATION": "",
+        # Avoid index refresh writes against a read-only reviewed .git.
+        "GIT_OPTIONAL_LOCKS": "0",
     }
     # Preserve Windows process essentials only.
     for key in ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "TMP", "TEMP", "TMPDIR"):
@@ -83,7 +85,7 @@ def run_git(
         timeout=timeout,
         check=False,
         shell=False,
-        env=env,
+        env=_sanitized_git_env() if env is None else env,
     )
     if check and proc.returncode != 0:
         detail = (proc.stderr or proc.stdout).decode("utf-8", errors="replace")[:500]
@@ -534,6 +536,7 @@ def package_candidate_export(
         "execution_id": execution_id,
         "export_ref": ref,
         "candidate_commit": commit,
+        "baseline_sha": baseline_sha,
         "candidate_bundle_sha256": bundle_sha,
         "actual_diff_sha256": diff_sha,
         "state": "NOT_EXPORTED",

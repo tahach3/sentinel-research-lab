@@ -1,7 +1,7 @@
 {
   "schema_version": "2.1.0",
   "description": "Content digests for Self-Improvement V2 modules closed under static AST imports. Does not cover dynamic importlib/__import__/string-built loaders. Reviewed HEAD identity is supplied exclusively by SRL_REVIEWED_HEAD.",
-  "combined": "409690f8d220e51b380d86e7fc552850b6f0fc79bda1146a20a6b42016ecd41e",
+  "combined": "b8fb162856359a7bc9dfffb632a1e98d166557a6fbbae0b5868c775703c3c11e",
   "modules": {
     "tools.self_improvement_v2": "af8381dad1d02cfac8c60e5803916dd568029ea1d12caecef0507502e6e43a39",
     "tools.self_improvement_v2.agent_runtime_contract": "1ee87f18523a4f2d3adb50c2ca59a4751aba391baa2300302f20cd5a6d640d1a",
@@ -9,7 +9,7 @@
     "tools.self_improvement_v2.executor": "159fa8900e213820b64ba1876600205c5509d06e32c66b831de9000c81c7ccce",
     "tools.self_improvement_v2.experience_store": "8ef7f319e16bc1fcd3219f49d110310c47c65692e193c5ce71e95f69784eed52",
     "tools.self_improvement_v2.finalizer": "0392f285feed391175d69af4eb828034445fb4548f8924dd8bbea0b93dec1d6f",
-    "tools.self_improvement_v2.git_worker": "e800153c3158629c274b2ff1cbb880b22127e6ac3752fd436020d0ae447d91b8",
+    "tools.self_improvement_v2.git_worker": "c7bdd3bcd427be8adbdcd061c7c6bd862e18641914e67a9b3032d36b7321e3b8",
     "tools.self_improvement_v2.import_closure": "c47465e369cd8decc24bac93254badf6b7e38b92c8b7a7e2ea89a85b0d2aee88",
     "tools.self_improvement_v2.models": "1ad4e514b7b349c6e77394a8ec1a322da2fcfa00da01f8622c9caa7b02157715",
     "tools.self_improvement_v2.patch_parser": "2615251a76fd1fad1c03d5a19ea4beb6fd25edd68283ddf3989e5e619f756562",
@@ -25,7 +25,7 @@
     "tools.self_improvement_v2.topology_consume": "01f70860f8a837552b6f69191941be4f76a03aaa99bd5710c565d2d0ad15b642",
     "tools.self_improvement_v2.topology_identity": "f9b5cf3ad7a287014640e6157d319ddc84e695a554229791c479115a10f866a7",
     "tools.self_improvement_v2.trusted_origin": "bb867a542b89b0dc0295f46df64824b61a3242f5eb10a5af35a7b7f575a07cb2",
-    "tools.self_improvement_v2.validation_runner": "66df54a6dd6bbd2e2c718be41b33b2f07fd9db9f28e289d7f26d3ccc4c82d704",
+    "tools.self_improvement_v2.validation_runner": "aa1349989771d8b1349e6234f90aebff78890b92ebf3093cf909f0372d4c89f6",
     "tools.self_improvement_v2.wall_reassert": "4961e116c14d17055a0341f50259ba7e72839b0cedffc21047ebe923529dfd05",
     "tools.self_improvement_v2.workflow_normalizer": "aad7813d052319d05666b08012fa632e5a2f2773f9cbafed84aa33ee057d3765",
     "tools.self_improvement_v2.workflow_validator": "a3526714d23df09fbd487875f19c4cc1a6b51c299080c6a710f94838a9af799a"

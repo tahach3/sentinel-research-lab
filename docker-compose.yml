@@ -87,7 +87,12 @@ services:
     cpus: 1.5
 
   srl-worker:
-    image: srl-worker:si2-option-a@sha256:46bcb0fcfb524746d95b97800c8b7a7ca9964a30bd039ac22697750b393e9936
+    build:
+      context: .
+      dockerfile: docker/srl-worker/Dockerfile
+    # After the first authorized registry push, pin as name:tag@sha256:<RepoDigest>
+    # matching specs/self_improvement/v2/worker_image_pin.json worker_image_digest_D.
+    image: srl-worker:si2-option-a
     restart: unless-stopped
     depends_on:
       n8n:
@@ -110,14 +115,14 @@ services:
       SRL_TOPOLOGY_ATTESTOR_ORIGIN: http://host.docker.internal:8764
     volumes:
       - type: bind
-        source: ${SRL_REPOSITORY_ROOT}
+        source: ${SRL_REPOSITORY_ROOT:?set SRL_REPOSITORY_ROOT to the host checkout}
         target: /srl/sentinel-research-lab
         read_only: true
       - type: volume
         source: srl_exec
         target: /tmp/srl-exec
       - type: bind
-        source: ${SRL_STATE_DIR}
+        source: ${SRL_STATE_DIR:?set SRL_STATE_DIR to a host durable state directory}
         target: /srl/state
     secrets:
       - srl_worker_token
@@ -137,7 +142,8 @@ volumes:
     driver: local
 
 secrets:
+  # Host paths only — not the in-container /run/secrets/* destinations.
   srl_worker_token:
-    file: ${SRL_WORKER_TOKEN_FILE}
+    file: ${SRL_WORKER_TOKEN_HOST_FILE:?host path to worker bearer token file}
   srl_topology_consume_token:
-    file: ${SRL_TOPOLOGY_CONSUME_TOKEN_FILE}
+    file: ${SRL_TOPOLOGY_CONSUME_TOKEN_HOST_FILE:?host path to topology consume token file}

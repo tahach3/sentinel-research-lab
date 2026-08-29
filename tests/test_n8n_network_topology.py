@@ -61,6 +61,9 @@ class TestN8nNetworkTopology(unittest.TestCase):
         self.assertIn("read_only: true", self.worker)
         self.assertNotIn("SRL_WORKER_TOKEN:", self.worker)
         self.assertIn("/run/secrets/srl_worker_token", self.worker)
+        self.assertIn("SRL_WORKER_TOKEN_HOST_FILE", self.text)
+        self.assertIn("dockerfile: docker/srl-worker/Dockerfile", self.worker)
+        self.assertNotRegex(self.worker, r"image:\s*srl-worker:si2-option-a@sha256:")
 
     def test_no_public_worker_exposure(self) -> None:
         self.assertNotRegex(self.text, r"0\.0\.0\.0:8765")
