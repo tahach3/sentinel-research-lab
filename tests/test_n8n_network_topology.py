@@ -68,6 +68,7 @@ class TestN8nNetworkTopology(unittest.TestCase):
         self.assertIn("PYTHONPATH: /srl/sentinel-research-lab", self.worker)
         dockerfile = (ROOT / "docker/srl-worker/Dockerfile").read_text(encoding="utf-8")
         self.assertIn("PYTHONSAFEPATH=1", dockerfile)
+        self.assertIn("python:3.12-slim-bookworm@sha256:0f5b26b9518d002b6173fd61daad821fa340635ebfec5bba471013f9ca114579", dockerfile)
 
     def test_no_public_worker_exposure(self) -> None:
         self.assertNotRegex(self.text, r"0\.0\.0\.0:8765")
