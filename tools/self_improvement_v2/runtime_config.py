@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
+from tools.self_improvement_v2.option_a_controller import Rev25RuntimeDeps
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
@@ -25,6 +27,9 @@ _ENV_ROOT = "SRL_REPOSITORY_ROOT"
 _ENV_DB = "SRL_STATE_DB"
 _ENV_HOST = "SRL_WORKER_HOST"
 _ENV_PORT = "SRL_WORKER_PORT"
+_ENV_WORKER_CID = "SRL_WORKER_CONTAINER_ID"
+_ENV_N8N_CID = "SRL_N8N_CONTAINER_ID"
+_ENV_IMAGE = "SRL_WORKER_IMAGE_DIGEST"
 
 _FORBIDDEN_ROOT_NAMES = frozenset({"equitify-machine", "ai-development-os"})
 _ABS_PATH_RE = re.compile(r"(?i)[A-Za-z]:[\\/]|/(?:Users|home|var|tmp|private)/")
@@ -120,6 +125,98 @@ def _assert_state_db(state_db: Path, repository_root: Path) -> Path:
     return resolved
 
 
+def _require_operator_value(name: str, value: str | None) -> str:
+    if value is None or not str(value).strip():
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            f"{name} is required",
+            state="FAILED_FROZEN",
+        )
+    return str(value).strip()
+
+
+def _parse_docker_inspect_stdout(stdout: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "docker inspect returned non-JSON",
+            state="FAILED_FROZEN",
+        ) from exc
+    if isinstance(payload, list):
+        if not payload:
+            raise WorkerError(
+                ERROR_CODES["FAILED_FROZEN"],
+                "docker inspect returned an empty list",
+                state="FAILED_FROZEN",
+            )
+        payload = payload[0]
+    if not isinstance(payload, dict):
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "docker inspect returned a non-object",
+            state="FAILED_FROZEN",
+        )
+    return payload
+
+
+def _build_rev25_runtime_deps(
+    *,
+    environ: dict[str, str],
+    docker_runner: Any,
+) -> Rev25RuntimeDeps:
+    from tools.self_improvement_v2.docker_cli import (
+        docker_inspect_argv,
+        docker_ps_all_ids_argv,
+        require_container_id,
+        run_docker_argv,
+    )
+    from tools.self_improvement_v2.topology_identity import normalize_image_digest
+
+    runner = docker_runner if docker_runner is not None else run_docker_argv
+    worker_id = require_container_id(
+        _require_operator_value(_ENV_WORKER_CID, environ.get(_ENV_WORKER_CID))
+    )
+    n8n_id = require_container_id(
+        _require_operator_value(_ENV_N8N_CID, environ.get(_ENV_N8N_CID))
+    )
+    digest = normalize_image_digest(
+        _require_operator_value(_ENV_IMAGE, environ.get(_ENV_IMAGE))
+    )
+
+    def inspect_one(cid: str) -> dict[str, Any]:
+        argv = docker_inspect_argv(cid)
+        code, out, err = runner(argv)
+        if code != 0:
+            raise WorkerError(
+                ERROR_CODES["FAILED_FROZEN"],
+                (err or "docker inspect failed").strip(),
+                state="FAILED_FROZEN",
+            )
+        return _parse_docker_inspect_stdout(out)
+
+    def list_all_ids() -> list[str]:
+        argv = docker_ps_all_ids_argv()
+        code, out, err = runner(argv)
+        if code != 0:
+            raise WorkerError(
+                ERROR_CODES["FAILED_FROZEN"],
+                (err or "docker ps failed").strip(),
+                state="FAILED_FROZEN",
+            )
+        return [line.strip().lower() for line in out.splitlines() if line.strip()]
+
+    return Rev25RuntimeDeps(
+        inspect_worker=inspect_one,
+        inspect_n8n=inspect_one,
+        list_all_ids=list_all_ids,
+        worker_id=worker_id,
+        n8n_id=n8n_id,
+        expected_image_digest=digest,
+    )
+
+
 def load_runtime_config(
     *,
     repository_root: str | None = None,
@@ -128,6 +225,7 @@ def load_runtime_config(
     worker_host: str | None = None,
     worker_port: str | int | None = None,
     environ: dict[str, str] | None = None,
+    docker_runner: Any = None,
 ) -> RuntimeConfig:
     env = environ if environ is not None else os.environ
     # Blank/whitespace SRL_REPOSITORY_ROOT is absent — never an open R4 gate.
@@ -177,6 +275,7 @@ def load_runtime_config(
         worker_token=token,
         worker_host=host,
         worker_port=port,
+        rev25_deps=_build_rev25_runtime_deps(environ=dict(env), docker_runner=docker_runner),
     )
 
 

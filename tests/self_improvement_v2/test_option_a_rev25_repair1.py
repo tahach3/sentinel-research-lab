@@ -387,7 +387,9 @@ CLOSED_WORLD_UNGUARDED_GIT = {
 
 _SAFE_GIT_RUNNER = "srl_git_exec.py"
 _SAFE_PYTHON_RUNNER = "validation_runner.py"
+_SAFE_DOCKER_RUNNER = "docker_cli.py"
 _ALLOWED_PYTHON = frozenset({"python", "python.exe"})
+_ALLOWED_DOCKER = frozenset({"docker", "docker.exe"})
 
 _SUBPROCESS_FUNCS = frozenset({"run", "Popen", "call", "check_call", "check_output"})
 _SOLE_RUNNER = "srl_git_exec.py"
@@ -523,6 +525,10 @@ def classify_process_launch_sites(tree: ast.AST, *, filename: str) -> list[tuple
         lowered = Path(exe).name.lower()
         if lowered in {"git", "git.exe"} and filename != _SAFE_GIT_RUNNER:
             unresolved.append((getattr(node, "lineno", 0), "git outside sole runner"))
+            continue
+        if lowered in _ALLOWED_DOCKER:
+            if filename != _SAFE_DOCKER_RUNNER:
+                unresolved.append((getattr(node, "lineno", 0), "docker outside sole runner"))
             continue
         if lowered not in _ALLOWED_PYTHON and lowered not in {"git", "git.exe"}:
             unresolved.append((getattr(node, "lineno", 0), f"unknown executable {exe}"))

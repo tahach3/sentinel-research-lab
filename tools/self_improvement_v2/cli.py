@@ -13,6 +13,7 @@ from tools.self_improvement_v2.experience_store import ExperienceStore
 from tools.self_improvement_v2.executor import execute_proposal
 from tools.self_improvement_v2.option_a_controller import run_rev25_production_finalize
 from tools.self_improvement_v2.models import ERROR_CODES, SCHEMA_VERSION, WorkerError
+from tools.self_improvement_v2.runtime_config import load_runtime_config
 from tools.self_improvement_v2.path_policy import load_policy, policy_sha256
 from tools.self_improvement_v2.repair_policy import assert_repair_attempt_allowed, assert_repair_not_broadening
 from tools.self_improvement_v2.review_gate import assert_no_conflicting_review, assert_review_bound
@@ -120,11 +121,16 @@ def bind_review_cmd(root: Path, review_path: Path, state_db: Path) -> int:
 
 def finalize_cmd(root: Path, execution_id: str, review_id: str, state_db: Path) -> int:
     try:
+        config = load_runtime_config(
+            repository_root=str(root),
+            state_db=str(state_db),
+        )
         result = run_rev25_production_finalize(
             execution_id=execution_id,
             review_id=review_id,
-            state_db=state_db,
-            repository_root=root,
+            state_db=config.state_db,
+            repository_root=config.repository_root,
+            deps=config.rev25_deps,
         )
         print(
             json.dumps(

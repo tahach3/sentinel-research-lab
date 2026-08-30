@@ -1,12 +1,12 @@
 {
   "schema_version": "2.1.0",
   "description": "Content digests for Self-Improvement V2 modules closed under static AST imports. Does not cover dynamic importlib/__import__/string-built loaders. Reviewed HEAD identity is supplied exclusively by SRL_REVIEWED_HEAD.",
-  "combined": "5d7d9040c2b57aa0a02f16296deca4abf2774953fc95b8e8f123612b54b2d9df",
+  "combined": "b064ebed7d1204713fb5758807a667dfb65973271dd8360e9d3e78b5d6a6ffcf",
   "modules": {
     "tools.self_improvement_v2": "af8381dad1d02cfac8c60e5803916dd568029ea1d12caecef0507502e6e43a39",
     "tools.self_improvement_v2.agent_runtime_contract": "18713360befa5c55713c70aff41dc3c24450c3253b0f6e4364eff1034e114cab",
     "tools.self_improvement_v2.canonical": "eaac859f50435803bfd6b7155c94106167aff3812fdaf24a4d9bc754e69c21c8",
-    "tools.self_improvement_v2.docker_cli": "65890829da89b9ad9319f584d3449b76c68d508b941dd99be3873cf87ab15f71",
+    "tools.self_improvement_v2.docker_cli": "49cfa64b431e13f0dfdbe28a3f5eb75170b0043f8309ffcd23384d5ee900df23",
     "tools.self_improvement_v2.executor": "0c3269d759fd21777d91080c38adf53988271c33904d0c0c9bf4d7283c0116b0",
     "tools.self_improvement_v2.experience_store": "867ca675bb242850a03b178feece198cda64f38ea75fadd706a3b9a80a30a46d",
     "tools.self_improvement_v2.export_seal": "737d5e98f4043f6d55e8f9e7478a3d784234b50440cbfa04b8358677634bc1e3",
@@ -26,7 +26,7 @@
     "tools.self_improvement_v2.review_gate": "50518cc7988ef2dc8bcc117380a1722a30dff6fa287c31834cf8d432577fab42",
     "tools.self_improvement_v2.risk_authority": "e71030d3f1461d7b570f5cf24c0c6c1e7999655ff9f6958805d76f1024d93ae3",
     "tools.self_improvement_v2.runtime_bridge": "d041e25070be52c132e9b6c40640b69a2fb32223f64d507647c510cac94d83dd",
-    "tools.self_improvement_v2.runtime_config": "f4b730c25f2a9698f3c30f0e5fedf168615a2ca4e1d9589a5e265041c602c14b",
+    "tools.self_improvement_v2.runtime_config": "8a2523b90d139ec75782acc884abe22e61a428d2b2e22ec7c9f6c48b4ad7e9f6",
     "tools.self_improvement_v2.schema_loader": "864f4dcb4a2ae82d13fec941d5d368a9bf68b241afeee231d8e62108cf5bd78f",
     "tools.self_improvement_v2.srl_git_exec": "61306170c28e7f0c99a62ff2e5ee81ba2ba307d37375fc07317250e042cc5d87",
     "tools.self_improvement_v2.topology_attest": "ac442fa73795009354902e4e02ddac2e85ffc8a9239ec7aaa75ab7a808613c88",

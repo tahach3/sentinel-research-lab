@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 from typing import Callable
 
@@ -68,6 +69,65 @@ def resolve_unique_prefix(full_ids: list[str], prefix: str) -> str:
 
 def docker_inspect_argv(container_id: str) -> list[str]:
     return ["docker", "inspect", require_container_id(container_id)]
+
+
+def docker_ps_all_ids_argv() -> list[str]:
+    return ["docker", "ps", "--all", "--quiet", "--no-trunc"]
+
+
+def _run_literal_docker(argv: list[str]) -> tuple[int, str, str]:
+    """Sole docker process launcher. Argv[0] must be the literal docker executable."""
+    if not argv or argv[0] != "docker":
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "docker runner requires docker argv",
+            state="FAILED_FROZEN",
+        )
+    if len(argv) == 3 and argv[1] == "inspect":
+        proc = subprocess.run(
+            ["docker", "inspect", argv[2]],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=sanitized_docker_env(),
+            check=False,
+        )
+        return proc.returncode, proc.stdout or "", proc.stderr or ""
+    if argv[1:] == ["ps", "--all", "--quiet", "--no-trunc"]:
+        proc = subprocess.run(
+            ["docker", "ps", "--all", "--quiet", "--no-trunc"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=sanitized_docker_env(),
+            check=False,
+        )
+        return proc.returncode, proc.stdout or "", proc.stderr or ""
+    if len(argv) == 4 and argv[1] == "cp":
+        proc = subprocess.run(
+            ["docker", "cp", argv[2], argv[3]],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=sanitized_docker_env(),
+            check=False,
+        )
+        return proc.returncode, proc.stdout or "", proc.stderr or ""
+    raise WorkerError(
+        ERROR_CODES["FAILED_FROZEN"],
+        "unclassified docker argv",
+        state="FAILED_FROZEN",
+    )
+
+
+def run_docker_argv(argv: list[str]) -> tuple[int, str, str]:
+    return _run_literal_docker(argv)
 
 
 def docker_exec_git_argv(
