@@ -69,6 +69,10 @@ class TestN8nNetworkTopology(unittest.TestCase):
         dockerfile = (ROOT / "docker/srl-worker/Dockerfile").read_text(encoding="utf-8")
         self.assertIn("PYTHONSAFEPATH=1", dockerfile)
         self.assertIn("python:3.12-slim-bookworm@sha256:0f5b26b9518d002b6173fd61daad821fa340635ebfec5bba471013f9ca114579", dockerfile)
+        self.assertIn("pip install", dockerfile)
+        self.assertIn("docker/srl-worker/requirements.txt", dockerfile)
+        req = (ROOT / "docker/srl-worker/requirements.txt").read_text(encoding="utf-8")
+        self.assertIn("jsonschema==", req)
 
     def test_no_public_worker_exposure(self) -> None:
         self.assertNotRegex(self.text, r"0\.0\.0\.0:8765")

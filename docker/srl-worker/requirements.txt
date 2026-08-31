@@ -1,0 +1,2 @@
+# Pinned runtime deps for tools.self_improvement_v2 (bind-mounted source at runtime).
+jsonschema==4.26.0
