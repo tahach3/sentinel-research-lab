@@ -25,6 +25,16 @@ _SEALED_EXPORT_DIR = re.compile(r"^/tmp/srl-exec/[a-f0-9]{32}/export/[a-f0-9]{8}
 _SEALED_FILE_PATH = re.compile(
     r"^/tmp/srl-exec/[a-f0-9]{32}/export/[a-f0-9]{8}/([^/\\:]+)$"
 )
+_SEALED_REPO = re.compile(r"^/tmp/srl-exec/[a-f0-9]{32}/repo$")
+_SEALED_BUNDLE = re.compile(
+    r"^/tmp/srl-exec/[a-f0-9]{32}/export/[a-f0-9]{8}/candidate\.bundle$"
+)
+_ALLOWED_GIT_ISOLATION = {"GIT_OPTIONAL_LOCKS": "0"}
+_ALLOWED_GIT_OBSERVE = {
+    ("rev-parse", "--verify", "HEAD"),
+    ("rev-parse", "--verify", "HEAD^{tree}"),
+    ("show", "-s", "--format=%H", "refs/heads/srl-candidate"),
+}
 
 
 def require_container_id(value: str) -> str:
@@ -207,21 +217,61 @@ def _classify_docker_cp(argv: list[str]) -> tuple[str, str] | None:
     return None
 
 
-def _classify_docker_exec(argv: list[str]) -> tuple[str, str, str] | None:
+def _split_docker_exec(argv: list[str]) -> tuple[dict[str, str], str, list[str]] | None:
     if len(argv) < 4 or argv[0] != "docker" or argv[1] != "exec":
         return None
-    cid = require_container_id(argv[2])
-    if len(argv) == 6 and argv[3] == "mkdir" and argv[4] == "-p":
-        path = argv[5]
-        if not _SEALED_EXPORT_DIR.fullmatch(path):
+    index = 2
+    envs: dict[str, str] = {}
+    while index + 1 < len(argv) and argv[index] == "--env":
+        raw = argv[index + 1]
+        if "=" not in raw:
             return None
-        return "mkdir", cid, path
-    if len(argv) == 5 and argv[3] == "cat":
-        path = argv[4]
-        match = _SEALED_FILE_PATH.fullmatch(path)
-        if match is None or match.group(1) not in WORKER_EXPORT_ALLOWLIST:
+        key, value = raw.split("=", 1)
+        envs[key] = value
+        index += 2
+    if index >= len(argv):
+        return None
+    try:
+        cid = require_container_id(argv[index])
+    except WorkerError:
+        return None
+    return envs, cid, argv[index + 1 :]
+
+
+def _classify_docker_exec(argv: list[str]) -> tuple[str, str, list[str]] | None:
+    split = _split_docker_exec(argv)
+    if split is None:
+        return None
+    envs, cid, cmd = split
+    if cmd[:2] == ["mkdir", "-p"] and len(cmd) == 3:
+        if envs:
             return None
-        return "cat", cid, path
+        path = cmd[2]
+        if _SEALED_EXPORT_DIR.fullmatch(path) or _SEALED_REPO.fullmatch(path):
+            return "mkdir", cid, cmd
+        return None
+    if not cmd or cmd[0] != "git":
+        return None
+    if envs != _ALLOWED_GIT_ISOLATION:
+        return None
+    if cmd[:3] == ["git", "clone", "--branch"] and len(cmd) in {6, 7}:
+        rest = cmd[3:]
+        if rest[0] != "srl-candidate":
+            return None
+        if rest[1] == "--":
+            rest = rest[2:]
+        else:
+            rest = rest[1:]
+        if len(rest) != 2:
+            return None
+        bundle, repo = rest
+        if _SEALED_BUNDLE.fullmatch(bundle) and _SEALED_REPO.fullmatch(repo):
+            return "git-clone", cid, cmd
+        return None
+    if len(cmd) >= 4 and cmd[1] == "-C" and _SEALED_REPO.fullmatch(cmd[2]):
+        git_args = tuple(cmd[3:])
+        if git_args in _ALLOWED_GIT_OBSERVE:
+            return "git-observe", cid, cmd
     return None
 
 
@@ -273,21 +323,14 @@ def _run_literal_docker(argv: list[str]) -> tuple[int, str, str]:
         classified = _classify_docker_exec(argv)
         if classified is None:
             raise _frozen("unclassified docker argv")
-        kind, cid, path = classified
-        if kind == "mkdir":
-            proc = subprocess.run(
-                ["docker", "exec", cid, "mkdir", "-p", path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                env=sanitized_docker_env(),
-                check=False,
-            )
-            return proc.returncode, proc.stdout or "", proc.stderr or ""
+        kind, cid, cmd = classified
+        rebuilt = ["docker", "exec"]
+        if kind.startswith("git"):
+            rebuilt.extend(["--env", "GIT_OPTIONAL_LOCKS=0"])
+        rebuilt.append(cid)
+        rebuilt.extend(cmd)
         proc = subprocess.run(
-            ["docker", "exec", cid, "cat", path],
+            ["docker", *rebuilt[1:]],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -311,18 +354,50 @@ def docker_exec_git_argv(
     isolation_env: dict[str, str],
 ) -> list[str]:
     cid = require_container_id(container_id)
-    if not EXECUTION_ID_RE.fullmatch(execution_id):
-        raise WorkerError(
-            ERROR_CODES["EXECUTION_ID_GRAMMAR"],
-            "SRL_EXECUTION_ID must be 32 hex",
-            state="FAILED_FROZEN",
-        )
-    argv = ["docker", "exec"]
-    for key, value in isolation_env.items():
-        argv.extend(["--env", f"{key}={value}"])
-    repo = f"/tmp/srl-exec/{execution_id}/repo"
-    argv.extend([cid, "git", "-C", repo, *git_args])
+    eid = _assert_execution_id(execution_id)
+    if isolation_env != _ALLOWED_GIT_ISOLATION:
+        raise _frozen("docker exec git isolation must be GIT_OPTIONAL_LOCKS=0 only")
+    if tuple(git_args) not in _ALLOWED_GIT_OBSERVE:
+        raise _frozen("unclassified docker git observation argv")
+    argv = ["docker", "exec", "--env", "GIT_OPTIONAL_LOCKS=0", cid, "git", "-C", f"/tmp/srl-exec/{eid}/repo", *git_args]
+    if _classify_docker_exec(argv) is None:
+        raise _frozen("unclassified docker git observation argv")
     return argv
+
+
+def docker_exec_clone_bundle_argv(
+    container_id: str,
+    execution_id: str,
+    generation: str,
+) -> list[str]:
+    cid = require_container_id(container_id)
+    eid = _assert_execution_id(execution_id)
+    gen = _assert_generation(generation)
+    bundle = f"/tmp/srl-exec/{eid}/export/{gen}/candidate.bundle"
+    repo = f"/tmp/srl-exec/{eid}/repo"
+    argv = [
+        "docker",
+        "exec",
+        "--env",
+        "GIT_OPTIONAL_LOCKS=0",
+        cid,
+        "git",
+        "clone",
+        "--branch",
+        "srl-candidate",
+        "--",
+        bundle,
+        repo,
+    ]
+    if _classify_docker_exec(argv) is None:
+        raise _frozen("unclassified docker git clone argv")
+    return argv
+
+
+def docker_exec_mkdir_repo_argv(container_id: str, execution_id: str) -> list[str]:
+    cid = require_container_id(container_id)
+    eid = _assert_execution_id(execution_id)
+    return ["docker", "exec", cid, "mkdir", "-p", f"/tmp/srl-exec/{eid}/repo"]
 
 
 def docker_cp_file_argv(

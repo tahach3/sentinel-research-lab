@@ -7,6 +7,7 @@ from typing import Any, Callable
 from tools.self_improvement_v2.canonical import canonical_bytes, sha256_hex
 from tools.self_improvement_v2.docker_cli import require_container_id, resolve_unique_prefix
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
+from tools.self_improvement_v2.option_a_constants import CONTAINER_ID_RE
 from tools.self_improvement_v2.topology_identity import parse_inspect_identity, refuse_restart
 
 InspectFn = Callable[[str], dict[str, Any]]
@@ -21,14 +22,23 @@ def closed_set_from_listing(
 ) -> frozenset[str]:
     w = require_container_id(worker_id)
     n = require_container_id(n8n_id)
-    listing = [i.lower() for i in all_ids]
-    if w not in listing or n not in listing:
+    listing = [i.strip().lower() for i in all_ids if i and i.strip()]
+    for item in listing:
+        if not CONTAINER_ID_RE.fullmatch(item):
+            raise WorkerError(
+                ERROR_CODES["DOCKER_PREFIX_ID"],
+                "host-wide listing contains a non-64-hex / prefix joiner",
+                state="FAILED_FROZEN",
+            )
+    actual = frozenset(listing)
+    expected = frozenset({w, n})
+    if actual != expected:
         raise WorkerError(
             ERROR_CODES["TOPOLOGY_REASSERT_FAILED"],
-            "closed-set members missing from host-wide listing",
+            "host-wide closed-set must equal exactly {worker, n8n}",
             state="FAILED_FROZEN",
         )
-    return frozenset({w, n})
+    return expected
 
 
 def live_reassert(

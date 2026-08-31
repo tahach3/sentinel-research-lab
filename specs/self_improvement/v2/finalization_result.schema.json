@@ -80,6 +80,18 @@
         "string",
         "null"
       ]
+    },
+    "reviewed_head": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "authorized_baseline": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "candidate_tree": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
     }
   }
 }

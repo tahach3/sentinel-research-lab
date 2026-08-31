@@ -16,9 +16,15 @@ from tools.self_improvement_v2.canonical import content_sha256
 from tools.self_improvement_v2.experience_store import ExperienceStore
 from tools.self_improvement_v2.docker_cli import (
     docker_cp_into_worker_argv,
-    docker_exec_cat_argv,
+    docker_exec_clone_bundle_argv,
+    docker_exec_git_argv,
+    docker_exec_mkdir_repo_argv,
     docker_exec_mkdir_argv,
     refuse_directory_cp,
+)
+from tools.self_improvement_v2.finalization_result import (
+    serialize_finalization_result,
+    validate_rev25_finalization_result,
 )
 from tools.self_improvement_v2.export_seal import bind_observed_identity, seal_generation, sealed_inventory_sha256
 from tools.self_improvement_v2.export_transport import copy_generation
@@ -134,6 +140,30 @@ def _stage_generation_into_worker(
         copy_fn(argv)
 
 
+_GIT_ISOLATION = {"GIT_OPTIONAL_LOCKS": "0"}
+
+
+def _exec_worker_git(
+    exec_docker: ExecDockerFn,
+    argv: list[str],
+) -> str:
+    code, out, err = exec_docker(argv)
+    if code != 0:
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            (err or "isolated worker Git observation failed").strip(),
+            state="FAILED_FROZEN",
+        )
+    value = (out or "").strip()
+    if not COMMIT_SHA_RE.fullmatch(value):
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "worker Git observation did not return a commit identity",
+            state="FAILED_FROZEN",
+        )
+    return value
+
+
 def _observe_git_via_worker_exec(
     *,
     worker_id: str,
@@ -141,26 +171,73 @@ def _observe_git_via_worker_exec(
     staging_generation: str,
     exec_docker: ExecDockerFn,
 ) -> tuple[str, str, str]:
-    def cat(name: str) -> str:
-        argv = docker_exec_cat_argv(worker_id, execution_id, staging_generation, name)
-        code, out, err = exec_docker(argv)
-        if code != 0:
-            raise WorkerError(
-                ERROR_CODES["FAILED_FROZEN"],
-                (err or "docker exec cat failed").strip(),
-                state="FAILED_FROZEN",
-            )
-        return out.strip()
-
-    commit = cat("candidate_commit")
-    tree = cat("candidate_tree")
-    if not COMMIT_SHA_RE.fullmatch(commit) or not COMMIT_SHA_RE.fullmatch(tree):
+    mkdir = docker_exec_mkdir_repo_argv(worker_id, execution_id)
+    code, _out, err = exec_docker(mkdir)
+    if code != 0:
         raise WorkerError(
             ERROR_CODES["FAILED_FROZEN"],
-            "worker observation did not return a commit identity",
+            (err or "docker exec mkdir repo failed").strip(),
             state="FAILED_FROZEN",
         )
-    return commit, tree, commit
+    clone = docker_exec_clone_bundle_argv(worker_id, execution_id, staging_generation)
+    code, _out, err = exec_docker(clone)
+    if code != 0:
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            (err or "worker EXECUTION_REPO_ROOT reconstruction failed").strip(),
+            state="FAILED_FROZEN",
+        )
+    head = _exec_worker_git(
+        exec_docker,
+        docker_exec_git_argv(worker_id, execution_id, ["rev-parse", "--verify", "HEAD"], _GIT_ISOLATION),
+    )
+    tree = _exec_worker_git(
+        exec_docker,
+        docker_exec_git_argv(
+            worker_id,
+            execution_id,
+            ["rev-parse", "--verify", "HEAD^{tree}"],
+            _GIT_ISOLATION,
+        ),
+    )
+    ref = _exec_worker_git(
+        exec_docker,
+        docker_exec_git_argv(
+            worker_id,
+            execution_id,
+            ["show", "-s", "--format=%H", SRL_CANDIDATE_REF],
+            _GIT_ISOLATION,
+        ),
+    )
+    if head != ref:
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "HEAD != refs/heads/srl-candidate",
+            state="FAILED_FROZEN",
+        )
+    return head, tree, ref
+
+
+def bundle_heads_from_file(bundle: Path) -> list[object]:
+    from tools.self_improvement_v2.srl_git_exec import REPO_ROLE_DISPOSABLE, srl_git_exec
+
+    proc = srl_git_exec(
+        ["bundle", "list-heads", str(bundle.resolve())],
+        cwd=bundle.parent,
+        repository_role=REPO_ROLE_DISPOSABLE,
+    )
+    heads: list[object] = []
+    for line in proc.stdout.decode("utf-8", errors="replace").splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            heads.append((parts[0].strip().lower(), parts[1].strip()))
+    if not heads:
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "git bundle list-heads returned no refs",
+            state="FAILED_FROZEN",
+        )
+    return heads
 
 
 class _MonotonicSequence:
@@ -340,12 +417,22 @@ def _write_generation_allowlist(
     candidate_tree: str,
     actual_diff: bytes,
     bundle_bytes: bytes,
+    finalization_result: dict[str, Any],
 ) -> None:
     generation_dir.mkdir(parents=True, exist_ok=True)
-    fin = json.dumps(
-        {"candidate_commit": candidate_commit, "candidate_tree": candidate_tree},
-        sort_keys=True,
-    ).encode()
+    validate_rev25_finalization_result(finalization_result)
+    if (
+        str(finalization_result.get("candidate_commit") or "") != candidate_commit
+        or str(finalization_result.get("candidate_tree") or "") != candidate_tree
+        or str(finalization_result.get("reviewed_head") or "") != reviewed_head
+        or str(finalization_result.get("execution_id") or "") != execution_id
+    ):
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "finalization_result identity does not match sealed export identities",
+            state="FAILED_FROZEN",
+        )
+    fin = serialize_finalization_result(finalization_result)
     payloads: dict[str, bytes] = {name: f"{name}\n".encode() for name in WORKER_EXPORT_ALLOWLIST}
     payloads["candidate_commit"] = f"{candidate_commit}\n".encode()
     payloads["candidate_tree"] = f"{candidate_tree}\n".encode()
@@ -523,6 +610,45 @@ def run_rev25_production_finalize(
         check=True,
         repository_role=REPO_ROLE_DISPOSABLE,
     ).stdout
+    learning = {
+        "schema_version": SCHEMA_VERSION,
+        "learning_id": f"learn-{execution_id[:16]}",
+        "candidate_id": proposal["candidate_id"],
+        "proposal_id": proposal["proposal_id"],
+        "execution_id": execution_id,
+        "proposal_sha256": bundle["proposal_sha256"],
+        "execution_result_sha256": bundle["execution_result_sha256"],
+        "problem": proposal["objective"],
+        "research_summary": "Offline V2 research validation completed",
+        "implementation_summary": f"Frozen execution {execution_id} committed",
+        "validation_summary": f"Profile {bundle['validation_profile']} bound",
+        "review_findings": [],
+        "repair_attempts": int(proposal.get("repair_attempt") or 0),
+        "final_outcome": "READY_FOR_HUMAN_PROMOTION",
+        "reusable_patterns": ["content-bound-finalize"],
+        "failure_patterns": [],
+        "confidence": 0.8,
+        "promotion_status": "READY_FOR_HUMAN_PROMOTION",
+    }
+    validate_instance("learning_record", learning, root=repository_root)
+    result = {
+        "schema_version": SCHEMA_VERSION,
+        "execution_id": execution_id,
+        "review_id": review_id,
+        "binding_verified": True,
+        "reviewed_head": reviewed_head,
+        "authorized_baseline": authorized_baseline,
+        "candidate_commit": commit,
+        "candidate_tree": committed_tree,
+        "candidate_branch": SRL_CANDIDATE_REF,
+        "committed_tree_sha": committed_tree,
+        "committed_diff_sha256": bundle["actual_diff_sha256"],
+        "final_state": "READY_FOR_HUMAN_PROMOTION",
+        "error_codes": [],
+        "learning_record_id": learning["learning_id"],
+    }
+    validate_rev25_finalization_result(result)
+    validate_instance("finalization_result", result, root=repository_root)
     _write_generation_allowlist(
         generation_dir,
         execution_id=execution_id,
@@ -531,6 +657,7 @@ def run_rev25_production_finalize(
         candidate_tree=committed_tree,
         actual_diff=actual_diff,
         bundle_bytes=bundle_path.read_bytes(),
+        finalization_result=result,
     )
     staging_generation = deps.staging_generation or secrets.token_hex(4)
     _stage_generation_into_worker(
@@ -553,7 +680,7 @@ def run_rev25_production_finalize(
         )
 
     def bundle_heads() -> list[object]:
-        return [(commit, SRL_CANDIDATE_REF)]
+        return bundle_heads_from_file(generation_dir / "candidate.bundle")
 
     run_rev25_export(
         execution_id=execution_id,
@@ -578,45 +705,8 @@ def run_rev25_production_finalize(
         now_ts=deps.now_ts,
     )
     store.append_state_event("execution", execution_id, "FINALIZATION_REVALIDATED", "CANDIDATE_COMMITTED")
-
-    learning = {
-        "schema_version": SCHEMA_VERSION,
-        "learning_id": f"learn-{execution_id[:16]}",
-        "candidate_id": proposal["candidate_id"],
-        "proposal_id": proposal["proposal_id"],
-        "execution_id": execution_id,
-        "proposal_sha256": bundle["proposal_sha256"],
-        "execution_result_sha256": bundle["execution_result_sha256"],
-        "problem": proposal["objective"],
-        "research_summary": "Offline V2 research validation completed",
-        "implementation_summary": f"Frozen execution {execution_id} committed",
-        "validation_summary": f"Profile {bundle['validation_profile']} bound",
-        "review_findings": [],
-        "repair_attempts": int(proposal.get("repair_attempt") or 0),
-        "final_outcome": "READY_FOR_HUMAN_PROMOTION",
-        "reusable_patterns": ["content-bound-finalize"],
-        "failure_patterns": [],
-        "confidence": 0.8,
-        "promotion_status": "READY_FOR_HUMAN_PROMOTION",
-    }
-    validate_instance("learning_record", learning, root=repository_root)
     store.insert_learning(learning)
     store.append_state_event("execution", execution_id, "CANDIDATE_COMMITTED", "LEARNING_RECORDED")
-
-    result = {
-        "schema_version": SCHEMA_VERSION,
-        "execution_id": execution_id,
-        "review_id": review_id,
-        "binding_verified": True,
-        "candidate_commit": commit,
-        "candidate_branch": SRL_CANDIDATE_REF,
-        "committed_tree_sha": committed_tree,
-        "committed_diff_sha256": bundle["actual_diff_sha256"],
-        "final_state": "READY_FOR_HUMAN_PROMOTION",
-        "error_codes": [],
-        "learning_record_id": learning["learning_id"],
-    }
-    validate_instance("finalization_result", result, root=repository_root)
     store.insert_finalization(result)
     store.append_state_event(
         "execution",

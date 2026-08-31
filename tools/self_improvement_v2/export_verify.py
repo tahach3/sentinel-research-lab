@@ -23,18 +23,34 @@ def reconstruct_authority_c(
     *,
     isolation: GitIsolation | None = None,
 ) -> None:
+    resolved = bundle.resolve()
+    if not resolved.is_file() or resolved.name != "candidate.bundle":
+        raise WorkerError(
+            ERROR_CODES["AUTHORITY_C_FAILED"],
+            "AUTHORITY_C_INPUT must be COPIED_DURABLE_CANDIDATE_BUNDLE",
+            state="FAILED_FROZEN",
+        )
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.exists() and any(dest.iterdir()):
+    if dest.exists() and dest.is_dir() and any(dest.iterdir()):
         raise WorkerError(
             ERROR_CODES["AUTHORITY_C_FAILED"],
             "Authority C destination must be empty",
             state="FAILED_FROZEN",
         )
-    srl_git_exec(
-        ["clone", "--branch", "srl-candidate", str(bundle.resolve()), str(dest.resolve())],
-        cwd=dest.parent,
-        isolation=isolation,
-    )
+    try:
+        srl_git_exec(
+            ["clone", "--branch", "srl-candidate", str(resolved), str(dest.resolve())],
+            cwd=dest.parent,
+            isolation=isolation,
+        )
+    except WorkerError:
+        raise
+    except Exception as exc:
+        raise WorkerError(
+            ERROR_CODES["AUTHORITY_C_FAILED"],
+            f"Authority C clone failed: {exc}",
+            state="FAILED_FROZEN",
+        ) from exc
 
 
 def _sha256(path: Path) -> str:
@@ -135,6 +151,7 @@ def verify_three_authority(
             state="FAILED_FROZEN",
         )
     actual = (attempt_dir / "actual.diff").read_bytes()
+    copied_bundle_path = (attempt_dir / "candidate.bundle").resolve()
     recomputed = recompute_diff(reviewed_head, str(attestation["candidate_commit"]))
     if recomputed != actual:
         raise WorkerError(
@@ -160,7 +177,13 @@ def verify_three_authority(
     dest = verify_scratch / ledger_eid
     dest.mkdir(parents=True, exist_ok=True)
     try:
-        clone_bundle(attempt_dir / "candidate.bundle", dest)
+        if (attempt_dir / "candidate.bundle").resolve() != copied_bundle_path:
+            raise WorkerError(
+                ERROR_CODES["AUTHORITY_C_FAILED"],
+                "Authority C must consume the copied durable candidate.bundle",
+                state="FAILED_FROZEN",
+            )
+        clone_bundle(copied_bundle_path, dest)
     except WorkerError:
         raise
     except Exception as exc:
@@ -192,6 +215,24 @@ def verify_three_authority(
             "bundle srl-candidate != attestation",
             state="FAILED_FROZEN",
         )
+    resolved_base = srl_git_exec(
+        ["cat-file", "-t", reviewed_head],
+        cwd=dest,
+        isolation=isolation,
+        check=False,
+    )
+    if resolved_base.returncode == 0:
+        dest_diff = srl_git_exec(
+            ["diff", "--binary", reviewed_head, head],
+            cwd=dest,
+            isolation=isolation,
+        ).stdout
+        if dest_diff != actual:
+            raise WorkerError(
+                ERROR_CODES["AUTHORITY_C_FAILED"],
+                "Authority C recomputed actual.diff != copied durable bytes",
+                state="FAILED_FROZEN",
+            )
 
 
 def atomic_publish(attempt_dir: Path, verified_root: Path) -> Path:

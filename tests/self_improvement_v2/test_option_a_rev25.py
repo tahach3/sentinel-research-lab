@@ -72,7 +72,7 @@ class LiveBox:
         return _inspect(cid, self.started, self.image, self.netns, self.state)
 
     def n8n(self, cid: str) -> dict:
-        return _inspect(cid, "n8n-t0", DIGEST, "n8n-net", "running")
+        return _inspect(cid, "n8n-t0", DIGEST, self.netns, "running")
 
     def listing(self) -> list[str]:
         return [WID, NID]
@@ -84,14 +84,16 @@ _SEALED_CP = re.compile(
 
 
 class RecordingDocker:
-    """Instrumentable Docker adapter: inspect/ps, per-file cp, mkdir/cat exec."""
+    """Instrumentable Docker adapter: inspect/ps, per-file cp, mkdir/git exec."""
 
     def __init__(self) -> None:
         self.ops: list[list[str]] = []
         self.fs: dict[str, bytes] = {}
+        self._repos: dict[str, Path] = {}
         self.directory_cp = 0
         self.local_copy_fallback = 0
         self.local_authority_c_fallback = 0
+        self.local_git_observation = 0
 
     def runner(self, argv: list[str]) -> tuple[int, str, str]:
         self.ops.append(list(argv))
@@ -129,16 +131,66 @@ class RecordingDocker:
         return 1, "", "unclassified docker cp"
 
     def _exec(self, argv: list[str]) -> tuple[int, str, str]:
-        cid = argv[2]
-        if argv[3:5] == ["mkdir", "-p"] and len(argv) == 6:
+        index = 2
+        while index + 1 < len(argv) and argv[index] == "--env":
+            index += 2
+        if index >= len(argv):
+            return 1, "", "unclassified docker exec"
+        cid = argv[index]
+        cmd = argv[index + 1 :]
+        if cmd[:2] == ["mkdir", "-p"] and len(cmd) == 3:
             return 0, "", ""
-        if argv[3] == "cat" and len(argv) == 5:
-            key = f"{cid}:{argv[4]}"
+        if cmd[:1] == ["cat"] and len(cmd) == 2:
+            key = f"{cid}:{cmd[1]}"
             data = self.fs.get(key)
             if data is None:
                 return 1, "", "missing worker file"
             return 0, data.decode("utf-8"), ""
+        if cmd and cmd[0] == "git":
+            return self._git(cid, cmd)
         return 1, "", "unclassified docker exec"
+
+    def _git(self, cid: str, cmd: list[str]) -> tuple[int, str, str]:
+        import subprocess
+        import tempfile
+
+        if cmd[:3] == ["git", "clone", "--branch"]:
+            rest = cmd[3:]
+            if rest and rest[0] == "srl-candidate":
+                rest = rest[1:]
+            if rest and rest[0] == "--":
+                rest = rest[1:]
+            if len(rest) != 2:
+                return 1, "", "unclassified git clone"
+            bundle, repo = rest
+            data = self.fs.get(f"{cid}:{bundle}")
+            if data is None:
+                return 1, "", "missing worker bundle"
+            tmp = Path(tempfile.mkdtemp(prefix="srl-r5-obs-"))
+            bundle_file = tmp / "candidate.bundle"
+            bundle_file.write_bytes(data)
+            dest = tmp / "repo"
+            proc = subprocess.run(
+                ["git", "clone", "--branch", "srl-candidate", str(bundle_file), str(dest)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode == 0:
+                self._repos[repo] = dest
+            return proc.returncode, proc.stdout or "", proc.stderr or ""
+        if len(cmd) >= 4 and cmd[1] == "-C":
+            host = self._repos.get(cmd[2])
+            if host is None:
+                return 1, "", "EXECUTION_REPO_ROOT not reconstructed"
+            proc = subprocess.run(
+                ["git", "-C", str(host), *cmd[3:]],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            return proc.returncode, proc.stdout or "", proc.stderr or ""
+        return 1, "", "unclassified docker git"
 
     def copy_fn(self, argv: list[str]) -> None:
         code, _out, err = self.runner(argv)

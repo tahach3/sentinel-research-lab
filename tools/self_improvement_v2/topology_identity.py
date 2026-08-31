@@ -66,6 +66,7 @@ def parse_inspect_identity(inspect: dict[str, Any], *, n8n_inspect: dict[str, An
     host = inspect.get("HostConfig") or {}
     network_mode = str(host.get("NetworkMode") or "")
     n8n_id = ""
+    n8n_netns = ""
     if n8n_inspect:
         n8n_id = str(n8n_inspect.get("Id") or "").strip().lower()
         if n8n_id.startswith("sha256:"):
@@ -74,6 +75,35 @@ def parse_inspect_identity(inspect: dict[str, Any], *, n8n_inspect: dict[str, An
             raise WorkerError(
                 ERROR_CODES["DOCKER_PREFIX_ID"],
                 "n8n Id is not exact 64-hex",
+                state="FAILED_FROZEN",
+            )
+        n8n_state = n8n_inspect.get("State") or {}
+        require_running_state(str(n8n_state.get("Status") or ""))
+        n8n_net = n8n_inspect.get("NetworkSettings") or {}
+        n8n_netns = str(
+            n8n_inspect.get("worker_netns_identity")
+            or n8n_inspect.get("NetworkNamespace")
+            or n8n_net.get("SandboxKey")
+            or n8n_net.get("SandboxID")
+            or ""
+        )
+        if not n8n_netns:
+            raise WorkerError(
+                ERROR_CODES["TOPOLOGY_REASSERT_FAILED"],
+                "n8n network namespace identity missing",
+                state="FAILED_FROZEN",
+            )
+        if n8n_netns != netns:
+            raise WorkerError(
+                ERROR_CODES["TOPOLOGY_REASSERT_FAILED"],
+                "worker and n8n must share a network namespace",
+                state="FAILED_FROZEN",
+            )
+        allowed_modes = {f"container:{n8n_id}", "service:n8n"}
+        if network_mode.strip().lower() not in allowed_modes:
+            raise WorkerError(
+                ERROR_CODES["TOPOLOGY_REASSERT_FAILED"],
+                f"worker NetworkMode must share n8n namespace, got {network_mode!r}",
                 state="FAILED_FROZEN",
             )
     return {
