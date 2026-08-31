@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
+from tools.self_improvement_v2.topology_identity import ATTESTOR_ORIGIN
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
@@ -18,12 +19,26 @@ REPOSITORY_ID = "sentinel-research-lab"
 
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost"})
 FORBIDDEN_BIND_HOSTS = frozenset({"0.0.0.0", "::", "[::]", "*"})
+RUNTIME_MODES = frozenset({"ZONE_P", "P3C1"})
+
+P3C1_STATE_DB = Path("/srl/state/self-improvement-v2.sqlite")
+P3C1_TMPDIR = Path("/tmp/srl-exec/runtime-tmp")
+P3C1_EXEC_ROOT = Path("/tmp/srl-exec")
+ZONE_P_TMPDIR = Path("/tmp/srl-zone-p")
 
 _ENV_TOKEN = "SRL_WORKER_TOKEN"
+_ENV_TOKEN_FILE = "SRL_WORKER_TOKEN_FILE"
+_ENV_CONSUME_TOKEN_FILE = "SRL_TOPOLOGY_CONSUME_TOKEN_FILE"
+_ENV_ATTESTOR_ORIGIN = "SRL_TOPOLOGY_ATTESTOR_ORIGIN"
 _ENV_ROOT = "SRL_REPOSITORY_ROOT"
 _ENV_DB = "SRL_STATE_DB"
 _ENV_HOST = "SRL_WORKER_HOST"
 _ENV_PORT = "SRL_WORKER_PORT"
+_ENV_RUNTIME_MODE = "SRL_RUNTIME_MODE"
+
+DEFAULT_TOKEN_FILE = "/run/secrets/srl_worker_token"
+DEFAULT_CONSUME_TOKEN_FILE = "/run/secrets/srl_topology_consume_token"
+DEFAULT_ATTESTOR_ORIGIN = ATTESTOR_ORIGIN
 
 _FORBIDDEN_ROOT_NAMES = frozenset({"equitify-machine", "ai-development-os"})
 _ABS_PATH_RE = re.compile(r"(?i)[A-Za-z]:[\\/]|/(?:Users|home|var|tmp|private)/")
@@ -48,6 +63,9 @@ class RuntimeConfig:
     worker_port: int
     max_request_bytes: int = MAX_REQUEST_BYTES
     request_timeout_seconds: int = REQUEST_TIMEOUT_SECONDS
+    topology_attestor_origin: str = DEFAULT_ATTESTOR_ORIGIN
+    topology_consume_credential: str = ""
+    runtime_mode: str = ""
 
     @property
     def repository_id(self) -> str:
@@ -118,6 +136,53 @@ def _assert_state_db(state_db: Path, repository_root: Path) -> Path:
     return resolved
 
 
+def _read_secret_file(path_raw: str, name: str) -> str:
+    path = Path(path_raw).expanduser()
+    if not path.is_file():
+        raise RuntimeConfigError(f"{name} is not a readable secret file")
+    token = path.read_text(encoding="utf-8").strip()
+    if not token or any(ch.isspace() for ch in token):
+        raise RuntimeConfigError(f"{name} must contain a single-line secret")
+    return token
+
+
+def _norm_path(value: str | Path) -> Path:
+    return Path(os.path.normpath(str(value)))
+
+
+def _assert_runtime_mode(mode: str, state_db: Path, environ: dict[str, str]) -> str:
+    if not mode:
+        return ""
+    if mode not in RUNTIME_MODES:
+        raise RuntimeConfigError("SRL_RUNTIME_MODE must be ZONE_P or P3C1")
+    if str(environ.get("PYTHONDONTWRITEBYTECODE") or "") != "1":
+        raise RuntimeConfigError("PYTHONDONTWRITEBYTECODE=1 is required")
+    tmpdir_raw = str(environ.get("TMPDIR") or "").strip()
+    if not tmpdir_raw:
+        raise RuntimeConfigError("TMPDIR is required when SRL_RUNTIME_MODE is set")
+    db = _norm_path(state_db)
+    tmpdir = _norm_path(tmpdir_raw)
+    db_text = str(db)
+    if mode == "P3C1":
+        if db != P3C1_STATE_DB:
+            raise RuntimeConfigError("P3C1 SRL_STATE_DB must be /srl/state/self-improvement-v2.sqlite")
+        if tmpdir != P3C1_TMPDIR:
+            raise RuntimeConfigError("P3C1 TMPDIR must be /tmp/srl-exec/runtime-tmp")
+        if "/tmp/srl-zone-p" in db_text:
+            raise RuntimeConfigError("P3C1 must not use the Zone P state directory")
+        return mode
+    if tmpdir != ZONE_P_TMPDIR:
+        raise RuntimeConfigError("Zone P TMPDIR must be /tmp/srl-zone-p")
+    if _norm_path(db.parent) != ZONE_P_TMPDIR:
+        raise RuntimeConfigError("Zone P state DB must live under /tmp/srl-zone-p")
+    name = db.name
+    if not name.startswith("srl-zone-p-") or not name.endswith(".sqlite"):
+        raise RuntimeConfigError("Zone P state DB basename must be srl-zone-p-<id>.sqlite")
+    if "/srl/state" in db_text or db_text.startswith("/tmp/srl-exec"):
+        raise RuntimeConfigError("Zone P must not use P3C1 writable surfaces")
+    return mode
+
+
 def load_runtime_config(
     *,
     repository_root: str | None = None,
@@ -137,13 +202,21 @@ def load_runtime_config(
 
     root_raw = repository_root if repository_root is not None else env_root_raw
     db_raw = state_db if state_db is not None else env.get(_ENV_DB)
-    token_raw = worker_token if worker_token is not None else env.get(_ENV_TOKEN)
+    token_file = str(env.get(_ENV_TOKEN_FILE) or "").strip()
+    if token_file:
+        token = _read_secret_file(token_file, _ENV_TOKEN_FILE)
+    else:
+        token_raw = worker_token if worker_token is not None else env.get(_ENV_TOKEN)
+        token = _require_non_empty(_ENV_TOKEN, token_raw)
+        if any(ch.isspace() for ch in token):
+            raise RuntimeConfigError("SRL_WORKER_TOKEN must not contain whitespace")
+    consume_file = str(env.get(_ENV_CONSUME_TOKEN_FILE) or "").strip()
+    consume_cred = _read_secret_file(consume_file, _ENV_CONSUME_TOKEN_FILE) if consume_file else ""
+    attestor_origin = str(env.get(_ENV_ATTESTOR_ORIGIN) or DEFAULT_ATTESTOR_ORIGIN).strip().rstrip("/")
+    if attestor_origin != DEFAULT_ATTESTOR_ORIGIN:
+        raise RuntimeConfigError("SRL_TOPOLOGY_ATTESTOR_ORIGIN must equal the pinned host-gateway origin")
     host_raw = worker_host if worker_host is not None else env.get(_ENV_HOST, DEFAULT_HOST)
     port_raw = worker_port if worker_port is not None else env.get(_ENV_PORT, str(DEFAULT_PORT))
-
-    token = _require_non_empty(_ENV_TOKEN, token_raw)
-    if any(ch.isspace() for ch in token):
-        raise RuntimeConfigError("SRL_WORKER_TOKEN must not contain whitespace")
 
     # R4: refuse divergent roots at the config loader — not only in main().
     # Every caller (CLI, library, tests) hits this path; "main-only" guards decay.
@@ -165,7 +238,10 @@ def load_runtime_config(
             raise RuntimeConfigError(
                 "repository_root must equal SRL_REPOSITORY_ROOT (trusted install root)"
             )
-    db = _assert_state_db(Path(_require_non_empty(_ENV_DB, db_raw)), root)
+    mode = str(env.get(_ENV_RUNTIME_MODE) or "").strip()
+    db_input = Path(_require_non_empty(_ENV_DB, db_raw))
+    _assert_runtime_mode(mode, db_input, env)
+    db = _assert_state_db(db_input, root)
     host = _assert_loopback_host(_require_non_empty(_ENV_HOST, host_raw))
     port = _assert_port(str(port_raw))
 
@@ -175,6 +251,9 @@ def load_runtime_config(
         worker_token=token,
         worker_host=host,
         worker_port=port,
+        topology_attestor_origin=attestor_origin,
+        topology_consume_credential=consume_cred,
+        runtime_mode=mode,
     )
 
 

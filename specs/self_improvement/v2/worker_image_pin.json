@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Declared SI2 worker image pin. worker_image_digest_D MUST be a registry RepoDigest (sha256:...) after the first authorized build/push \u2014 never a Dockerfile content hash. Attestor compares live Config.Image / RepoDigests against this pin. dockerfile_sha256 is audit-only. Placeholder D below matches FakeDocker unit tests until a real RepoDigest is authorized.",
+  "image_name": "srl-worker",
+  "image_tag": "si2-option-a",
+  "worker_image_digest_D": "sha256:3aea21fc3e8b5dff7f4da80b9cf894af5e267542fc0b42ce5293b3535e4e5124",
+  "dockerfile_relpath": "docker/srl-worker/Dockerfile",
+  "dockerfile_sha256": "3aea21fc3e8b5dff7f4da80b9cf894af5e267542fc0b42ce5293b3535e4e5124"
+}

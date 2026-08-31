@@ -47,6 +47,7 @@ from tools.self_improvement_v2.runtime_config import (
 )
 from tools.self_improvement_v2.schema_loader import ensure_schema_version, validate_instance
 from tools.self_improvement_v2.trusted_origin import gated_assert_trusted_code_origin as assert_trusted_code_origin
+from tools.self_improvement_v2.topology_consume import consume_topology_binding_token
 from tools.self_improvement_v2.wall_reassert import (
     REQUIRED_WALL_KEYS,
     assert_wall_artifacts_unchanged,
@@ -74,8 +75,9 @@ HEALTH_BODY = {
     ],
 }
 
-_EXECUTION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
-_VALIDATE_FIELDS = frozenset({"proposal"})
+_HEX32_EXEC_RE = re.compile(r"^[0-9a-f]{32}$")
+_ZONE_P_EXEC_RE = re.compile(r"^exec-zone-p-[A-Za-z0-9._-]{1,96}$")
+_VALIDATE_FIELDS = frozenset({"proposal", "topology_binding_token"})
 _EXECUTE_FIELDS = frozenset({"proposal", "candidate"})
 _FINALIZE_FIELDS = frozenset({"execution_id", "review_id", "review"})
 _BUDGET_OPEN_FIELDS = frozenset(
@@ -110,7 +112,9 @@ _CONSUME_FIELDS = frozenset(
         "model",
     }
 )
-_AUTHORIZE_CALL_FIELDS = frozenset({"session_id", "role", "permit_nonce", "invocation_evidence"})
+_AUTHORIZE_CALL_FIELDS = frozenset(
+    {"session_id", "role", "permit_nonce", "invocation_evidence", "topology_binding_token"}
+)
 _BIND_REVIEW_FIELDS = frozenset({"review"})
 _WALL_CAPTURE_FIELDS = frozenset({"workflow_fingerprint"})
 _WALL_ASSERT_FIELDS = frozenset({"before", "workflow_fingerprint"})
@@ -163,6 +167,21 @@ def _reject_unknown_and_forbidden(payload: dict[str, Any], allowed: frozenset[st
                 f"unknown field: {key}",
                 state="POLICY_REJECTED",
             )
+
+
+def _require_topology_consume(config: RuntimeConfig, *, purpose: str, token: Any) -> None:
+    if not isinstance(token, str) or not token.strip():
+        raise WorkerError(
+            ERROR_CODES["TOPOLOGY_ATTESTATION_MISMATCH"],
+            "topology_binding_token required",
+            state="POLICY_REJECTED",
+        )
+    consume_topology_binding_token(
+        purpose=purpose,
+        token=token,
+        origin=config.topology_attestor_origin,
+        credential=config.topology_consume_credential,
+    )
 
 
 def validate_proposal_operation(config: RuntimeConfig, proposal: dict[str, Any]) -> dict[str, Any]:
@@ -280,8 +299,12 @@ def finalize_operation(
     return {"status": "PASS", "finalization": result, "wall_reassert": "PASS"}
 
 
+def _valid_execution_id(execution_id: str) -> bool:
+    return bool(_HEX32_EXEC_RE.fullmatch(execution_id) or _ZONE_P_EXEC_RE.fullmatch(execution_id))
+
+
 def execution_status_operation(config: RuntimeConfig, execution_id: str) -> dict[str, Any]:
-    if not _EXECUTION_ID_RE.fullmatch(execution_id) or ".." in execution_id or "/" in execution_id or "\\" in execution_id:
+    if not _valid_execution_id(execution_id) or ".." in execution_id or "/" in execution_id or "\\" in execution_id:
         raise WorkerError(ERROR_CODES["POLICY_REJECTED"], "invalid execution_id", state="POLICY_REJECTED")
     store = ExperienceStore(config.state_db)
     bundle, _worktree = store.get_execution(execution_id)
@@ -466,7 +489,12 @@ def provider_call_consume_operation(registry: PilotBudgetRegistry, payload: dict
     return {"status": "PASS", "consume": consumed, "invocation_evidence": evidence}
 
 
-def provider_call_authorize_operation(registry: PilotBudgetRegistry, payload: dict[str, Any]) -> dict[str, Any]:
+def provider_call_authorize_operation(
+    registry: PilotBudgetRegistry,
+    payload: dict[str, Any],
+    *,
+    config: RuntimeConfig | None = None,
+) -> dict[str, Any]:
     """One-shot post-consume authorization bound to server-issued invocation evidence."""
     _reject_unknown_and_forbidden(payload, _AUTHORIZE_CALL_FIELDS)
     session_id = payload.get("session_id")
@@ -481,6 +509,12 @@ def provider_call_authorize_operation(registry: PilotBudgetRegistry, payload: di
         raise WorkerError(ERROR_CODES["PILOT_PERMIT_INVALID"], "permit_nonce required", state="POLICY_REJECTED")
     if not isinstance(evidence, str) or not evidence:
         raise WorkerError(ERROR_CODES["PILOT_PERMIT_INVALID"], "invocation_evidence required", state="POLICY_REJECTED")
+    purpose = {"implementer": "provider_implementer", "reviewer": "provider_reviewer"}.get(role)
+    if purpose is None:
+        raise WorkerError(ERROR_CODES["TOPOLOGY_ATTESTATION_MISMATCH"], "role is not topology-bound", state="POLICY_REJECTED")
+    if config is None:
+        raise WorkerError(ERROR_CODES["TOPOLOGY_ATTESTATION_MISMATCH"], "topology consume config required", state="POLICY_REJECTED")
+    _require_topology_consume(config, purpose=purpose, token=payload.get("topology_binding_token"))
     registry.assert_invocation_evidence(session_id, permit_nonce=permit_nonce, role=role, evidence=evidence)
     registry.assert_provider_call_authorized(session_id, role=role, permit_nonce=permit_nonce)
     return {"status": "PASS", "authorized": True}
@@ -619,6 +653,11 @@ class WorkerBridge:
                     _reject_unknown_and_forbidden(payload, _VALIDATE_FIELDS)
                     if "proposal" not in payload or not isinstance(payload["proposal"], dict):
                         return _error(ERROR_CODES["SCHEMA_INVALID"], "proposal object required")
+                    _require_topology_consume(
+                        self.config,
+                        purpose="worker_authorize",
+                        token=payload.get("topology_binding_token"),
+                    )
                     return _json_bytes(validate_proposal_operation(self.config, payload["proposal"]))
 
                 if path == "/v2/execute":
@@ -640,7 +679,11 @@ class WorkerBridge:
                     return _json_bytes(provider_call_consume_operation(self.budget_registry, payload))
 
                 if path == "/v2/provider-call-authorize":
-                    return _json_bytes(provider_call_authorize_operation(self.budget_registry, payload))
+                    return _json_bytes(
+                        provider_call_authorize_operation(
+                            self.budget_registry, payload, config=self.config
+                        )
+                    )
 
                 if path == "/v2/bind-review":
                     return _json_bytes(bind_review_operation(self.config, payload))

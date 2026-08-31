@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ ALLOWED_ENV_KEYS = frozenset(
         "WINDIR",
         "TEMP",
         "TMP",
+        "TMPDIR",
         "PYTHONUTF8",
         "PYTHONDONTWRITEBYTECODE",
         "PYTHONPATH",
@@ -120,9 +122,23 @@ def run_validation_profile(
                 f"executable not allowlisted: {cmd[0]}",
                 state="POLICY_REJECTED",
             )
+        argv = list(cmd)
+        # Policy argv uses the portable name "python"; resolve to this process's
+        # interpreter so host CI without a `python` symlink still runs profiles.
+        # -P (PYTHONSAFEPATH) keeps the candidate worktree cwd off sys.path so
+        # profile_checks loads from the reviewed PYTHONPATH install only.
+        if Path(argv[0]).name.lower() in ALLOWED_EXECUTABLES:
+            argv[0] = sys.executable
+            flags: list[str] = []
+            if "-B" not in argv:
+                flags.append("-B")
+            if "-P" not in argv:
+                flags.append("-P")
+            if flags:
+                argv[1:1] = flags
         try:
             proc = subprocess.run(
-                cmd,
+                argv,
                 cwd=str(cwd.resolve()),
                 capture_output=True,
                 timeout=timeout,

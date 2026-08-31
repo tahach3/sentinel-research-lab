@@ -10,8 +10,8 @@ n8n (when configured) calls this bridge for deterministic local operations:
 | --- | --- | --- |
 | `GET` | `/health` | Non-secret readiness |
 | `POST` | `/v2/validate-proposal` | Schema + policy validation, canonical hash |
-| `POST` | `/v2/execute` | LOW-only detached worktree execution |
-| `POST` | `/v2/finalize` | Bound review + candidate commit (no push/merge) |
+| `POST` | `/v2/execute` | LOW-only independent clone + detached worktree execution |
+| `POST` | `/v2/finalize` | Bound review + disposable candidate commit; returns `EXPORT_PENDING` (no push/merge) |
 | `GET` | `/v2/executions/<execution_id>` | Execution status (paths redacted) |
 | `POST` | `/v2/budget/open` | Open a pilot budget session (cost-by-construction assert) |
 | `POST` | `/v2/provider-call-permit` | Grant one provider-call permit (refuses 7th call / wall-clock) |
@@ -40,9 +40,17 @@ Trusted security modules must load from the worker install. Worktree-derived `sy
 | `SRL_REPOSITORY_ROOT` | yes | Absolute path to the reviewed git checkout (**launcher-supplied**) |
 | `SRL_REVIEWED_HEAD` | yes | Full commit SHA for this launch (**launcher-supplied**; pin does not claim HEAD) |
 | `SRL_STATE_DB` | yes | SQLite file **outside** tracked repository files |
-| `SRL_WORKER_TOKEN` | yes | Bearer token; never commit or print |
+| `SRL_WORKER_TOKEN` | local tests | Bearer token when no secret file is mounted; never commit or print |
+| `SRL_WORKER_TOKEN_FILE` | yes (container) | In-container path to the RO worker bearer secret (`/run/secrets/srl_worker_token`). Do not put the token in `Config.Env`. |
+| `SRL_WORKER_TOKEN_HOST_FILE` | yes (compose host) | Host path for compose `secrets:` source of the worker bearer — not the `/run/secrets/...` destination. |
+| `SRL_TOPOLOGY_CONSUME_TOKEN_FILE` | yes (container) | In-container path to the RO topology-consume secret (`/run/secrets/srl_topology_consume_token`) |
+| `SRL_TOPOLOGY_CONSUME_TOKEN_HOST_FILE` | yes (compose host) | Host path for compose `secrets:` source of the topology-consume token. |
+| `SRL_TOPOLOGY_ATTESTOR_ORIGIN` | yes | Absolute pin `http://host.docker.internal:8764` |
+| `SRL_STATE_DIR` | yes (compose host) | Host directory bind-mounted to `/srl/state` for the durable P3C1 ledger. |
+| `SRL_RUNTIME_MODE` | container | `P3C1` or `ZONE_P` — structurally different writable surfaces |
+| `PYTHONDONTWRITEBYTECODE` | yes (container) | Must be `1`; interpreter also started with `python -B` |
 | `SRL_WORKER_HOST` | no | Default `127.0.0.1` (loopback only) |
-| `SRL_WORKER_PORT` | no | Default `8765` |
+| `SRL_WORKER_PORT` | no | Default `8765` (unpublished; shared n8n netns) |
 
 ### Launcher (authentication root — outside the checkout)
 
@@ -137,13 +145,19 @@ n8n may route these decisions. n8n must not compute, override, or manufacture au
 
 Policy snapshot is content-addressed (`policy_sha256`) and pinned in the execution bundle. Finalization rechecks current policy; a later policy may tighten or halt, never make an elevated run safer.
 
-### Shared Git object property
+### Execution isolation (INV-TOPO-01 / E1–E5)
 
-Linked Git worktrees share the source repository object database. Rejected or halted post-application executions may leave unreferenced Git objects until normal garbage collection. This is an accepted local implementation property and is why pre-authorization classifies patch text without applying the patch or creating content objects. No automatic aggressive garbage collection is authorized.
+The reviewed checkout is bind-mounted read-only at `/srl/sentinel-research-lab`, including `.git`. Execute never attaches a Git worktree to that source. It clones with `git clone --no-local --no-hardlinks` into `/tmp/srl-exec/<hex32>/repo` (no `--shared` / `--reference` / alternates), then uses worktrees under `/tmp/srl-exec/<hex32>/worktrees/{main,isolated-hooks,git-tmp}`. Execution IDs are `secrets.token_hex(16)` (`^[0-9a-f]{32}$`) except Zone P synthetic bundles (`exec-zone-p-<probe>`).
+
+`P3C1` writable surfaces are `/tmp/srl-exec`, `/srl/state`, and process `TMPDIR=/tmp/srl-exec/runtime-tmp` with `SRL_STATE_DB=/srl/state/self-improvement-v2.sqlite`. Zone P uses `TMPDIR=/tmp/srl-zone-p` and throwaway `/tmp/srl-zone-p/srl-zone-p-<id>.sqlite` — never the P3C1 exec volume or durable ledger. SQLite opens with `PRAGMA journal_mode=DELETE`.
+
+Finalize commits only in the disposable clone, publishes `refs/srl/export/<execution_id>`, writes `candidate.bundle` and canonical `git diff --binary` `actual.diff`, and returns `EXPORT_PENDING` with `candidate_branch=null`. The host launcher must copy artifacts with `docker -H <E> cp <worker>:/tmp/srl-exec/<id>/export/. <host-dest>/` (never by opening the named volume path as a host filesystem), verify SHA-256, re-derive `git diff --binary <baseline> <commit>` in a fresh verifier repo, write `srl.candidate_export_manifest.v1`, then ACK. Scratch is deleted only after `ACKNOWLEDGED` (host ACK file durable before `docker exec rm -rf`). Human promotion is a separate artifact (`push: false`, `merge: false`).
+
+The worker container uses `network_mode: service:n8n`, binds `127.0.0.1:8765` with no published worker ports, and is `read_only` except the authorized RW mounts. Topology attestation is a host process on `127.0.0.1:8764`; n8n reaches it at `http://host.docker.internal:8764`. Workflow origin for the worker stays `http://127.0.0.1:8765`. Live attest binds `worker_image_digest_D` to `specs/self_improvement/v2/worker_image_pin.json` (registry RepoDigest), not a Dockerfile hash.
 
 ## Zone P probe harness (offline)
 
-`tools/self_improvement_v2/zone_p_harness.py` builds synthetic negative-control packages that are path/patch valid and correctly hash-bound so they reach the Independent Reviewer boundary. Records must use throwaway state DBs (`%TEMP%\srl-zone-p-<id>.sqlite`) and tag `synthetic_control` / `probe_id`. Live Gemini/Groq resolution uses `model_resolution_probe` with an injected transport (no secrets in-repo).
+`tools/self_improvement_v2/zone_p_harness.py` builds synthetic negative-control packages that are path/patch valid and correctly hash-bound so they reach the Independent Reviewer boundary. Records must use throwaway state DBs (`/tmp/srl-zone-p/srl-zone-p-<id>.sqlite`) and tag `synthetic_control` / `probe_id`. Live Gemini/Groq resolution uses `model_resolution_probe` with an injected transport (no secrets in-repo).
 
 Workflow material comparison (A14): `workflow_normalizer` with explicit `MATERIAL_FIELDS` / `IGNORED_FIELDS` (unknown → fail).
 

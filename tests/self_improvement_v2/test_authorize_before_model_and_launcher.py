@@ -41,6 +41,10 @@ def test_d1_authorize_immediately_before_agents() -> None:
     c = wf["connections"]
     assert (
         c[PROVIDER_CALL_CONSUME_IMPLEMENTER_NODE_NAME]["main"][0][0]["node"]
+        == "Topology Attest (Implementer)"
+    )
+    assert (
+        c["Topology Attest (Implementer)"]["main"][0][0]["node"]
         == PROVIDER_CALL_AUTHORIZE_IMPLEMENTER_NODE_NAME
     )
     assert (
@@ -50,6 +54,10 @@ def test_d1_authorize_immediately_before_agents() -> None:
     assert c[IMPLEMENTER_NODE_NAME]["main"][0][0]["node"] == "Proposal Schema Validation"
     assert (
         c[PROVIDER_CALL_CONSUME_REVIEWER_NODE_NAME]["main"][0][0]["node"]
+        == "Topology Attest (Reviewer)"
+    )
+    assert (
+        c["Topology Attest (Reviewer)"]["main"][0][0]["node"]
         == PROVIDER_CALL_AUTHORIZE_REVIEWER_NODE_NAME
     )
     assert (
@@ -106,6 +114,7 @@ def test_d2_launcher_install_refuses_inside_repo(tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="outside the repository"):
             install_launcher(
                 repository_root=REPO,
+                docker_endpoint="unix:///var/run/docker.sock",
                 reviewed_head=head,
                 install_dir=inside,
             )
@@ -118,6 +127,7 @@ def test_d2_launcher_digest_mismatch_refuses(tmp_path: Path) -> None:
     digest = compute_verifier_digest(REPO)
     result = install_launcher(
         repository_root=REPO,
+        docker_endpoint="unix:///var/run/docker.sock",
         reviewed_head=head,
         install_dir=tmp_path / "SentinelResearchLab",
         expected_digest=digest,
@@ -145,6 +155,7 @@ def test_d2_launcher_matching_digest_sets_anchors(tmp_path: Path) -> None:
     digest = compute_verifier_digest(REPO)
     result = install_launcher(
         repository_root=REPO,
+        docker_endpoint="unix:///var/run/docker.sock",
         reviewed_head=head,
         install_dir=tmp_path / "SentinelResearchLab",
         expected_digest=digest,
@@ -167,6 +178,7 @@ def test_d2_expected_digest_lives_outside_checkout(tmp_path: Path) -> None:
     digest = compute_verifier_digest(REPO)
     result = install_launcher(
         repository_root=REPO,
+        docker_endpoint="unix:///var/run/docker.sock",
         reviewed_head=head,
         install_dir=tmp_path / "SentinelResearchLab",
         expected_digest=digest,

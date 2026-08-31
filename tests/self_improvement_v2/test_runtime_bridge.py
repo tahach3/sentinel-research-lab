@@ -46,6 +46,8 @@ def bridge_env(tmp_path: Path):
         "os.environ['PYTHONDONTWRITEBYTECODE'] = '1'\n"
         f"sys.path.insert(0, {root!r})\n"
         "from tools.self_improvement_v2.runtime_config import load_runtime_config\n"
+        "from tools.self_improvement_v2 import runtime_bridge as rb\n"
+        "rb.consume_topology_binding_token = lambda **k: {'status': 'PASS'}\n"
         "from tools.self_improvement_v2.runtime_bridge import LoopbackServer\n"
         "config = load_runtime_config(\n"
         f"    repository_root={root!r},\n"
@@ -277,7 +279,7 @@ def test_12_successful_proposal_validation(bridge_env):
         bridge_env["base"],
         "POST",
         "/v2/validate-proposal",
-        payload={"proposal": proposal},
+        payload={"proposal": proposal, "topology_binding_token": "test-topology-token"},
     )
     assert status == 200
     assert body["status"] == "PASS"
@@ -348,9 +350,9 @@ def test_16_successful_bound_finalization(bridge_env):
     assert status == 200
     assert body["status"] == "PASS"
     finalization = body["finalization"]
-    assert finalization["final_state"] == "READY_FOR_HUMAN_PROMOTION"
+    assert finalization["final_state"] == "EXPORT_PENDING"
     assert finalization["candidate_commit"]
-    assert finalization["candidate_branch"]
+    assert finalization["candidate_branch"] is None
     assert source_tree_fingerprint(bridge_env["repo"]) == before
 
 

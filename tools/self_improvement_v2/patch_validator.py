@@ -216,7 +216,7 @@ def staged_tree_sha(repo_root: Path) -> str:
 def actual_diff_bytes(repo_root: Path, baseline_sha: str) -> bytes:
     _stage_all(repo_root)
     proc = subprocess.run(
-        ["git", "diff", "--cached", baseline_sha],
+        ["git", "diff", "--binary", "--cached", baseline_sha],
         cwd=str(repo_root),
         capture_output=True,
         timeout=30,

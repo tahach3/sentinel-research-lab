@@ -33,6 +33,7 @@ class ExperienceStore:
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.db_path))
+        conn.execute("PRAGMA journal_mode = DELETE")
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
 

@@ -47,6 +47,8 @@ TRUSTED_MODULE_NAMES = (
     "tools.self_improvement_v2.runtime_bridge",
     "tools.self_improvement_v2.runtime_config",
     "tools.self_improvement_v2.schema_loader",
+    "tools.self_improvement_v2.topology_consume",
+    "tools.self_improvement_v2.topology_identity",
     "tools.self_improvement_v2.trusted_origin",
     "tools.self_improvement_v2.validation_runner",
     "tools.self_improvement_v2.wall_reassert",

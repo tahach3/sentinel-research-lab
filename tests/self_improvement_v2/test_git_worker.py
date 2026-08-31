@@ -17,13 +17,21 @@ from tools.self_improvement_v2.models import WorkerError
 def test_detached_no_branch(tmp_path: Path):
     repo = tmp_path / "r"
     baseline = init_temp_repo(repo)
-    wt = DetachedWorktree(repo, baseline, "abcd1234ffffeeee")
-    path = wt.prepare()
-    name = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], path).stdout.strip()
-    assert name == "HEAD"
-    branches = run(["git", "branch", "--list", "self-improvement-v2/*"], repo).stdout.strip()
-    assert branches == ""
-    wt.cleanup()
+    before_worktrees = run(["git", "worktree", "list", "--porcelain"], repo).stdout
+    wt = DetachedWorktree(repo, baseline, "abcd1234ffffeeeeabcd1234ffffeeee")
+    try:
+        path = wt.prepare()
+        name = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], path).stdout.strip()
+        assert name == "HEAD"
+        branches = run(["git", "branch", "--list", "self-improvement-v2/*"], repo).stdout.strip()
+        assert branches == ""
+        after_worktrees = run(["git", "worktree", "list", "--porcelain"], repo).stdout
+        assert after_worktrees == before_worktrees
+        assert path == wt.scratch / "worktrees" / "main"
+        assert (wt.scratch / "repo" / ".git").exists()
+        assert not (wt.scratch / "repo" / ".git" / "objects" / "info" / "alternates").exists()
+    finally:
+        wt.cleanup()
 
 
 def test_push_merge_rejected(tmp_path: Path):
@@ -54,7 +62,7 @@ def _install_malicious_hook(hooks_dir: Path, name: str, marker: Path) -> None:
 def test_create_local_commit_neutralizes_hooks_and_signing(tmp_path: Path):
     repo = tmp_path / "r"
     baseline = init_temp_repo(repo)
-    wt = DetachedWorktree(repo, baseline, "deadbeefcafef00d")
+    wt = DetachedWorktree(repo, baseline, "deadbeefcafef00ddeadbeefcafef00d")
     worktree = wt.prepare()
 
     marker = tmp_path / "hook-fired.txt"

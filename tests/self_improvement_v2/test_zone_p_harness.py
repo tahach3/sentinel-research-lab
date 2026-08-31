@@ -14,6 +14,7 @@ from tools.self_improvement_v2.schema_loader import _load_schema_cached, validat
 from tools.self_improvement_v2.zone_p_harness import (
     DURABLE_STATE_DB_BASENAME,
     TARGET_PATH,
+    ZONE_P_TMPDIR,
     ZonePHarnessError,
     allocate_zone_p_state_db,
     assert_throwaway_zone_p_state_db,
@@ -38,6 +39,7 @@ def test_throwaway_db_rejects_durable_basename(tmp_path: Path) -> None:
 def test_allocate_zone_p_state_db_under_temp() -> None:
     path = allocate_zone_p_state_db(probe_id="nc1")
     assert path.name.startswith("srl-zone-p-")
+    assert path.parent == ZONE_P_TMPDIR
     assert_throwaway_zone_p_state_db(path)
 
 

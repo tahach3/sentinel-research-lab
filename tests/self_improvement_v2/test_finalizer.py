@@ -50,9 +50,9 @@ def test_finalize_happy_path(tmp_path: Path):
         state_db=db,
         repository_root=repo,
     )
-    assert result["final_state"] == "READY_FOR_HUMAN_PROMOTION"
+    assert result["final_state"] == "EXPORT_PENDING"
     assert result["candidate_commit"]
-    assert result["candidate_branch"].startswith("self-improvement-v2/")
+    assert result["candidate_branch"] is None
     assert result["committed_tree_sha"] == bundle["worktree_tree_sha"]
     again = finalize(
         execution_id=bundle["execution_id"],

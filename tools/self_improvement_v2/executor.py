@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import secrets
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +12,7 @@ from tools.self_improvement_v2.git_worker import (
     assert_baseline,
     assert_clean_tree,
     assert_source_unchanged,
+    new_execution_id,
     resolve_repo_root,
     source_tree_fingerprint,
 )
@@ -140,7 +140,7 @@ def execute_proposal(
     store.append_state_event("proposal", proposal["proposal_id"], "PROPOSAL_FROZEN", "RISK_CLASSIFIED")
     store.append_state_event("proposal", proposal["proposal_id"], "RISK_CLASSIFIED", "AUTO_AUTHORIZED")
 
-    execution_id = secrets.token_hex(16)
+    execution_id = new_execution_id()
     repo = resolve_repo_root(root)
     before_fp = source_tree_fingerprint(repo)
     assert_clean_tree(repo)

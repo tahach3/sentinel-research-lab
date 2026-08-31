@@ -2,12 +2,17 @@
   "schema_version": "1.0.0",
   "description": "Content digests for the SI2 launcher installer closure (entrypoint tools.self_improvement_v2.launcher.install_launcher; closed under static AST imports including package __init__ and relative imports). Separate from the worker pin.",
   "entrypoint": "tools.self_improvement_v2.launcher.install_launcher",
-  "combined": "b1620b627efab4b94b5286d4df553d9111331a4b9b8ddbfd8c71a6e237609726",
+  "combined": "44eae856e611553bda69bf0dfa02f4cd9121aa027a5594c211ea0870fe75f1e0",
   "modules": {
     "tools.self_improvement_v2": "af8381dad1d02cfac8c60e5803916dd568029ea1d12caecef0507502e6e43a39",
+    "tools.self_improvement_v2.candidate_export": "2633fe958082db205fad0b34a160feef61aa701974fd4f9a5dce738d0707b0fe",
+    "tools.self_improvement_v2.canonical": "eaac859f50435803bfd6b7155c94106167aff3812fdaf24a4d9bc754e69c21c8",
     "tools.self_improvement_v2.import_closure": "c47465e369cd8decc24bac93254badf6b7e38b92c8b7a7e2ea89a85b0d2aee88",
     "tools.self_improvement_v2.launcher": "c631cfc2b72b4cf3ec68889bd17044ddd62b50726ce4a49c233b1f3b55b8bad0",
-    "tools.self_improvement_v2.launcher.install_launcher": "bdf9ca60911498dc49d5ebe24d96dcad83ab2e93d606260b78ec804225593b00",
-    "tools.self_improvement_v2.launcher.paths": "9329d14f53f21404b8b65bc7e3ea9bdd438156b4b45555fee80792350663e745"
+    "tools.self_improvement_v2.launcher.install_launcher": "5d8f257f4116e1dceb9e2dc79957015636f75499fd68239179f5d477f1b1f0fb",
+    "tools.self_improvement_v2.launcher.paths": "9329d14f53f21404b8b65bc7e3ea9bdd438156b4b45555fee80792350663e745",
+    "tools.self_improvement_v2.models": "1ad4e514b7b349c6e77394a8ec1a322da2fcfa00da01f8622c9caa7b02157715",
+    "tools.self_improvement_v2.topology_attest": "61b39397402ea8e514c3f4cd261be66c4daccd122ced52a56bd1fd0df11e0fbe",
+    "tools.self_improvement_v2.topology_identity": "f9b5cf3ad7a287014640e6157d319ddc84e695a554229791c479115a10f866a7"
   }
 }

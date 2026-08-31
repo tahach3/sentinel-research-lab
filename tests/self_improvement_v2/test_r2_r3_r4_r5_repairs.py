@@ -57,6 +57,7 @@ def test_r2a_raw_git_ignores_ambient_git_dir(tmp_path: Path, monkeypatch: pytest
 def test_r2a_launcher_script_sanitizes_git_env(tmp_path: Path) -> None:
     installed = install_launcher(
         repository_root=REPO,
+        docker_endpoint="unix:///var/run/docker.sock",
         reviewed_head=_head(),
         install_dir=tmp_path / "SentinelResearchLab",
     )
@@ -75,6 +76,7 @@ def test_r3_install_refuses_wrong_head(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="reviewed_head must equal live HEAD"):
         install_launcher(
             repository_root=REPO,
+            docker_endpoint="unix:///var/run/docker.sock",
             reviewed_head="a" * 40,
             install_dir=tmp_path / "SentinelResearchLab",
         )
@@ -88,6 +90,7 @@ def test_r3_install_refuses_dirty_tree(tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="dirty worktree"):
             install_launcher(
                 repository_root=REPO,
+                docker_endpoint="unix:///var/run/docker.sock",
                 reviewed_head=_head(),
                 install_dir=tmp_path / "SentinelResearchLab",
             )
@@ -99,6 +102,7 @@ def test_r3_install_refuses_digest_override_mismatch(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="expected_digest must match on-disk"):
         install_launcher(
             repository_root=REPO,
+            docker_endpoint="unix:///var/run/docker.sock",
             reviewed_head=_head(),
             install_dir=tmp_path / "SentinelResearchLab",
             expected_digest="a" * 64,
