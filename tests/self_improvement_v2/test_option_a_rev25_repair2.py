@@ -19,6 +19,7 @@ from tests.self_improvement_v2.test_option_a_rev25 import (
     DIGEST,
     LiveBox,
     NID,
+    RecordingDocker,
     WID,
 )
 from tests.self_improvement_v2.test_option_a_rev25_repair1 import (
@@ -39,6 +40,7 @@ from tests.self_improvement_v2.test_option_a_rev25_repair1 import (
 )
 from tools.self_improvement_v2.executor import execute_proposal
 from tools.self_improvement_v2.experience_store import ExperienceStore
+from tools.self_improvement_v2.export_verify import reconstruct_authority_c
 from tools.self_improvement_v2.git_worker import create_branch_at_commit, run_git
 from tools.self_improvement_v2.import_closure import compute_static_import_closure
 from tools.self_improvement_v2.models import WorkerError
@@ -75,6 +77,7 @@ REQUIRED_REV25 = (
 
 def _rev25_deps() -> Rev25RuntimeDeps:
     box = LiveBox()
+    docker = RecordingDocker()
     return Rev25RuntimeDeps(
         inspect_worker=box.worker,
         inspect_n8n=box.n8n,
@@ -82,6 +85,9 @@ def _rev25_deps() -> Rev25RuntimeDeps:
         worker_id=WID,
         n8n_id=NID,
         expected_image_digest=DIGEST,
+        copy_fn=docker.copy_fn,
+        clone_bundle=reconstruct_authority_c,
+        exec_docker=docker.exec_docker,
     )
 
 

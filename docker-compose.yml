@@ -96,10 +96,21 @@ services:
     depends_on:
       n8n:
         condition: service_healthy
+    working_dir: /srl/sentinel-research-lab
     environment:
       PYTHONDONTWRITEBYTECODE: "1"
       TMPDIR: /tmp/srl-zone-p
       SRL_RUNTIME_MODE: P3C1
+      PYTHONPATH: /srl/sentinel-research-lab
+      SRL_REPOSITORY_ROOT: /srl/sentinel-research-lab
+      SRL_STATE_DB: /tmp/srl-zone-p/v2-state.sqlite
+      SRL_WORKER_HOST: 127.0.0.1
+      SRL_WORKER_PORT: "8765"
+      SRL_WORKER_TOKEN: ${SRL_WORKER_TOKEN:?SRL_WORKER_TOKEN is required}
+      SRL_REVIEWED_HEAD: ${SRL_REVIEWED_HEAD:?SRL_REVIEWED_HEAD is required}
+      SRL_WORKER_CONTAINER_ID: ${SRL_WORKER_CONTAINER_ID:?SRL_WORKER_CONTAINER_ID is required}
+      SRL_N8N_CONTAINER_ID: ${SRL_N8N_CONTAINER_ID:?SRL_N8N_CONTAINER_ID is required}
+      SRL_WORKER_IMAGE_DIGEST: ${SRL_WORKER_IMAGE_DIGEST:?SRL_WORKER_IMAGE_DIGEST is required}
     volumes:
       - ./:/srl/sentinel-research-lab:ro
     tmpfs:

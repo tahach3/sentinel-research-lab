@@ -14,11 +14,16 @@ from typing import Any, Callable
 
 from tools.self_improvement_v2.canonical import content_sha256
 from tools.self_improvement_v2.experience_store import ExperienceStore
+from tools.self_improvement_v2.docker_cli import (
+    docker_cp_into_worker_argv,
+    docker_exec_cat_argv,
+    docker_exec_mkdir_argv,
+    refuse_directory_cp,
+)
 from tools.self_improvement_v2.export_seal import bind_observed_identity, seal_generation, sealed_inventory_sha256
 from tools.self_improvement_v2.export_transport import copy_generation
 from tools.self_improvement_v2.export_verify import (
     atomic_publish,
-    reconstruct_authority_c,
     verify_three_authority,
 )
 from tools.self_improvement_v2.finalized_attestation import write_finalized_attestation
@@ -32,6 +37,7 @@ from tools.self_improvement_v2.git_worker import (
 )
 from tools.self_improvement_v2.models import ERROR_CODES, SCHEMA_VERSION, WorkerError
 from tools.self_improvement_v2.option_a_constants import (
+    COMMIT_SHA_RE,
     SCHEMA_FINALIZED_ATTESTATION,
     SRL_CANDIDATE_REF,
     WORKER_EXPORT_ALLOWLIST,
@@ -54,6 +60,15 @@ ObserveGitFn = Callable[[], tuple[str, str, str]]
 BundleHeadsFn = Callable[[], list[object]]
 CopyFn = Callable[[list[str]], None]
 CloneBundleFn = Callable[[Path, Path], None]
+ExecDockerFn = Callable[[list[str]], tuple[int, str, str]]
+
+
+def _mandatory_capability_missing(name: str) -> WorkerError:
+    return WorkerError(
+        ERROR_CODES["FAILED_FROZEN"],
+        f"MANDATORY_CAPABILITY_MISSING:{name}",
+        state="FAILED_FROZEN",
+    )
 
 
 @dataclass(frozen=True)
@@ -68,8 +83,84 @@ class Rev25RuntimeDeps:
     expected_image_digest: str
     copy_fn: CopyFn | None = None
     clone_bundle: CloneBundleFn | None = None
+    exec_docker: ExecDockerFn | None = None
     staging_generation: str | None = None
     now_ts: int | None = None
+
+
+def _require_production_transport(deps: Rev25RuntimeDeps) -> tuple[CopyFn, CloneBundleFn, ExecDockerFn]:
+    if deps.copy_fn is None:
+        raise _mandatory_capability_missing("copy_fn")
+    if deps.clone_bundle is None:
+        raise _mandatory_capability_missing("clone_bundle")
+    if deps.exec_docker is None:
+        raise _mandatory_capability_missing("exec_docker")
+    return deps.copy_fn, deps.clone_bundle, deps.exec_docker
+
+
+def _stage_generation_into_worker(
+    *,
+    worker_id: str,
+    execution_id: str,
+    staging_generation: str,
+    generation_dir: Path,
+    copy_fn: CopyFn,
+    exec_docker: ExecDockerFn,
+) -> None:
+    mkdir_argv = docker_exec_mkdir_argv(worker_id, execution_id, staging_generation)
+    code, _out, err = exec_docker(mkdir_argv)
+    if code != 0:
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            (err or "docker exec mkdir failed").strip(),
+            state="FAILED_FROZEN",
+        )
+    for name in sorted(WORKER_EXPORT_ALLOWLIST):
+        host = generation_dir / name
+        if not host.is_file() or host.is_symlink():
+            raise WorkerError(
+                ERROR_CODES["NON_REGULAR_ARTIFACT"],
+                f"host dest not regular file: {name}",
+                state="FAILED_FROZEN",
+            )
+        argv = docker_cp_into_worker_argv(
+            worker_id,
+            execution_id,
+            staging_generation,
+            name,
+            host,
+        )
+        refuse_directory_cp(argv)
+        copy_fn(argv)
+
+
+def _observe_git_via_worker_exec(
+    *,
+    worker_id: str,
+    execution_id: str,
+    staging_generation: str,
+    exec_docker: ExecDockerFn,
+) -> tuple[str, str, str]:
+    def cat(name: str) -> str:
+        argv = docker_exec_cat_argv(worker_id, execution_id, staging_generation, name)
+        code, out, err = exec_docker(argv)
+        if code != 0:
+            raise WorkerError(
+                ERROR_CODES["FAILED_FROZEN"],
+                (err or "docker exec cat failed").strip(),
+                state="FAILED_FROZEN",
+            )
+        return out.strip()
+
+    commit = cat("candidate_commit")
+    tree = cat("candidate_tree")
+    if not COMMIT_SHA_RE.fullmatch(commit) or not COMMIT_SHA_RE.fullmatch(tree):
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "worker observation did not return a commit identity",
+            state="FAILED_FROZEN",
+        )
+    return commit, tree, commit
 
 
 class _MonotonicSequence:
@@ -112,8 +203,10 @@ def run_rev25_export(
             "authorized_baseline must equal reviewed_head",
             state="FAILED_FROZEN",
         )
+    if copy_fn is None:
+        raise _mandatory_capability_missing("copy_fn")
     if clone_bundle is None:
-        clone_bundle = reconstruct_authority_c
+        raise _mandatory_capability_missing("clone_bundle")
     if verify_scratch is None:
         verify_scratch = durable_root / "verify-scratch"
     state = "FINALIZATION_PENDING"
@@ -269,14 +362,6 @@ def _write_generation_allowlist(
         (generation_dir / name).write_bytes(data)
 
 
-def _copy_from_generation(generation_dir: Path) -> CopyFn:
-    def copy_fn(argv: list[str]) -> None:
-        dest = Path(argv[-1])
-        dest.write_bytes((generation_dir / dest.name).read_bytes())
-
-    return copy_fn
-
-
 def run_rev25_production_finalize(
     *,
     execution_id: str,
@@ -292,6 +377,7 @@ def run_rev25_production_finalize(
             "Revision 2.5 topology/export providers are required",
             state="FAILED_FROZEN",
         )
+    copy_fn, clone_bundle, exec_docker = _require_production_transport(deps)
     reviewed_head = os.environ.get("SRL_REVIEWED_HEAD", "").strip().lower()
     if len(reviewed_head) != 40:
         raise WorkerError(
@@ -447,19 +533,24 @@ def run_rev25_production_finalize(
         bundle_bytes=bundle_path.read_bytes(),
     )
     staging_generation = deps.staging_generation or secrets.token_hex(4)
-    copy_fn = deps.copy_fn or _copy_from_generation(generation_dir)
-    clone_bundle = deps.clone_bundle or reconstruct_authority_c
+    _stage_generation_into_worker(
+        worker_id=deps.worker_id,
+        execution_id=execution_id,
+        staging_generation=staging_generation,
+        generation_dir=generation_dir,
+        copy_fn=copy_fn,
+        exec_docker=exec_docker,
+    )
     ledger_root = export_root / "ledger"
     durable_root = export_root / "durable"
 
     def observe_git() -> tuple[str, str, str]:
-        ref = run_git(
-            ["rev-parse", SRL_CANDIDATE_REF],
-            cwd=disposable,
-            check=True,
-            repository_role=REPO_ROLE_DISPOSABLE,
-        ).stdout.decode().strip()
-        return commit, committed_tree, ref
+        return _observe_git_via_worker_exec(
+            worker_id=deps.worker_id,
+            execution_id=execution_id,
+            staging_generation=staging_generation,
+            exec_docker=exec_docker,
+        )
 
     def bundle_heads() -> list[object]:
         return [(commit, SRL_CANDIDATE_REF)]

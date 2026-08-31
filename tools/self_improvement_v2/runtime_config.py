@@ -12,6 +12,7 @@ from typing import Any
 
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
 from tools.self_improvement_v2.option_a_controller import Rev25RuntimeDeps
+from tools.self_improvement_v2.export_verify import reconstruct_authority_c
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
@@ -207,10 +208,28 @@ def _build_rev25_runtime_deps(
             )
         return [line.strip().lower() for line in out.splitlines() if line.strip()]
 
+    def copy_fn(argv: list[str]) -> None:
+        from tools.self_improvement_v2.docker_cli import refuse_directory_cp
+
+        refuse_directory_cp(argv)
+        code, _, err = runner(argv)
+        if code != 0:
+            raise WorkerError(
+                ERROR_CODES["FAILED_FROZEN"],
+                (err or "docker cp failed").strip(),
+                state="FAILED_FROZEN",
+            )
+
+    def exec_docker(argv: list[str]) -> tuple[int, str, str]:
+        return runner(argv)
+
     return Rev25RuntimeDeps(
         inspect_worker=inspect_one,
         inspect_n8n=inspect_one,
         list_all_ids=list_all_ids,
+        copy_fn=copy_fn,
+        clone_bundle=reconstruct_authority_c,
+        exec_docker=exec_docker,
         worker_id=worker_id,
         n8n_id=n8n_id,
         expected_image_digest=digest,
@@ -241,7 +260,13 @@ def load_runtime_config(
     host_raw = worker_host if worker_host is not None else env.get(_ENV_HOST, DEFAULT_HOST)
     port_raw = worker_port if worker_port is not None else env.get(_ENV_PORT, str(DEFAULT_PORT))
 
-    token = _require_non_empty(_ENV_TOKEN, token_raw)
+    if token_raw is None or not str(token_raw).strip():
+        raise WorkerError(
+            ERROR_CODES["FAILED_FROZEN"],
+            "SRL_WORKER_TOKEN is required",
+            state="FAILED_FROZEN",
+        )
+    token = str(token_raw).strip()
     if any(ch.isspace() for ch in token):
         raise RuntimeConfigError("SRL_WORKER_TOKEN must not contain whitespace")
 

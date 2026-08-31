@@ -3,14 +3,28 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Callable
 
 from tools.self_improvement_v2.models import ERROR_CODES, WorkerError
-from tools.self_improvement_v2.option_a_constants import CONTAINER_ID_RE, EXECUTION_ID_RE, STAGING_GENERATION_RE
+from tools.self_improvement_v2.option_a_constants import (
+    CONTAINER_ID_RE,
+    EXECUTION_ID_RE,
+    STAGING_GENERATION_RE,
+    WORKER_EXPORT_ALLOWLIST,
+)
 
 DockerRunner = Callable[[list[str]], tuple[int, str, str]]
+
+_SEALED_REMOTE = re.compile(
+    r"^([a-f0-9]{64}):(/tmp/srl-exec/[a-f0-9]{32}/export/[a-f0-9]{8}/([^/\\:]+))$"
+)
+_SEALED_EXPORT_DIR = re.compile(r"^/tmp/srl-exec/[a-f0-9]{32}/export/[a-f0-9]{8}$")
+_SEALED_FILE_PATH = re.compile(
+    r"^/tmp/srl-exec/[a-f0-9]{32}/export/[a-f0-9]{8}/([^/\\:]+)$"
+)
 
 
 def require_container_id(value: str) -> str:
@@ -75,14 +89,146 @@ def docker_ps_all_ids_argv() -> list[str]:
     return ["docker", "ps", "--all", "--quiet", "--no-trunc"]
 
 
+def _frozen(message: str) -> WorkerError:
+    return WorkerError(
+        ERROR_CODES["FAILED_FROZEN"],
+        message,
+        state="FAILED_FROZEN",
+    )
+
+
+def _assert_allowlisted_name(name: str) -> str:
+    if name in {".", ".."} or "/" in name or "\\" in name or ":" in name or " " in name:
+        raise WorkerError(
+            ERROR_CODES["NON_REGULAR_ARTIFACT"],
+            f"illegal export name: {name}",
+            state="FAILED_FROZEN",
+        )
+    if name not in WORKER_EXPORT_ALLOWLIST:
+        raise WorkerError(
+            ERROR_CODES["NON_REGULAR_ARTIFACT"],
+            f"illegal export name: {name}",
+            state="FAILED_FROZEN",
+        )
+    return name
+
+
+def _assert_execution_id(execution_id: str) -> str:
+    if not EXECUTION_ID_RE.fullmatch(execution_id):
+        raise WorkerError(
+            ERROR_CODES["EXECUTION_ID_GRAMMAR"],
+            "SRL_EXECUTION_ID must be 32 hex",
+            state="FAILED_FROZEN",
+        )
+    return execution_id
+
+
+def _assert_generation(generation: str) -> str:
+    if not STAGING_GENERATION_RE.fullmatch(generation):
+        raise WorkerError(
+            ERROR_CODES["POLICY_REJECTED"],
+            "STAGING_GENERATION must be 8 hex",
+            state="FAILED_FROZEN",
+        )
+    return generation
+
+
+def _assert_host_path_not_worker_exec(path: str) -> str:
+    if path.replace("\\", "/").startswith("/tmp/srl-exec"):
+        raise WorkerError(
+            ERROR_CODES["HOST_TMP_SRL_EXEC"],
+            "host must not treat /tmp/srl-exec as a host path",
+            state="FAILED_FROZEN",
+        )
+    return path
+
+
+def _sealed_remote(container_id: str, execution_id: str, generation: str, name: str) -> str:
+    cid = require_container_id(container_id)
+    eid = _assert_execution_id(execution_id)
+    gen = _assert_generation(generation)
+    artifact = _assert_allowlisted_name(name)
+    return f"{cid}:/tmp/srl-exec/{eid}/export/{gen}/{artifact}"
+
+
+def _sealed_export_dir(execution_id: str, generation: str) -> str:
+    eid = _assert_execution_id(execution_id)
+    gen = _assert_generation(generation)
+    return f"/tmp/srl-exec/{eid}/export/{gen}"
+
+
+def docker_exec_mkdir_argv(container_id: str, execution_id: str, generation: str) -> list[str]:
+    cid = require_container_id(container_id)
+    path = _sealed_export_dir(execution_id, generation)
+    return ["docker", "exec", cid, "mkdir", "-p", path]
+
+
+def docker_exec_cat_argv(
+    container_id: str,
+    execution_id: str,
+    generation: str,
+    name: str,
+) -> list[str]:
+    cid = require_container_id(container_id)
+    artifact = _assert_allowlisted_name(name)
+    path = f"{_sealed_export_dir(execution_id, generation)}/{artifact}"
+    return ["docker", "exec", cid, "cat", path]
+
+
+def docker_cp_into_worker_argv(
+    container_id: str,
+    execution_id: str,
+    generation: str,
+    name: str,
+    src: Path,
+) -> list[str]:
+    src_s = _assert_host_path_not_worker_exec(str(src))
+    dest = _sealed_remote(container_id, execution_id, generation, name)
+    return ["docker", "cp", src_s, dest]
+
+
+def _classify_docker_cp(argv: list[str]) -> tuple[str, str] | None:
+    if len(argv) != 4 or argv[0] != "docker" or argv[1] != "cp":
+        return None
+    src, dest = argv[2], argv[3]
+    refuse_directory_cp(argv)
+    outbound = _SEALED_REMOTE.fullmatch(src)
+    inbound = _SEALED_REMOTE.fullmatch(dest)
+    if outbound is not None and inbound is None:
+        if outbound.group(3) not in WORKER_EXPORT_ALLOWLIST:
+            return None
+        _assert_host_path_not_worker_exec(dest)
+        return src, dest
+    if inbound is not None and outbound is None:
+        if inbound.group(3) not in WORKER_EXPORT_ALLOWLIST:
+            return None
+        _assert_host_path_not_worker_exec(src)
+        return src, dest
+    return None
+
+
+def _classify_docker_exec(argv: list[str]) -> tuple[str, str, str] | None:
+    if len(argv) < 4 or argv[0] != "docker" or argv[1] != "exec":
+        return None
+    cid = require_container_id(argv[2])
+    if len(argv) == 6 and argv[3] == "mkdir" and argv[4] == "-p":
+        path = argv[5]
+        if not _SEALED_EXPORT_DIR.fullmatch(path):
+            return None
+        return "mkdir", cid, path
+    if len(argv) == 5 and argv[3] == "cat":
+        path = argv[4]
+        match = _SEALED_FILE_PATH.fullmatch(path)
+        if match is None or match.group(1) not in WORKER_EXPORT_ALLOWLIST:
+            return None
+        return "cat", cid, path
+    return None
+
+
 def _run_literal_docker(argv: list[str]) -> tuple[int, str, str]:
     """Sole docker process launcher. Argv[0] must be the literal docker executable."""
     if not argv or argv[0] != "docker":
-        raise WorkerError(
-            ERROR_CODES["FAILED_FROZEN"],
-            "docker runner requires docker argv",
-            state="FAILED_FROZEN",
-        )
+        raise _frozen("docker runner requires docker argv")
     if len(argv) == 3 and argv[1] == "inspect":
         proc = subprocess.run(
             ["docker", "inspect", argv[2]],
@@ -108,8 +254,12 @@ def _run_literal_docker(argv: list[str]) -> tuple[int, str, str]:
         )
         return proc.returncode, proc.stdout or "", proc.stderr or ""
     if len(argv) == 4 and argv[1] == "cp":
+        classified = _classify_docker_cp(argv)
+        if classified is None:
+            raise _frozen("unclassified docker argv")
+        src, dest = classified
         proc = subprocess.run(
-            ["docker", "cp", argv[2], argv[3]],
+            ["docker", "cp", src, dest],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -119,11 +269,35 @@ def _run_literal_docker(argv: list[str]) -> tuple[int, str, str]:
             check=False,
         )
         return proc.returncode, proc.stdout or "", proc.stderr or ""
-    raise WorkerError(
-        ERROR_CODES["FAILED_FROZEN"],
-        "unclassified docker argv",
-        state="FAILED_FROZEN",
-    )
+    if len(argv) >= 4 and argv[1] == "exec":
+        classified = _classify_docker_exec(argv)
+        if classified is None:
+            raise _frozen("unclassified docker argv")
+        kind, cid, path = classified
+        if kind == "mkdir":
+            proc = subprocess.run(
+                ["docker", "exec", cid, "mkdir", "-p", path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=sanitized_docker_env(),
+                check=False,
+            )
+            return proc.returncode, proc.stdout or "", proc.stderr or ""
+        proc = subprocess.run(
+            ["docker", "exec", cid, "cat", path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=sanitized_docker_env(),
+            check=False,
+        )
+        return proc.returncode, proc.stdout or "", proc.stderr or ""
+    raise _frozen("unclassified docker argv")
 
 
 def run_docker_argv(argv: list[str]) -> tuple[int, str, str]:
@@ -158,33 +332,8 @@ def docker_cp_file_argv(
     name: str,
     dest: Path,
 ) -> list[str]:
-    cid = require_container_id(container_id)
-    if not EXECUTION_ID_RE.fullmatch(execution_id):
-        raise WorkerError(
-            ERROR_CODES["EXECUTION_ID_GRAMMAR"],
-            "SRL_EXECUTION_ID must be 32 hex",
-            state="FAILED_FROZEN",
-        )
-    if not STAGING_GENERATION_RE.fullmatch(generation):
-        raise WorkerError(
-            ERROR_CODES["POLICY_REJECTED"],
-            "STAGING_GENERATION must be 8 hex",
-            state="FAILED_FROZEN",
-        )
-    if name in {".", ".."} or "/" in name or "\\" in name or ":" in name or " " in name:
-        raise WorkerError(
-            ERROR_CODES["NON_REGULAR_ARTIFACT"],
-            f"illegal export name: {name}",
-            state="FAILED_FROZEN",
-        )
-    dest_s = str(dest)
-    if dest_s.replace("\\", "/").startswith("/tmp/srl-exec"):
-        raise WorkerError(
-            ERROR_CODES["HOST_TMP_SRL_EXEC"],
-            "host must not treat /tmp/srl-exec as a host path",
-            state="FAILED_FROZEN",
-        )
-    src = f"{cid}:/tmp/srl-exec/{execution_id}/export/{generation}/{name}"
+    dest_s = _assert_host_path_not_worker_exec(str(dest))
+    src = _sealed_remote(container_id, execution_id, generation, name)
     return ["docker", "cp", src, dest_s]
 
 

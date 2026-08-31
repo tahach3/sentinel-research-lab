@@ -6,6 +6,7 @@ import ast
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -75,6 +76,89 @@ class LiveBox:
 
     def listing(self) -> list[str]:
         return [WID, NID]
+
+
+_SEALED_CP = re.compile(
+    r"^([a-f0-9]{64}):(/tmp/srl-exec/[a-f0-9]{32}/export/[a-f0-9]{8}/[^/\\:]+)$"
+)
+
+
+class RecordingDocker:
+    """Instrumentable Docker adapter: inspect/ps, per-file cp, mkdir/cat exec."""
+
+    def __init__(self) -> None:
+        self.ops: list[list[str]] = []
+        self.fs: dict[str, bytes] = {}
+        self.directory_cp = 0
+        self.local_copy_fallback = 0
+        self.local_authority_c_fallback = 0
+
+    def runner(self, argv: list[str]) -> tuple[int, str, str]:
+        self.ops.append(list(argv))
+        if not argv or argv[0] != "docker":
+            return 1, "", "not docker"
+        if len(argv) == 3 and argv[1] == "inspect":
+            return 0, json.dumps([_inspect(argv[2])]), ""
+        if argv[1:] == ["ps", "--all", "--quiet", "--no-trunc"]:
+            return 0, f"{WID}\n{NID}\n", ""
+        if len(argv) == 4 and argv[1] == "cp":
+            return self._cp(argv[2], argv[3])
+        if len(argv) >= 4 and argv[1] == "exec":
+            return self._exec(argv)
+        return 1, "", "unexpected docker argv"
+
+    def _cp(self, src: str, dest: str) -> tuple[int, str, str]:
+        if src.rstrip().endswith("/") or dest.rstrip().endswith("/") or "/." in src or "/." in dest:
+            self.directory_cp += 1
+            return 1, "", "directory-wide docker cp is forbidden"
+        outbound = _SEALED_CP.fullmatch(src)
+        inbound = _SEALED_CP.fullmatch(dest)
+        if outbound and inbound is None:
+            host = Path(dest)
+            host.parent.mkdir(parents=True, exist_ok=True)
+            data = self.fs.get(src)
+            if data is None:
+                self.local_copy_fallback += 1
+                return 1, "", "missing worker file"
+            host.write_bytes(data)
+            return 0, "", ""
+        if inbound and outbound is None:
+            self.fs[dest] = Path(src).read_bytes()
+            return 0, "", ""
+        self.local_copy_fallback += 1
+        return 1, "", "unclassified docker cp"
+
+    def _exec(self, argv: list[str]) -> tuple[int, str, str]:
+        cid = argv[2]
+        if argv[3:5] == ["mkdir", "-p"] and len(argv) == 6:
+            return 0, "", ""
+        if argv[3] == "cat" and len(argv) == 5:
+            key = f"{cid}:{argv[4]}"
+            data = self.fs.get(key)
+            if data is None:
+                return 1, "", "missing worker file"
+            return 0, data.decode("utf-8"), ""
+        return 1, "", "unclassified docker exec"
+
+    def copy_fn(self, argv: list[str]) -> None:
+        code, _out, err = self.runner(argv)
+        if code != 0:
+            raise WorkerError("FAILED_FROZEN", err or "docker cp failed", state="FAILED_FROZEN")
+
+    def exec_docker(self, argv: list[str]) -> tuple[int, str, str]:
+        return self.runner(argv)
+
+    def has_inspect_or_ps(self) -> bool:
+        return any(argv[1] in {"inspect", "ps"} for argv in self.ops if len(argv) > 1)
+
+    def has_exec(self) -> bool:
+        return any(argv[1] == "exec" for argv in self.ops if len(argv) > 1)
+
+    def has_per_file_cp(self) -> bool:
+        return any(argv[1] == "cp" for argv in self.ops if len(argv) > 1)
+
+    def inspect_only(self) -> bool:
+        return self.has_inspect_or_ps() and not self.has_exec() and not self.has_per_file_cp()
 
 
 def _hashes_for(payloads: dict[str, bytes]) -> dict[str, str]:

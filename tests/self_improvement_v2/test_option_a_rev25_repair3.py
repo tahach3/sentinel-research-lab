@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.self_improvement_v2.test_option_a_rev25 import DIGEST, NID, WID, _inspect
+from tests.self_improvement_v2.test_option_a_rev25 import DIGEST, NID, RecordingDocker, WID
 from tests.self_improvement_v2.test_option_a_rev25_repair2 import _ready_execution
 from tools.self_improvement_v2.docker_cli import docker_inspect_argv
 from tools.self_improvement_v2.models import WorkerError
@@ -38,19 +38,8 @@ def _operator_env(repo: Path, db: Path, monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def _recording_docker_runner() -> tuple[list[list[str]], object]:
-    seen: list[list[str]] = []
-
-    def runner(argv: list[str]) -> tuple[int, str, str]:
-        seen.append(list(argv))
-        if len(argv) >= 3 and argv[0] == "docker" and argv[1] == "inspect":
-            return 0, json.dumps([_inspect(argv[2])]), ""
-        if len(argv) >= 2 and argv[0] == "docker" and argv[1] == "ps":
-            return 0, f"{WID}\n{NID}\n", ""
-        if len(argv) >= 2 and argv[0] == "docker" and argv[1] == "cp":
-            return 0, "", ""
-        return 1, "", "unexpected docker argv"
-
-    return seen, runner
+    docker = RecordingDocker()
+    return docker.ops, docker.runner
 
 
 def test_load_runtime_config_constructs_rev25_deps(
